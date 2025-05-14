@@ -13,7 +13,7 @@ const morgan = require("morgan");
 const authRoutes = require('./routes/authRoutes');
 const rideRoutes = require('./routes/rideRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
-
+const freeRoutes = require('./routes/freeRoutes');
 // Initialize Express
 const app = express();
 
@@ -24,7 +24,7 @@ app.use(express.json()); // Lets the server understand JSON data
 app.use('/api/auth', authRoutes);
 app.use('/api/rides', rideRoutes);
 app.use('/api/feedback', feedbackRoutes);
-
+app.use('/api/free', freeRoutes);
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('Connected to MongoDB!'))
