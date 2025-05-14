@@ -2,12 +2,14 @@
 const express = require('express');
 const router  = express.Router();
 const freeCtrl = require('../controllers/freeController');
-// const { authenticateUser } = require('../middleware/auth');
+const authMiddleware = require('../middleware/auth');
 
-// router.get('/classrooms', authenticateUser, freeCtrl.getClassrooms);
-// router.get('/labs',       authenticateUser, freeCtrl.getLabs);
+// With authentication
+// router.get('/classrooms', authMiddleware, freeCtrl.getClassrooms);
+// router.get('/labs', authMiddleware, freeCtrl.getLabs);
 
-router.get('/classrooms',freeCtrl.getClassrooms);
+// Without authentication
+router.get('/classrooms', freeCtrl.getClassrooms);
 router.get('/labs', freeCtrl.getLabs);
 
 module.exports = router;

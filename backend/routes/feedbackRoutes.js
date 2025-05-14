@@ -1,8 +1,9 @@
+// routes/feedbackRoutes.js
 const express = require('express');
 const router = express.Router();
 const feedbackController = require('../controllers/feedbackController');
-const { authenticateUser } = require('../middleware/auth');
+const authMiddleware = require('../middleware/auth');
 
-router.post('/', authenticateUser, feedbackController.submitFeedback);
+router.post('/', authMiddleware, feedbackController.submitFeedback);
 
 module.exports = router;
