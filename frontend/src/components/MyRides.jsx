@@ -102,6 +102,11 @@ export default function MyRides() {
                 >
                   Delete
                 </Link>
+                <Link to={`/rides/${r._id}/feedback`}
+                  className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                  >
+                  Give Feedback
+                </Link>
               </div>
             </div>
           ))}
