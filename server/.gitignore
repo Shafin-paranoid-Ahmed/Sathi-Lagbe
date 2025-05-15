@@ -1,0 +1,46 @@
+# Node dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Debug / runtime files
+*.pid
+*.seed
+*.gz
+
+# Output directories
+dist/
+build/
+coverage/
+
+# MongoDB files (if any local testing)
+dump/
+*.bak
+*.mongodb
+
+# OS and editor junk
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sw?
+
+# Optional: PM2 process files
+pids/
+*.pid
+
+# Optional: .next or cache folders
+.next/
+.cache/
