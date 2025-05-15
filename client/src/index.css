@@ -1,0 +1,87 @@
+/* client/src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  --bracu-blue: #0a50a7;
+  --bracu-navy: #00274c;
+  --bracu-gray: #4D4D4D;
+  --bracu-light-gray: #E6E6E6;
+  scroll-behavior: smooth;
+}
+
+/* Explicitly define dark mode scheme */
+.dark {
+  color-scheme: dark;
+}
+
+body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Common form input styling */
+.input-field {
+  @apply w-full border border-gray-300 dark:border-gray-600 p-2 rounded 
+    bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100
+    focus:outline-none focus:ring-2 focus:ring-blue-600
+    transition-all duration-200 ease-in-out;
+}
+
+/* Common button styling */
+.btn {
+  @apply px-4 py-2 rounded font-medium 
+    transition-all duration-200
+    shadow-sm hover:shadow-md 
+    transform hover:-translate-y-0.5;
+}
+
+.btn-primary {
+  @apply bg-bracu-blue text-white hover:bg-blue-700;
+}
+
+.btn-success {
+  @apply bg-green-600 dark:bg-green-700 text-white hover:bg-green-700 dark:hover:bg-green-800;
+}
+
+.btn-danger {
+  @apply bg-red-600 dark:bg-red-700 text-white hover:bg-red-700 dark:hover:bg-red-800;
+}
+
+.btn-secondary {
+  @apply bg-bracu-lightgray dark:bg-gray-700 text-bracu-gray dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600;
+}
+
+/* Card styling */
+.card {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-6
+    transition-all duration-300 ease-in-out
+    hover:shadow-lg border border-gray-200 dark:border-gray-700;
+}
+
+/* Navigation styling */
+.nav-link {
+  @apply text-gray-700 dark:text-gray-200
+    hover:text-bracu-blue dark:hover:text-blue-500
+    transition-all duration-200 relative
+    font-medium px-3 py-2 rounded-md;
+}
+
+.nav-link::after {
+  @apply content-[''] absolute w-0 h-0.5 bg-bracu-blue dark:bg-blue-500
+    left-0 -bottom-0.5 rounded transition-all duration-300;
+}
+
+.nav-link:hover::after {
+  @apply w-full;
+}
+
+/* Page transitions */
+.page-enter {
+  @apply animate-fade-in;
+}
