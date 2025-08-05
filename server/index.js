@@ -6,8 +6,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
 const morgan = require('morgan');
-const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+const { initSocket } = require('./utils/socket');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -64,14 +64,8 @@ mongoose.connect(process.env.MONGO_URI)
 // Create HTTP server
 const server = http.createServer(app);
 
-// Initialize Socket.IO with CORS configuration
-const io = new Server(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
-    methods: ["GET", "POST"],
-    credentials: true
-  }
-});
+// Initialize Socket.IO
+const io = initSocket(server);
 
 // Socket.IO authentication middleware
 const authenticateSocket = (socket, next) => {
