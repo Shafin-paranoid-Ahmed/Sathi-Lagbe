@@ -2,7 +2,7 @@
 const Message = require('../models/Message');
 const Chat = require('../models/chat');
 const User = require('../models/User');
-const { io } = require('../index');
+const { getIO } = require('../utils/socket');
 
 /**
  * Send a new message (with optional image upload)
@@ -64,6 +64,7 @@ exports.sendNewMessage = async (req, res) => {
     await newMessage.populate('sender', 'name email');
     
     // Emit Socket.IO event to all users in the chat room
+    const io = getIO();
     io.to(`chat_${chatId}`).emit('new_message', {
       chatId,
       message: newMessage
@@ -148,6 +149,7 @@ exports.markMessagesAsRead = async (req, res) => {
     );
     
     // Emit Socket.IO event for real-time read status
+    const io = getIO();
     io.to(`chat_${chatId}`).emit('messages_read', {
       chatId,
       messageIds,
