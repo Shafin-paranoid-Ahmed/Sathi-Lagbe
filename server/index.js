@@ -108,22 +108,14 @@ io.on('connection', (socket) => {
   });
   
   // Handle new message
-  socket.on('new_message', (data) => {
-    const { chatId, message } = data;
-    
-    // Broadcast the message to all users in the chat room (except sender)
-    socket.to(`chat_${chatId}`).emit('message_received', {
+  socket.on('new_message', ({ chatId, message }) => {
+    // Broadcast the message to everyone in the chat room, including sender
+    io.to(`chat_${chatId}`).emit('new_message', {
       chatId,
       message
     });
-    
-    // Also emit to the sender for confirmation
-    socket.emit('message_sent', {
-      chatId,
-      message
-    });
-    
-    console.log(`Message sent in chat ${chatId} by ${socket.userName}`);
+
+    console.log(`Message relayed in chat ${chatId} by ${socket.userName}`);
   });
   
   // Handle typing indicators
@@ -167,5 +159,3 @@ server.listen(PORT, () => {
   console.log(`Socket.IO server initialized`);
 });
 
-// Export io for use in other modules
-module.exports = { io };
