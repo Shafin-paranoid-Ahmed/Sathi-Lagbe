@@ -44,3 +44,6 @@ pids/
 # Optional: .next or cache folders
 .next/
 .cache/
+
+
+.cursorignore

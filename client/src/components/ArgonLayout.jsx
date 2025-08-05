@@ -11,7 +11,9 @@ import {
   XMarkIcon,
   SunIcon,
   MoonIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  UserCircleIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 
 const ArgonLayout = ({ children, setIsAuthenticated }) => {
@@ -21,6 +23,8 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
   });
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [userName, setUserName] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -32,6 +36,12 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     { name: 'SOS', href: '/sos', icon: ExclamationTriangleIcon },
     { name: 'Classrooms', href: '/classrooms', icon: AcademicCapIcon },
   ];
+
+  // Get user name from session storage
+  useEffect(() => {
+    const name = sessionStorage.getItem('userName') || 'User';
+    setUserName(name);
+  }, []);
 
   // Apply dark mode on component mount and when it changes
   useEffect(() => {
@@ -50,13 +60,14 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
   const handleLogout = () => {
     sessionStorage.removeItem('token');
     sessionStorage.removeItem('userId');
+    sessionStorage.removeItem('userName');
     setIsAuthenticated(false);
     navigate('/login');
   };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Top navbar - Always at the top */}
+      {/* Top navbar - Fixed at the top */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-4">
@@ -75,23 +86,51 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
           </div>
           
           <div className="flex items-center space-x-4">
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {navigation.find(item => item.href === location.pathname)?.name || 'Home'}
-            </h1>
             <button
               onClick={toggleDarkMode}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="p-2 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shadow-sm hover:shadow-md"
             >
               {darkMode ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
             </button>
+
+            {/* Profile Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                className="flex items-center space-x-2 p-2 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shadow-sm hover:shadow-md"
+              >
+                <UserCircleIcon className="h-5 w-5" />
+                <span className="hidden sm:block text-sm font-medium">{userName}</span>
+                <ChevronDownIcon className="h-4 w-4" />
+              </button>
+
+              {/* Dropdown Menu */}
+              {profileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                  <div className="py-2">
+                    <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600">
+                      <p className="font-medium">{userName}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Signed in</p>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
+                    >
+                      <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                      <span>Sign out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-900 transform transition-transform duration-300 ease-in-out ${
+      {/* Sidebar - Fixed below navbar */}
+      <div className={`fixed top-16 left-0 z-40 w-64 h-[calc(100vh-4rem)] bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } lg:translate-x-0 lg:static lg:inset-0 lg:z-auto lg:top-16 lg:h-[calc(100vh-4rem)]`}>
+      } lg:translate-x-0`}>
         <div className="flex flex-col h-full">
           {/* Navigation */}
           <nav className="flex-1 px-3 pt-6 overflow-y-auto">
@@ -119,16 +158,10 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
 
           {/* Bottom section */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                {darkMode ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
-              </button>
+            <div className="flex items-center justify-center">
               <button
                 onClick={handleLogout}
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 rounded-md transition-colors shadow-sm hover:shadow-md"
               >
                 <ArrowRightOnRectangleIcon className="mr-2 h-5 w-5" />
                 Logout
@@ -138,14 +171,11 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
         </div>
       </div>
 
-      {/* Main content */}
+      {/* Main content - Starts immediately below navbar */}
       <div className="lg:pl-64">
-        {/* Page content */}
-        <main className="flex-1 pt-16">
-          <div className="py-6">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-              {children}
-            </div>
+        <main className="pt-16 min-h-[calc(100vh-4rem)]">
+          <div className="p-6">
+            {children}
           </div>
         </main>
       </div>
@@ -155,6 +185,14 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
         <div
           className="fixed inset-0 z-30 bg-gray-600 bg-opacity-75 lg:hidden"
           onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Click outside to close profile dropdown */}
+      {profileDropdownOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setProfileDropdownOpen(false)}
         />
       )}
     </div>
