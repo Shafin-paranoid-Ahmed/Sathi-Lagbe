@@ -1,4 +1,4 @@
-// server/index.js - Simplified version without socket.io
+// server/index.js - Enhanced version with Socket.IO for real-time chat
 require('dotenv').config();
 
 const express = require('express');
@@ -6,6 +6,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
 const morgan = require('morgan');
+const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -62,8 +64,114 @@ mongoose.connect(process.env.MONGO_URI)
 // Create HTTP server
 const server = http.createServer(app);
 
+// Initialize Socket.IO with CORS configuration
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// Socket.IO authentication middleware
+const authenticateSocket = (socket, next) => {
+  const token = socket.handshake.auth.token;
+  
+  if (!token) {
+    return next(new Error('Authentication error: No token provided'));
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.userId;
+    socket.userName = decoded.name;
+    next();
+  } catch (error) {
+    return next(new Error('Authentication error: Invalid token'));
+  }
+};
+
+// Apply authentication middleware
+io.use(authenticateSocket);
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log(`User connected: ${socket.userName} (${socket.userId})`);
+  
+  // Store user's socket connection
+  socket.join(`user_${socket.userId}`);
+  
+  // Handle joining chat rooms
+  socket.on('join_chat', (chatId) => {
+    socket.join(`chat_${chatId}`);
+    console.log(`User ${socket.userName} joined chat: ${chatId}`);
+  });
+  
+  // Handle leaving chat rooms
+  socket.on('leave_chat', (chatId) => {
+    socket.leave(`chat_${chatId}`);
+    console.log(`User ${socket.userName} left chat: ${chatId}`);
+  });
+  
+  // Handle new message
+  socket.on('new_message', (data) => {
+    const { chatId, message } = data;
+    
+    // Broadcast the message to all users in the chat room (except sender)
+    socket.to(`chat_${chatId}`).emit('message_received', {
+      chatId,
+      message
+    });
+    
+    // Also emit to the sender for confirmation
+    socket.emit('message_sent', {
+      chatId,
+      message
+    });
+    
+    console.log(`Message sent in chat ${chatId} by ${socket.userName}`);
+  });
+  
+  // Handle typing indicators
+  socket.on('typing_start', (chatId) => {
+    socket.to(`chat_${chatId}`).emit('user_typing', {
+      chatId,
+      userId: socket.userId,
+      userName: socket.userName
+    });
+  });
+  
+  socket.on('typing_stop', (chatId) => {
+    socket.to(`chat_${chatId}`).emit('user_stopped_typing', {
+      chatId,
+      userId: socket.userId
+    });
+  });
+  
+  // Handle message read status
+  socket.on('mark_read', (data) => {
+    const { chatId, messageIds } = data;
+    
+    // Broadcast read status to other users in the chat
+    socket.to(`chat_${chatId}`).emit('messages_read', {
+      chatId,
+      messageIds,
+      readBy: socket.userId
+    });
+  });
+  
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log(`User disconnected: ${socket.userName} (${socket.userId})`);
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Socket.IO server initialized`);
 });
+
+// Export io for use in other modules
+module.exports = { io };

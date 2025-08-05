@@ -1,7 +1,8 @@
-// server/controllers/messageController.js - Simplified version
+// server/controllers/messageController.js - Enhanced version with Socket.IO
 const Message = require('../models/Message');
 const Chat = require('../models/chat');
 const User = require('../models/User');
+const { io } = require('../index');
 
 /**
  * Send a new message (with optional image upload)
@@ -62,6 +63,12 @@ exports.sendNewMessage = async (req, res) => {
     // Populate sender info for API response
     await newMessage.populate('sender', 'name email');
     
+    // Emit Socket.IO event to all users in the chat room
+    io.to(`chat_${chatId}`).emit('new_message', {
+      chatId,
+      message: newMessage
+    });
+    
     res.status(201).json({
       message: 'Message sent successfully',
       success: true,
@@ -109,5 +116,50 @@ exports.getAllMessages = async (req, res) => {
   } catch (err) {
     console.error('Error fetching messages:', err);
     res.status(500).json({ error: err.message || 'Failed to fetch messages' });
+  }
+};
+
+/**
+ * Mark messages as read
+ */
+exports.markMessagesAsRead = async (req, res) => {
+  try {
+    const { chatId, messageIds } = req.body;
+    const userId = req.user.id || req.user.userId;
+    
+    if (!chatId || !messageIds || !Array.isArray(messageIds)) {
+      return res.status(400).json({ error: 'Chat ID and message IDs array are required' });
+    }
+    
+    // Check if chat exists and user is a member
+    const chatExists = await Chat.findById(chatId);
+    if (!chatExists) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+    
+    if (!chatExists.members.includes(userId)) {
+      return res.status(403).json({ error: 'You are not a member of this chat' });
+    }
+    
+    // Mark messages as read
+    await Message.updateMany(
+      { _id: { $in: messageIds }, chatId },
+      { read: true }
+    );
+    
+    // Emit Socket.IO event for real-time read status
+    io.to(`chat_${chatId}`).emit('messages_read', {
+      chatId,
+      messageIds,
+      readBy: userId
+    });
+    
+    res.json({
+      message: 'Messages marked as read',
+      success: true
+    });
+  } catch (err) {
+    console.error('Error marking messages as read:', err);
+    res.status(500).json({ error: err.message || 'Failed to mark messages as read' });
   }
 };
