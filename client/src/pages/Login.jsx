@@ -34,9 +34,18 @@ export default function Login({ setIsAuthenticated }) {
         sessionStorage.setItem('userId', res.data.userId);
       }
       
+      // Store user name for profile display
+      if (res.data.user?.name) {
+        sessionStorage.setItem('userName', res.data.user.name);
+      } else if (res.data.user?.email) {
+        // Use email as fallback if name is not available
+        sessionStorage.setItem('userName', res.data.user.email.split('@')[0]);
+      }
+      
       // Debug logging
       console.log('Token stored:', sessionStorage.getItem('token'));
       console.log('UserId stored:', sessionStorage.getItem('userId'));
+      console.log('UserName stored:', sessionStorage.getItem('userName'));
       
       // Update authentication state
       setIsAuthenticated(true);
