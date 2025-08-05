@@ -43,3 +43,8 @@ export function sendNewMessage(chatId, text, image = null) {
 export function clearUnreadMessages(chatId) {
   return API.post('/chat/clear-unread-message', { chatId });
 }
+
+// Mark messages as read
+export function markMessagesAsRead(chatId, messageIds) {
+  return API.post('/message/mark-read', { chatId, messageIds });
+}
