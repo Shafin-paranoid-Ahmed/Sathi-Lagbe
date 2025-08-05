@@ -61,12 +61,13 @@ export default function Chat() {
 
   // Join chat room when selected chat changes
   useEffect(() => {
-    if (selectedChat) {
-      // Leave previous chat room if any
-      if (selectedChat._id) {
-        socketService.joinChat(selectedChat._id);
-      }
-    }
+    if (!selectedChat) return;
+
+    socketService.joinChat(selectedChat._id);
+
+    return () => {
+      socketService.leaveChat(selectedChat._id);
+    };
   }, [selectedChat]);
 
   // Handle new message from Socket.IO

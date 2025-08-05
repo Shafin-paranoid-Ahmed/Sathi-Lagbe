@@ -6,8 +6,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
 const morgan = require('morgan');
-const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+const { initSocket } = require('./utils/socket');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -64,14 +64,8 @@ mongoose.connect(process.env.MONGO_URI)
 // Create HTTP server
 const server = http.createServer(app);
 
-// Initialize Socket.IO with CORS configuration
-const io = new Server(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
-    methods: ["GET", "POST"],
-    credentials: true
-  }
-});
+// Initialize Socket.IO
+const io = initSocket(server);
 
 // Socket.IO authentication middleware
 const authenticateSocket = (socket, next) => {
@@ -114,22 +108,14 @@ io.on('connection', (socket) => {
   });
   
   // Handle new message
-  socket.on('new_message', (data) => {
-    const { chatId, message } = data;
-    
-    // Broadcast the message to all users in the chat room (except sender)
-    socket.to(`chat_${chatId}`).emit('message_received', {
+  socket.on('new_message', ({ chatId, message }) => {
+    // Broadcast the message to everyone in the chat room, including sender
+    io.to(`chat_${chatId}`).emit('new_message', {
       chatId,
       message
     });
-    
-    // Also emit to the sender for confirmation
-    socket.emit('message_sent', {
-      chatId,
-      message
-    });
-    
-    console.log(`Message sent in chat ${chatId} by ${socket.userName}`);
+
+    console.log(`Message relayed in chat ${chatId} by ${socket.userName}`);
   });
   
   // Handle typing indicators
@@ -173,5 +159,3 @@ server.listen(PORT, () => {
   console.log(`Socket.IO server initialized`);
 });
 
-// Export io for use in other modules
-module.exports = { io };
