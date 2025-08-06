@@ -1,25 +1,40 @@
+// client/src/pages/Classroom.jsx
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { AcademicCapIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { API } from '../api/auth';
 
 export default function Classroom() {
   const [rooms, setRooms] = useState([]);
-  const token = sessionStorage.getItem('token');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const fetchClassrooms = async () => {
+    try {
+      setLoading(true);
+      const res = await API.get('/classrooms/all');
+      setRooms(res.data);
+    } catch (err) {
+      console.error('Error fetching classrooms:', err);
+      setError('Failed to load classrooms.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/classrooms', {
-      headers: { Authorization: token }
-    })
-    .then(res => {
-      setRooms(res.data);
-      setLoading(false);
-    })
-    .catch(err => {
-      console.error('Error fetching classrooms:', err);
-      setLoading(false);
-    });
+    fetchClassrooms();
   }, []);
+
+  const handleSetAllAvailable = async () => {
+    try {
+        await API.put('/classrooms/status/set-all-available');
+        fetchClassrooms(); // Refresh the list
+    } catch (err) {
+        console.error('Error setting all classrooms to available:', err);
+        setError('Failed to update classrooms.');
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -27,8 +42,6 @@ export default function Classroom() {
         return 'text-success-600 bg-success-100';
       case 'occupied':
         return 'text-danger-600 bg-danger-100';
-      case 'maintenance':
-        return 'text-warning-600 bg-warning-100';
       default:
         return 'text-gray-600 bg-gray-100';
     }
@@ -40,8 +53,6 @@ export default function Classroom() {
         return <CheckCircleIcon className="h-5 w-5" />;
       case 'occupied':
         return <XCircleIcon className="h-5 w-5" />;
-      case 'maintenance':
-        return <ClockIcon className="h-5 w-5" />;
       default:
         return <ClockIcon className="h-5 w-5" />;
     }
@@ -57,15 +68,20 @@ export default function Classroom() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Classrooms</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Check the availability of classrooms across campus.
-        </p>
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Classrooms</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Check the availability of classrooms across campus.
+            </p>
+        </div>
+        <button onClick={handleSetAllAvailable} className="bg-primary-500 text-white px-4 py-2 rounded-md hover:bg-primary-600">
+            Set All to Available
+        </button>
       </div>
 
-      {/* Statistics */}
+      {error && <p className="text-red-500">{error}</p>}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6">
           <div className="flex items-center">
@@ -101,16 +117,15 @@ export default function Classroom() {
               <ClockIcon className="h-6 w-6 text-warning-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Maintenance</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {rooms.filter(r => r.status?.toLowerCase() === 'maintenance').length}
+                {rooms.length}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Classrooms List */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
           All Classrooms ({rooms.length})

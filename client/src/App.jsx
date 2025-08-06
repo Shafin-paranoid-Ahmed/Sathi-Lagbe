@@ -14,6 +14,7 @@ import Chat from './pages/Chat';
 import Sos from './pages/Sos';
 import Friends from './pages/Friends';
 import Classroom from './pages/Classroom';
+import Routine from './pages/Routine'; // Import Routine page
 
 // Ride sharing components
 import RideOfferForm from './components/RideOfferForm';
@@ -142,6 +143,18 @@ export default function App() {
             isAuthenticated ? (
               <ArgonLayout setIsAuthenticated={setIsAuthenticated}>
                 <Classroom />
+              </ArgonLayout>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } 
+        />
+        <Route 
+          path="/routine" 
+          element={
+            isAuthenticated ? (
+              <ArgonLayout setIsAuthenticated={setIsAuthenticated}>
+                <Routine />
               </ArgonLayout>
             ) : (
               <Navigate to="/login" replace />

@@ -35,6 +35,7 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     { name: 'Rides', href: '/rides', icon: TruckIcon },
     { name: 'SOS', href: '/sos', icon: ExclamationTriangleIcon },
     { name: 'Classrooms', href: '/classrooms', icon: AcademicCapIcon },
+    { name: 'Routine', href: '/routine', icon: AcademicCapIcon },
   ];
 
   // Get user name from session storage

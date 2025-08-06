@@ -15,7 +15,7 @@ export default function MyRides() {
     const checkAuthAndFetchRides = async () => {
       try {
         // Check if token exists
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         if (!token) {
           console.error('No token found, redirecting to login');
           setError('Authentication required');
