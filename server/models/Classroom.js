@@ -4,7 +4,7 @@ const ClassroomSchema = new mongoose.Schema({
   roomNumber: String,
   building: String,
   capacity: Number,
-  status: { type: String, enum: ['Available','Occupied'], default: 'Available' },
+  status: { type: String, enum: ['Available', 'Occupied'], default: 'Available' },
   updatedAt: { type: Date, default: Date.now }
 });
 

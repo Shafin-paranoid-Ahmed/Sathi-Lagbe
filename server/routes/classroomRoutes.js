@@ -12,5 +12,6 @@ router.get('/all', auth, classroomController.getAllClassrooms);
 
 // Update classroom status
 router.put('/status', auth, classroomController.updateStatus);
+router.put('/status/set-all-available', auth, classroomController.setAllClassroomsAvailable);
 
 module.exports = router;

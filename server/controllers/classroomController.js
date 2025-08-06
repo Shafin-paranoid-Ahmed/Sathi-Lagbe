@@ -59,3 +59,16 @@ exports.getAllClassrooms = async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to fetch classrooms' });
   }
 };
+
+/**
+ * Set all classrooms to available
+ */
+exports.setAllClassroomsAvailable = async (req, res) => {
+    try {
+        await Classroom.updateMany({}, { status: 'Available', updatedAt: Date.now() });
+        res.json({ message: 'All classrooms have been set to "Available".' });
+    } catch (err) {
+        console.error('Error setting all classrooms to available:', err);
+        res.status(500).json({ error: err.message || 'Failed to update classrooms' });
+    }
+};

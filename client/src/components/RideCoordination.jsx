@@ -12,7 +12,7 @@ export default function RideCoordination() {
   const [ratingInputs, setRatingInputs] = useState({});
   const [ratingStatus, setRatingStatus] = useState({});
   const [actionsDisabled, setActionsDisabled] = useState({}); // track disabled per userId
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   useEffect(() => {
     const fetchRide = async () => {
