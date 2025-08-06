@@ -1,5 +1,5 @@
 // client/src/pages/Chat.jsx - Enhanced version with Socket.IO real-time chat
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   getAllChats,
   getChatMessages,
@@ -7,6 +7,7 @@ import {
   clearUnreadMessages
 } from '../api/chat';
 import socketService from '../services/socketService';
+import { debugSocketConnection } from '../utils/debugSocket';
 import FriendList from '../components/FriendList';
 import { MessageSquareIcon, SendIcon, ArrowLeftIcon, CheckIcon, PlusIcon } from 'lucide-react';
 
@@ -27,32 +28,138 @@ export default function Chat() {
   const currentUserId = sessionStorage.getItem('userId');
   const token = sessionStorage.getItem('token');
 
+  const fetchChats = useCallback(async () => {
+    if (!currentUserId) {
+      setError('Not logged in. Please log in to continue.');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const res = await getAllChats();
+      setChats(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch chats:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUserId]);
+
+  const loadChatMessages = useCallback(async (chatId) => {
+    setChatLoading(true);
+    setChatError('');
+    try {
+      const res = await getChatMessages(chatId);
+      setMessages(res.data.data || []);
+      
+      // Mark messages as read via Socket.IO
+      const unreadMessages = res.data.data?.filter(msg => !msg.read && msg.sender !== currentUserId) || [];
+      if (unreadMessages.length > 0) {
+        const messageIds = unreadMessages.map(msg => msg._id);
+        socketService.markMessagesAsRead(chatId, messageIds);
+      }
+    } catch (err) {
+      console.error('Failed to load messages:', err);
+      setChatError('Could not load messages. Please try again.');
+    } finally {
+      setChatLoading(false);
+    }
+  }, [currentUserId]);
+  
+  // Define Socket.IO event handlers
+  const handleNewMessage = useCallback((data) => {
+    const { chatId, message } = data;
+
+    // A new message has arrived, so we should refresh the chat list
+    // to ensure the order and unread counts are correct.
+    fetchChats();
+
+    const isFromCurrentUser = message.sender && (message.sender._id === currentUserId || message.sender === currentUserId);
+
+    // Add the message to the view only if it's the active chat 
+    // AND it's not from the current user (to prevent duplicates).
+    if (selectedChat && selectedChat._id === chatId && !isFromCurrentUser) {
+      setMessages(prev => [...prev, message]);
+    }
+  }, [fetchChats, selectedChat, currentUserId]);
+
+  const handleMessageSent = useCallback((data) => {
+    console.log('Message sent confirmation:', data);
+  }, []);
+
+  const handleUserTyping = useCallback((data) => {
+    const { chatId, userId, userName } = data;
+    if (selectedChat && selectedChat._id === chatId && userId !== currentUserId) {
+      setTypingUsers(prev => new Set([...prev, userName]));
+    }
+  }, [selectedChat, currentUserId, setTypingUsers]);
+
+  const handleUserStoppedTyping = useCallback((data) => {
+    const { chatId, userId } = data;
+    if (selectedChat && selectedChat._id === chatId && userId !== currentUserId) {
+      setTypingUsers(() => {
+        // Remove the user who stopped typing (we need to find them by userId)
+        // For now, we'll clear all typing indicators
+        return new Set();
+      });
+    }
+  }, [selectedChat, currentUserId, setTypingUsers]);
+
+  const handleMessagesRead = useCallback((data) => {
+    const { chatId, messageIds, readBy } = data;
+    if (selectedChat && selectedChat._id === chatId && readBy !== currentUserId) {
+      setMessages(prev => 
+        prev.map(msg => 
+          messageIds.includes(msg._id) ? { ...msg, read: true } : msg
+        )
+      );
+    }
+  }, [selectedChat, currentUserId, setMessages]);
+
+
+
   // Initialize Socket.IO connection on component mount
   useEffect(() => {
     if (token) {
+      console.log('Initializing Socket.IO connection...');
       socketService.connect(token);
       
-      // Set up Socket.IO event listeners
-      socketService.onNewMessage(handleNewMessage);
-      socketService.onMessageSent(handleMessageSent);
-      socketService.onUserTyping(handleUserTyping);
-      socketService.onUserStoppedTyping(handleUserStoppedTyping);
-      socketService.onMessagesRead(handleMessagesRead);
+      // Set up Socket.IO event listeners after a short delay to ensure connection
+      const setupListeners = () => {
+        console.log('Setting up Socket.IO event listeners...');
+        socketService.onNewMessage(handleNewMessage);
+        socketService.onMessageSent(handleMessageSent);
+        socketService.onUserTyping(handleUserTyping);
+        socketService.onUserStoppedTyping(handleUserStoppedTyping);
+        socketService.onMessagesRead(handleMessagesRead);
+        
+        // Add connection status debug
+        setTimeout(() => {
+          debugSocketConnection();
+        }, 500);
+      };
+
+      // Try to set up listeners immediately and also with a delay
+      setupListeners();
+      const timeoutId = setTimeout(setupListeners, 2000);
       
       // Cleanup on unmount
       return () => {
+        clearTimeout(timeoutId);
         socketService.removeAllListeners();
         if (selectedChat) {
           socketService.leaveChat(selectedChat._id);
         }
       };
+    } else {
+      console.error('No token found for Socket.IO connection');
     }
-  }, [token]);
+  }, [token, handleNewMessage, handleMessageSent, handleUserTyping, handleUserStoppedTyping, handleMessagesRead, selectedChat]);
 
   // Fetch chats on component mount
   useEffect(() => {
     fetchChats();
-  }, []);
+  }, [fetchChats]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -63,79 +170,16 @@ export default function Chat() {
   useEffect(() => {
     if (!selectedChat) return;
 
+    console.log('Joining chat room:', selectedChat._id);
     socketService.joinChat(selectedChat._id);
 
     return () => {
+      console.log('Leaving chat room:', selectedChat._id);
       socketService.leaveChat(selectedChat._id);
     };
   }, [selectedChat]);
 
-  // Handle new message from Socket.IO
-  const handleNewMessage = (data) => {
-    const { chatId, message } = data;
-    
-    // Only add message if it's for the currently selected chat
-    if (selectedChat && selectedChat._id === chatId) {
-      setMessages(prev => [...prev, message]);
-      
-      // Update chat list to show new message
-      setChats(prev => 
-        prev.map(chat => 
-          chat._id === chatId 
-            ? { ...chat, lastMessage: message, unreadMessageCount: (chat.unreadMessageCount || 0) + 1 }
-            : chat
-        )
-      );
-    } else {
-      // Update unread count for other chats
-      setChats(prev => 
-        prev.map(chat => 
-          chat._id === chatId 
-            ? { ...chat, lastMessage: message, unreadMessageCount: (chat.unreadMessageCount || 0) + 1 }
-            : chat
-        )
-      );
-    }
-  };
 
-  // Handle message sent confirmation
-  const handleMessageSent = (data) => {
-    const { chatId, message } = data;
-    console.log('Message sent confirmation:', message);
-  };
-
-  // Handle user typing
-  const handleUserTyping = (data) => {
-    const { chatId, userId, userName } = data;
-    if (selectedChat && selectedChat._id === chatId && userId !== currentUserId) {
-      setTypingUsers(prev => new Set([...prev, userName]));
-    }
-  };
-
-  // Handle user stopped typing
-  const handleUserStoppedTyping = (data) => {
-    const { chatId, userId } = data;
-    if (selectedChat && selectedChat._id === chatId && userId !== currentUserId) {
-      setTypingUsers(prev => {
-        const newSet = new Set(prev);
-        // Remove the user who stopped typing (we need to find them by userId)
-        // For now, we'll clear all typing indicators
-        return new Set();
-      });
-    }
-  };
-
-  // Handle messages read
-  const handleMessagesRead = (data) => {
-    const { chatId, messageIds, readBy } = data;
-    if (selectedChat && selectedChat._id === chatId && readBy !== currentUserId) {
-      setMessages(prev => 
-        prev.map(msg => 
-          messageIds.includes(msg._id) ? { ...msg, read: true } : msg
-        )
-      );
-    }
-  };
 
   // Handle typing input
   const handleTyping = (e) => {
@@ -160,25 +204,6 @@ export default function Chat() {
     }
   };
 
-  // Fetch current user's chats
-  const fetchChats = async () => {
-    if (!currentUserId) {
-      setError('Not logged in. Please log in to continue.');
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const res = await getAllChats();
-      console.log('Fetched chats:', res.data);
-      setChats(res.data.data || []);
-    } catch (err) {
-      console.error('Failed to fetch chats:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Load messages when a chat is selected
   useEffect(() => {
     if (!selectedChat) return;
@@ -193,29 +218,7 @@ export default function Chat() {
     clearUnreadMessages(selectedChat._id)
       .catch(err => console.error('Failed to clear unread messages:', err));
       
-  }, [selectedChat]);
-
-  const loadChatMessages = async (chatId) => {
-    setChatLoading(true);
-    setChatError('');
-    try {
-      const res = await getChatMessages(chatId);
-      console.log('Fetched messages:', res.data);
-      setMessages(res.data.data || []);
-      
-      // Mark messages as read via Socket.IO
-      const unreadMessages = res.data.data?.filter(msg => !msg.read && msg.sender !== currentUserId) || [];
-      if (unreadMessages.length > 0) {
-        const messageIds = unreadMessages.map(msg => msg._id);
-        socketService.markMessagesAsRead(chatId, messageIds);
-      }
-    } catch (err) {
-      console.error('Failed to load messages:', err);
-      setChatError('Could not load messages. Please try again.');
-    } finally {
-      setChatLoading(false);
-    }
-  };
+  }, [selectedChat, loadChatMessages]);
 
   // Send a message
   const send = async () => {
@@ -278,9 +281,13 @@ export default function Chat() {
 
   // Handle chat selection from FriendList
   const handleSelectNewChat = (chat) => {
-    console.log('Selected new chat:', chat);
+    // Add new chat to the list if it's not already there
+    if (!chats.find(c => c._id === chat._id)) {
+      setChats(prev => [chat, ...prev]);
+    }
+    
     setSelectedChat(chat);
-    fetchChats(); // Refresh the chat list to include the new chat
+    setActiveTab('chats');
   };
 
   // Get chat display name (other user's name)

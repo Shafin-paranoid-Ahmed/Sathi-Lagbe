@@ -51,12 +51,13 @@ exports.sendNewMessage = async (req, res) => {
     
     await newMessage.save();
     
-    // Update the chat's last message and increase unread count
+    // Update the chat's last message, increase unread count, and update timestamp
     await Chat.findByIdAndUpdate(
       chatId,
       {
         lastMessage: newMessage._id,
-        $inc: { unreadMessageCount: 1 }
+        $inc: { unreadMessageCount: 1 },
+        updatedAt: new Date()
       }
     );
     
