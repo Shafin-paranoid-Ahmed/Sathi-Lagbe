@@ -30,20 +30,33 @@ export default function Chat() {
 
   const fetchChats = useCallback(async () => {
     if (!currentUserId) {
+      console.error("fetchChats: No currentUserId found. User might not be properly logged in.");
       setError('Not logged in. Please log in to continue.');
       return;
     }
     
+    console.log("fetchChats: Starting for user", currentUserId);
     setLoading(true);
     try {
       const res = await getAllChats();
-      setChats(res.data.data || []);
+      console.log("fetchChats: API response received.", res.data);
+      
+      if (res.data && Array.isArray(res.data.data)) {
+        console.log(`fetchChats: Found ${res.data.data.length} chats.`);
+        setChats(res.data.data);
+      } else {
+        console.warn("fetchChats: Response was not in the expected format or contained no data.", res.data);
+        setChats([]);
+      }
+      
     } catch (err) {
-      console.error('Failed to fetch chats:', err);
+      console.error('fetchChats: Failed to fetch chats.', err);
+      // It's better not to clear chats on failure, so the UI doesn't flicker.
+      // setChats([]); 
     } finally {
       setLoading(false);
     }
-  }, [currentUserId]);
+  }, [currentUserId, setChats, setLoading, setError]);
 
   const loadChatMessages = useCallback(async (chatId) => {
     setChatLoading(true);
@@ -70,14 +83,32 @@ export default function Chat() {
   const handleNewMessage = useCallback((data) => {
     const { chatId, message } = data;
 
-    // A new message has arrived, so we should refresh the chat list
-    // to ensure the order and unread counts are correct.
-    fetchChats();
+    setChats(prevChats => {
+      const chatToUpdate = prevChats.find(c => c._id === chatId);
+      
+      // If chat isn't in the list yet, we need a full refresh to get its details
+      if (!chatToUpdate) {
+        fetchChats();
+        return prevChats;
+      }
 
+      // Create an updated version of the chat
+      const updatedChat = {
+        ...chatToUpdate,
+        lastMessage: message,
+        unreadMessageCount: (selectedChat && selectedChat._id === chatId)
+          ? chatToUpdate.unreadMessageCount
+          : (chatToUpdate.unreadMessageCount || 0) + 1,
+      };
+
+      // Filter out the old version and prepend the updated one
+      const otherChats = prevChats.filter(c => c._id !== chatId);
+      return [updatedChat, ...otherChats];
+    });
+    
     const isFromCurrentUser = message.sender && (message.sender._id === currentUserId || message.sender === currentUserId);
 
-    // Add the message to the view only if it's the active chat 
-    // AND it's not from the current user (to prevent duplicates).
+    // Add the message to the view if it's the active chat and not from the current user
     if (selectedChat && selectedChat._id === chatId && !isFromCurrentUser) {
       setMessages(prev => [...prev, message]);
     }
@@ -161,9 +192,9 @@ export default function Chat() {
     fetchChats();
   }, [fetchChats]);
 
-  // Auto-scroll to bottom when messages change
+  // When messages load or change, instantly scroll to the bottom.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [messages]);
 
   // Join chat room when selected chat changes
@@ -372,7 +403,7 @@ export default function Chat() {
           </div>
 
           {/* Content based on active tab */}
-          <div className="p-4">
+          <div className="p-4 overflow-y-auto h-[calc(100vh-10rem)]">
             {activeTab === 'chats' ? (
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">
