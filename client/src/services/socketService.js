@@ -124,8 +124,15 @@ class SocketService {
       return;
     }
     
+    // Remove existing listener if any
+    const existingCallback = this.eventListeners.get('new_message');
+    if (existingCallback) {
+      this.socket.off('new_message', existingCallback);
+    }
+    
     this.socket.on('new_message', callback);
     this.eventListeners.set('new_message', callback);
+    console.log('New message listener attached');
   }
 
   // Listen for message sent confirmation
