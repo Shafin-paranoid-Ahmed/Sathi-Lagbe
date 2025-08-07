@@ -24,7 +24,15 @@ const UserSchema = new mongoose.Schema({
       partner: String,
       rating: Number
     }
-  ]
+  ],
+  
+  // Status and location tracking
+  status: {
+    current: { type: String, enum: ['available', 'busy', 'in_class', 'studying', 'free'], default: 'available' },
+    location: { type: String, default: '' },
+    lastUpdated: { type: Date, default: Date.now },
+    isAutoUpdate: { type: Boolean, default: false }
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema); 

@@ -16,4 +16,10 @@ router.get('/:id', auth, userController.getUserProfile);
 // Update current user's profile
 router.put('/profile', auth, userController.updateProfile);
 
+// Update user status
+router.patch('/status', auth, userController.updateStatus);
+
+// Get user status
+router.get('/status/:userId', auth, userController.getUserStatus);
+
 module.exports = router;

@@ -20,6 +20,7 @@ const classroomRoutes = require('./routes/classroomRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const freeRoutes = require('./routes/freeRoutes');
 const userRoutes = require('./routes/userRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/classrooms', classroomRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/free', freeRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
