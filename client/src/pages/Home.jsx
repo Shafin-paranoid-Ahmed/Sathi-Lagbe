@@ -22,6 +22,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import StatusUpdate from '../components/StatusUpdate';
 
 ChartJS.register(
   CategoryScale,
@@ -228,6 +229,12 @@ const Home = () => {
             color="bg-info-500"
           />
         </div>
+      </div>
+
+      {/* Status Update Section */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Update Your Status</h2>
+        <StatusUpdate />
       </div>
 
       {/* Charts and Activities */}

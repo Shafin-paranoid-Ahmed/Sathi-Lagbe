@@ -179,6 +179,17 @@ class SocketService {
     this.eventListeners.set('messages_read', callback);
   }
 
+  // Listen for new notifications
+  onNewNotification(callback) {
+    if (!this.socket) {
+      console.warn('Socket not initialized');
+      return;
+    }
+    
+    this.socket.on('new_notification', callback);
+    this.eventListeners.set('new_notification', callback);
+  }
+
   // Remove event listener
   off(eventName) {
     if (!this.socket) {

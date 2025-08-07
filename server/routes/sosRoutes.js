@@ -4,11 +4,9 @@ const router = express.Router();
 const sosController = require('../controllers/sosController');
 const auth = require('../middleware/auth');
 
-// Get contacts
-router.get('/contacts', auth, sosController.getContacts);
-router.get('/get-contacts', auth, sosController.getContacts); // Compatibility
 
-// Save contacts
+router.get('/contacts', auth, sosController.getContacts);
+router.get('/get-contacts', auth, sosController.getContacts); 
 router.post('/save-contacts', auth, sosController.saveContacts);
 
 // Trigger SOS alert - support multiple endpoint names for compatibility

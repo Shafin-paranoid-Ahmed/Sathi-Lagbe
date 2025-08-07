@@ -15,6 +15,7 @@ import {
   UserCircleIcon,
   ChevronDownIcon
 } from '@heroicons/react/24/outline';
+import NotificationBell from './NotificationBell';
 
 const ArgonLayout = ({ children, setIsAuthenticated }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -94,6 +95,9 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
               {darkMode ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
             </button>
 
+            {/* Notification Bell */}
+            <NotificationBell />
+
             {/* Profile Dropdown */}
             <div className="relative">
               <button
@@ -113,6 +117,14 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
                       <p className="font-medium">{userName}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Signed in</p>
                     </div>
+                    <Link
+                      to="/profile"
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
+                      onClick={() => setProfileDropdownOpen(false)}
+                    >
+                      <UserCircleIcon className="h-4 w-4" />
+                      <span>Profile</span>
+                    </Link>
                     <button
                       onClick={handleLogout}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"

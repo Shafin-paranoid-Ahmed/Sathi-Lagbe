@@ -95,3 +95,69 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to update profile' });
   }
 };
+
+/**
+ * Update user status
+ */
+exports.updateStatus = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const { status, location, isAutoUpdate = false } = req.body;
+    
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+    
+    const validStatuses = ['available', 'busy', 'in_class', 'studying', 'free'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          'status.current': status,
+          'status.location': location || '',
+          'status.lastUpdated': new Date(),
+          'status.isAutoUpdate': isAutoUpdate
+        }
+      },
+      { new: true }
+    ).select('name email status');
+    
+    // Send notification to friends about status change
+    const notificationService = require('../services/notificationService');
+    await notificationService.sendStatusChangeNotification(userId, status, location);
+    
+    res.json(user);
+  } catch (err) {
+    console.error('Error updating status:', err);
+    res.status(500).json({ error: err.message || 'Failed to update status' });
+  }
+};
+
+/**
+ * Get user status
+ */
+exports.getUserStatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const user = await User.findById(userId)
+      .select('name email status');
+      
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({
+      userId: user._id,
+      name: user.name,
+      status: user.status
+    });
+  } catch (err) {
+    console.error('Error fetching user status:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch user status' });
+  }
+};

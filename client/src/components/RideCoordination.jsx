@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import { InboxIcon, UserCheckIcon, TrashIcon, EditIcon } from 'lucide-react';
+import MapView from './MapView';
 
 export default function RideCoordination() {
   const { rideId } = useParams();
@@ -115,6 +116,14 @@ export default function RideCoordination() {
         <p><strong>To:</strong> {ride.endLocation}</p>
         <p><strong>Departure:</strong> {new Date(ride.departureTime).toLocaleString()}</p>
       </div>
+
+      {/* Map View */}
+      {ride && ride.startLocation && ride.endLocation && (
+        <div className="my-4">
+          <h3 className="text-xl font-medium mb-2">Ride Route</h3>
+          <MapView startLocation={ride.startLocation} endLocation={ride.endLocation} />
+        </div>
+      )}
 
       {/* Pending Requests */}
       <div>
