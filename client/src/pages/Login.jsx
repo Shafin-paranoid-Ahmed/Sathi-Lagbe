@@ -1,7 +1,9 @@
 // client/src/pages/Login.jsx
 import { useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { login } from '../api/auth';
+
+const isBracuEmail = (email) => /^[^@\s]+@(?:g\.)?bracu\.ac\.bd$/i.test(email);
 
 export default function Login({ setIsAuthenticated }) {
   const location = useLocation();
@@ -19,6 +21,12 @@ export default function Login({ setIsAuthenticated }) {
     setLoading(true);
     setError('');
     try {
+      if (!isBracuEmail(email)) {
+        setError('Please use your BRACU G-Suite email');
+        setLoading(false);
+        return;
+      }
+
       const res = await login({ email, password });
       
       // Debug logging

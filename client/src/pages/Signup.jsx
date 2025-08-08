@@ -1,7 +1,9 @@
 // client/src/pages/Signup.jsx
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { signup } from '../api/auth';
+
+const isBracuEmail = (email) => /^[^@\s]+@(?:g\.)?bracu\.ac\.bd$/i.test(email);
 
 export default function Signup() {
   const [email, setEmail] = useState('');
@@ -18,8 +20,14 @@ export default function Signup() {
     setLoading(true);
     setError('');
     try {
+      if (!isBracuEmail(email)) {
+        setError('Please use your BRACU G-Suite email');
+        setLoading(false);
+        return;
+      }
+
       // Include additional user fields that are used in the backend
-      await signup({ 
+      await signup({
         email, 
         password,
         name: name || email.split('@')[0], // Use part of email as name if not provided
