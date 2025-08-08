@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { CheckIcon, PencilIcon, UserCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
-import { UserCircleIcon, PencilIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { deleteAccount, logout } from '../api/auth';
 
 export default function Profile() {
   const [profile, setProfile] = useState({
@@ -16,6 +18,7 @@ export default function Profile() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const token = sessionStorage.getItem('token');
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchProfile();
@@ -78,6 +81,20 @@ export default function Profile() {
     setIsEditing(false);
     setError('');
     setSuccess('');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Are you sure you want to delete your account? This cannot be undone.')) {
+      return;
+    }
+    try {
+      await deleteAccount();
+      await logout();
+      navigate('/signup');
+    } catch (err) {
+      console.error('Account deletion error:', err);
+      setError(err.response?.data?.error || 'Failed to delete account');
+    }
   };
 
   if (loading) {
@@ -218,6 +235,14 @@ export default function Profile() {
             </div>
           </div>
         </div>
+      </div>
+      <div className="text-right">
+        <button
+          onClick={handleDeleteAccount}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+        >
+          Delete Account
+        </button>
       </div>
     </div>
   );

@@ -3,6 +3,9 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+// Helper to ensure only BRACU G-Suite emails are used
+const isBracuEmail = (email) => /^[^@\s]+@(?:g\.)?bracu\.ac\.bd$/i.test(email);
+
 /**
  * Register a new user
  * Compatible with both signup APIs from the original projects
@@ -19,12 +22,20 @@ const registerUser = async (req, res) => {
             });
         }
 
+        // Enforce BRACU email domain
+        if (!isBracuEmail(email)) {
+            return res.status(400).json({
+                error: "A BRACU G-Suite email is required",
+                message: "Only BRACU emails are allowed"
+            });
+        }
+
         // Check if user already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 error: "User with this email already exists",
-                message: "User already exists" 
+                message: "User already exists"
             });
         }
 
@@ -79,18 +90,26 @@ const loginUser = async (req, res) => {
         // Find user
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(404).json({ 
+            return res.status(404).json({
                 error: "User not found",
-                message: "Invalid credentials" 
+                message: "Invalid credentials"
+            });
+        }
+
+        // Ensure user is using BRACU email
+        if (!isBracuEmail(user.email)) {
+            return res.status(401).json({
+                error: "Only BRACU emails are allowed",
+                message: "Only BRACU emails are allowed"
             });
         }
 
         // Verify password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(401).json({ 
+            return res.status(401).json({
                 error: "Invalid credentials",
-                message: "Invalid credentials" 
+                message: "Invalid credentials"
             });
         }
 
@@ -193,9 +212,75 @@ const verifyToken = async (req, res) => {
     }
 };
 
+/**
+ * Logout user - client should discard token
+ */
+const logoutUser = async (req, res) => {
+    try {
+        const email = req.user.email;
+        if (!isBracuEmail(email)) {
+            return res.status(401).json({
+                error: "Only BRACU emails are allowed",
+                message: "Only BRACU emails are allowed"
+            });
+        }
+
+        // No server-side token invalidation for now
+        res.json({
+            message: "Logout successful",
+            success: true
+        });
+    } catch (err) {
+        console.error('Logout error:', err);
+        res.status(500).json({
+            error: err.message || "Server error during logout",
+            message: "Logout failed"
+        });
+    }
+};
+
+/**
+ * Delete user account
+ */
+const deleteAccount = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user.userId;
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                error: "User not found",
+                message: "User not found"
+            });
+        }
+
+        if (!isBracuEmail(user.email)) {
+            return res.status(401).json({
+                error: "Only BRACU emails are allowed",
+                message: "Only BRACU emails are allowed"
+            });
+        }
+
+        await User.findByIdAndDelete(userId);
+
+        res.json({
+            message: "Account deleted successfully",
+            success: true
+        });
+    } catch (err) {
+        console.error('Account deletion error:', err);
+        res.status(500).json({
+            error: err.message || "Server error during account deletion",
+            message: "Account deletion failed"
+        });
+    }
+};
+
 // Export all functions for routing
 module.exports = {
     registerUser,
     loginUser,
-    verifyToken
+    verifyToken,
+    logoutUser,
+    deleteAccount
 };

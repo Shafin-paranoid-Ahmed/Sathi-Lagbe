@@ -72,6 +72,10 @@ export function verifyToken() {
 export function logout() {
   sessionStorage.removeItem('token');
   sessionStorage.removeItem('userId');
-  // You could also call the backend to invalidate the token if needed
-  // return API.post('/auth/logout');
+  sessionStorage.removeItem('userName');
+  return API.post('/auth/logout');
+}
+
+export function deleteAccount() {
+  return API.delete('/auth/delete');
 }

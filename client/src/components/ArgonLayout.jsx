@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { logout } from '../api/auth';
 import { 
   HomeIcon, 
   ChatBubbleLeftRightIcon, 
@@ -59,10 +60,12 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     setDarkMode(!darkMode);
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('userId');
-    sessionStorage.removeItem('userName');
+    const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
     setIsAuthenticated(false);
     navigate('/login');
   };
