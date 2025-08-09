@@ -76,30 +76,30 @@ const StatusUpdate = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
-      <h2 className="text-xl font-semibold mb-4 flex items-center">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 max-w-md mx-auto border border-gray-200 dark:border-gray-700">
+      <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-white">
         <User className="w-5 h-5 mr-2" />
         Update Status
       </h2>
 
       {/* Current Status Display */}
       {currentStatus && (
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-600 mb-1">Current Status:</p>
+        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Current Status:</p>
           <div className="flex items-center">
             {React.createElement(getStatusIcon(currentStatus.current), {
               className: `w-4 h-4 mr-2 ${getStatusColor(currentStatus.current)}`
             })}
-            <span className="font-medium capitalize">
+            <span className="font-medium capitalize text-gray-900 dark:text-white">
               {currentStatus.current.replace('_', ' ')}
             </span>
             {currentStatus.location && (
-              <span className="text-gray-500 ml-2">
+              <span className="text-gray-500 dark:text-gray-400 ml-2">
                 at {currentStatus.location}
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
             Last updated: {new Date(currentStatus.lastUpdated).toLocaleString()}
           </p>
         </div>
@@ -107,7 +107,7 @@ const StatusUpdate = () => {
 
       {/* Status Selection */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           New Status
         </label>
         <div className="grid grid-cols-2 gap-2">
@@ -119,8 +119,8 @@ const StatusUpdate = () => {
                 onClick={() => setStatus(option.value)}
                 className={`p-3 rounded-lg border-2 transition-colors flex items-center justify-center ${
                   status === option.value
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 <IconComponent className={`w-4 h-4 mr-2 ${option.color}`} />
@@ -133,17 +133,17 @@ const StatusUpdate = () => {
 
       {/* Location Input */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Location (optional)
         </label>
         <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="e.g., Library, Cafeteria, Room 301"
-            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
           />
         </div>
       </div>
@@ -155,9 +155,9 @@ const StatusUpdate = () => {
             type="checkbox"
             checked={isAutoUpdate}
             onChange={(e) => setIsAutoUpdate(e.target.checked)}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-700"
           />
-          <span className="ml-2 text-sm text-gray-700">
+          <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
             Enable automatic status updates based on class schedule
           </span>
         </label>
@@ -174,13 +174,13 @@ const StatusUpdate = () => {
 
       {/* Quick Location Buttons */}
       <div className="mt-4">
-        <p className="text-sm text-gray-600 mb-2">Quick locations:</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Quick locations:</p>
         <div className="flex flex-wrap gap-2">
           {['Library', 'Cafeteria', 'Gym', 'Study Room', 'Campus'].map((loc) => (
             <button
               key={loc}
               onClick={() => setLocation(loc)}
-              className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+              className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               {loc}
             </button>
