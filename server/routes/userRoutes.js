@@ -3,6 +3,8 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const auth = require('../middleware/auth');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
 // Get all users (for friend list)
 router.get('/', auth, userController.getAllUsers);
@@ -21,5 +23,8 @@ router.patch('/status', auth, userController.updateStatus);
 
 // Get user status
 router.get('/status/:userId', auth, userController.getUserStatus);
+
+// Update avatar
+router.post('/avatar', auth, upload.single('avatar'), userController.updateAvatar);
 
 module.exports = router;

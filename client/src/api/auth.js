@@ -79,3 +79,14 @@ export function logout() {
 export function deleteAccount() {
   return API.delete('/auth/delete');
 }
+
+// Status-related functions
+export function updateStatus(statusData) {
+  return API.patch('/users/status', statusData);
+}
+
+export function getCurrentUserStatus() {
+  const userId = sessionStorage.getItem('userId');
+  if (!userId) return Promise.reject('No user ID found');
+  return API.get(`/users/status/${userId}`);
+}

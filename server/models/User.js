@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  phone: { type: String, required: true, match: /^\+880\d{10}$/ },
   
   // Fields from server/models/User.js in Sathi_Lagbe
   gender: String,
@@ -25,6 +26,10 @@ const UserSchema = new mongoose.Schema({
       rating: Number
     }
   ],
+  
+  // Profile image
+  avatarUrl: { type: String, default: '' },
+  avatarPublicId: { type: String, default: '' },
   
   // Status and location tracking
   status: {

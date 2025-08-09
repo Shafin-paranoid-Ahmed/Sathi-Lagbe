@@ -1,6 +1,8 @@
 // client/src/pages/Sos.jsx
 import { useState, useEffect } from 'react';
 import { getContacts, saveContacts, sendSosAlert } from '../api/sos';
+import axios from 'axios';
+import { API } from '../api/auth';
 
 export default function Sos() {
   const [contacts, setContacts] = useState([]);
@@ -11,6 +13,9 @@ export default function Sos() {
   const [message, setMessage] = useState('');
   const [location, setLocation] = useState('');
   const [coordinates, setCoordinates] = useState({ latitude: null, longitude: null });
+  const [isAppUser, setIsAppUser] = useState(false);
+  const [friends, setFriends] = useState([]);
+  const [selectedFriendId, setSelectedFriendId] = useState('');
 
   // Load contacts on mount
   useEffect(() => {
@@ -43,19 +48,56 @@ export default function Sos() {
     }
   }, []);
 
+  // Load accepted friends for dropdown when toggled
+  useEffect(() => {
+    const loadFriends = async () => {
+      try {
+        const res = await API.get('/friends/accepted');
+        // Normalize to name + phone if available
+        const list = (res.data || []).map(item => {
+          const f = item.friend || item; // controller returns {friendshipId, friend}
+          return {
+            _id: f._id,
+            name: f.name || f.email?.split('@')[0] || 'Unknown',
+            phone: f.phone || ''
+          };
+        });
+        setFriends(list);
+      } catch (e) {
+        console.error('Failed to load friends:', e);
+        setFriends([]);
+      }
+    };
+    if (isAppUser) loadFriends();
+  }, [isAppUser]);
+
   // Add a new contact
   const addContact = () => {
-    if (!newContact.name || !newContact.phone) {
-      setError('Name and phone are required');
+    if (isAppUser) {
+      if (!selectedFriendId) {
+        setError('Please select a friend');
+        return;
+      }
+      const friend = friends.find(f => f._id === selectedFriendId);
+      if (!friend) {
+        setError('Invalid friend selected');
+        return;
+      }
+      const contactToAdd = { name: friend.name, phone: friend.phone || '(in-app user)', userId: friend._id };
+      setContacts(prev => [...prev, contactToAdd]);
+      setSelectedFriendId('');
+      setIsAppUser(false);
+      saveContacts([...contacts, contactToAdd]).catch(() => setError('Failed to save contact'));
       return;
+    } else {
+      if (!newContact.name || !newContact.phone) {
+        setError('Name and phone are required');
+        return;
+      }
+      setContacts(prev => [...prev, newContact]);
+      setNewContact({ name: '', phone: '' });
+      saveContacts([...contacts, newContact]).catch(() => setError('Failed to save contact'));
     }
-    
-    setContacts(prev => [...prev, newContact]);
-    setNewContact({ name: '', phone: '' });
-    
-    // Save to backend
-    saveContacts([...contacts, newContact])
-      .catch(() => setError('Failed to save contact'));
   };
 
   // Remove a contact
@@ -119,20 +161,40 @@ export default function Sos() {
             Add Emergency Contact
           </h2>
           <div className="space-y-2">
-            <input
-              type="text"
-              placeholder="Contact Name"
-              value={newContact.name}
-              onChange={e => setNewContact({...newContact, name: e.target.value})}
-              className="w-full p-2 border rounded dark:bg-gray-600 dark:text-white"
-            />
-            <input
-              type="tel"
-              placeholder="Phone Number"
-              value={newContact.phone}
-              onChange={e => setNewContact({...newContact, phone: e.target.value})}
-              className="w-full p-2 border rounded dark:bg-gray-600 dark:text-white"
-            />
+            <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+              <input type="checkbox" checked={isAppUser} onChange={e => setIsAppUser(e.target.checked)} />
+              <span>They use this app</span>
+            </label>
+
+            {isAppUser ? (
+              <select
+                value={selectedFriendId}
+                onChange={e => setSelectedFriendId(e.target.value)}
+                className="w-full p-2 border rounded dark:bg-gray-600 dark:text-white"
+              >
+                <option value="">Select a friend</option>
+                {friends.map(f => (
+                  <option key={f._id} value={f._id}>{f.name}</option>
+                ))}
+              </select>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder="Contact Name"
+                  value={newContact.name}
+                  onChange={e => setNewContact({...newContact, name: e.target.value})}
+                  className="w-full p-2 border rounded dark:bg-gray-600 dark:text-white"
+                />
+                <input
+                  type="tel"
+                  placeholder="Phone Number"
+                  value={newContact.phone}
+                  onChange={e => setNewContact({...newContact, phone: e.target.value})}
+                  className="w-full p-2 border rounded dark:bg-gray-600 dark:text-white"
+                />
+              </>
+            )}
             <button
               onClick={addContact}
               className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700"

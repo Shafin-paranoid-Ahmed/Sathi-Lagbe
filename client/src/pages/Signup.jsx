@@ -11,6 +11,7 @@ export default function Signup() {
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [gender, setGender] = useState('');
+  const [phone, setPhone] = useState('+880');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -20,19 +21,32 @@ export default function Signup() {
     setLoading(true);
     setError('');
     try {
+      if (!name.trim()) {
+        setError('Name is required');
+        setLoading(false);
+        return;
+      }
       if (!isBracuEmail(email)) {
         setError('Please use your BRACU G-Suite email');
+        setLoading(false);
+        return;
+      }
+      // Validate Bangladeshi phone: +880 followed by 10 digits
+      const bdPhoneRegex = /^\+880\d{10}$/;
+      if (!bdPhoneRegex.test(phone)) {
+        setError('Phone must be in Bangladeshi format +880XXXXXXXXXX (10 digits)');
         setLoading(false);
         return;
       }
 
       // Include additional user fields that are used in the backend
       await signup({
-        email, 
+        email,
         password,
-        name: name || email.split('@')[0], // Use part of email as name if not provided
+        name,
         location,
-        gender
+        gender,
+        phone
       });
       navigate('/signup-success');
     } catch (err) {
@@ -57,6 +71,17 @@ export default function Signup() {
             {error}
           </div>
         )}
+
+        <label className="block mb-2 text-gray-700 dark:text-gray-300">
+          Name
+          <input
+            type="text"
+            required
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="mt-1 w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-gray-700 dark:border-gray-600"
+          />
+        </label>
 
         <label className="block mb-2 text-gray-700 dark:text-gray-300">
           Email
@@ -112,6 +137,26 @@ export default function Signup() {
             onChange={e => setPass(e.target.value)}
             className="mt-1 w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-gray-700 dark:border-gray-600"
           />
+        </label>
+
+        <label className="block mb-4 text-gray-700 dark:text-gray-300">
+          Phone (Bangladesh)
+          <input
+            type="tel"
+            placeholder="+8801XXXXXXXXX"
+            required
+            value={phone}
+            onChange={e => {
+              let v = e.target.value.replace(/[^+\d]/g, '');
+              if (!v.startsWith('+880')) v = '+880' + v.replace(/^\+?880?/, '');
+              // Keep only 10 digits after +880
+              const after = v.slice(4).replace(/\D/g, '').slice(0, 10);
+              setPhone('+880' + after);
+            }}
+            maxLength={14}
+            className="mt-1 w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-gray-700 dark:border-gray-600"
+          />
+          <span className="text-xs text-gray-500 dark:text-gray-400">Digits remaining: {Math.max(0, 10 - Math.max(0, phone.length - 4))}</span>
         </label>
 
         <button

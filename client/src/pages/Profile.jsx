@@ -1,8 +1,7 @@
-import { CheckIcon, PencilIcon, UserCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { CheckIcon, PencilIcon, UserCircleIcon, XMarkIcon, ClockIcon, BookOpenIcon, CheckCircleIcon, WifiIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
-import { deleteAccount, logout } from '../api/auth';
+import { deleteAccount, logout, verifyToken, API, updateStatus, getCurrentUserStatus } from '../api/auth';
 
 export default function Profile() {
   const [profile, setProfile] = useState({
@@ -10,6 +9,7 @@ export default function Profile() {
     email: '',
     gender: '',
     location: '',
+    phone: '+880',
     preferences: { darkMode: false }
   });
   const [isEditing, setIsEditing] = useState(false);
@@ -17,18 +17,29 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const token = sessionStorage.getItem('token');
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState('available');
+  const [statusLoading, setStatusLoading] = useState(false);
   const navigate = useNavigate();
+
+  const statusOptions = [
+    { value: 'available', label: 'Available', icon: WifiIcon, color: 'text-green-600' },
+    { value: 'busy', label: 'Busy', icon: ClockIcon, color: 'text-red-600' },
+    { value: 'in_class', label: 'In Class', icon: BookOpenIcon, color: 'text-blue-600' },
+    { value: 'studying', label: 'Studying', icon: BookOpenIcon, color: 'text-purple-600' },
+    { value: 'free', label: 'Free', icon: CheckCircleIcon, color: 'text-orange-600' }
+  ];
 
   useEffect(() => {
     fetchProfile();
+    fetchCurrentStatus();
   }, []);
 
   const fetchProfile = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/auth/verify', {
-        headers: { "Authorization": token }
-      });
+      // Use shared API + interceptor which already attaches the token
+      const response = await verifyToken();
       
       if (response.data.user) {
         setProfile({
@@ -36,8 +47,10 @@ export default function Profile() {
           email: response.data.user.email || '',
           gender: response.data.user.gender || '',
           location: response.data.user.location || '',
+          phone: response.data.user.phone || '+880',
           preferences: response.data.user.preferences || { darkMode: false }
         });
+        setAvatarPreview(response.data.user.avatarUrl || '');
       }
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -47,20 +60,45 @@ export default function Profile() {
     }
   };
 
+  const fetchCurrentStatus = async () => {
+    try {
+      const response = await getCurrentUserStatus();
+      if (response.data?.status?.current) {
+        setCurrentStatus(response.data.status.current);
+      }
+    } catch (error) {
+      console.error('Error fetching status:', error);
+    }
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    if (newStatus === currentStatus || statusLoading) return;
+    
+    setStatusLoading(true);
+    try {
+      await updateStatus({ status: newStatus });
+      setCurrentStatus(newStatus);
+      setSuccess('Status updated successfully!');
+    } catch (error) {
+      console.error('Error updating status:', error);
+      setError('Failed to update status');
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError('');
     setSuccess('');
 
     try {
-      await axios.put('http://localhost:5000/api/users/profile', 
-        {
-          name: profile.name,
-          location: profile.location,
-          gender: profile.gender
-        },
-        { headers: { "Authorization": token } }
-      );
+      await API.put('/users/profile', {
+        name: profile.name,
+        location: profile.location,
+        gender: profile.gender,
+        phone: profile.phone
+      });
 
       setSuccess('Profile updated successfully!');
       setIsEditing(false);
@@ -73,6 +111,31 @@ export default function Profile() {
       setError(err.response?.data?.error || 'Failed to update profile');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError('');
+    setSuccess('');
+    setAvatarUploading(true);
+    const url = URL.createObjectURL(file);
+    setAvatarPreview(url);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await API.post('/users/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const updatedUrl = res.data?.user?.avatarUrl;
+      if (updatedUrl) setAvatarPreview(updatedUrl);
+      setSuccess('Profile picture updated');
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+      setError(err.response?.data?.error || 'Failed to upload profile picture');
+    } finally {
+      setAvatarUploading(false);
     }
   };
 
@@ -95,6 +158,21 @@ export default function Profile() {
       console.error('Account deletion error:', err);
       setError(err.response?.data?.error || 'Failed to delete account');
     }
+  };
+
+  const getStatusIcon = (statusValue) => {
+    const option = statusOptions.find(opt => opt.value === statusValue);
+    return option ? option.icon : WifiIcon;
+  };
+
+  const getStatusColor = (statusValue) => {
+    const option = statusOptions.find(opt => opt.value === statusValue);
+    return option ? option.color : 'text-gray-600';
+  };
+
+  const getStatusLabel = (statusValue) => {
+    const option = statusOptions.find(opt => opt.value === statusValue);
+    return option ? option.label : 'Available';
   };
 
   if (loading) {
@@ -162,12 +240,19 @@ export default function Profile() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="flex items-center space-x-4">
-            <div className="h-20 w-20 bg-primary-500 rounded-full flex items-center justify-center">
-              <UserCircleIcon className="h-12 w-12 text-white" />
+            <div className="h-20 w-20 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
+              ) : (
+                <UserCircleIcon className="h-12 w-12 text-gray-400" />
+              )}
             </div>
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Profile Picture</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">Coming soon</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Profile Picture</p>
+              <label className="inline-flex items-center px-3 py-2 bg-primary-500 text-white rounded-lg cursor-pointer hover:bg-primary-600">
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                {avatarUploading ? 'Uploading...' : 'Change Photo'}
+              </label>
             </div>
           </div>
 
@@ -219,6 +304,29 @@ export default function Profile() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Phone (Bangladesh)
+              </label>
+              {isEditing ? (
+                <input
+                  type="tel"
+                  value={profile.phone}
+                  onChange={e => {
+                    let v = e.target.value.replace(/[^+\d]/g, '');
+                    if (!v.startsWith('+880')) v = '+880' + v.replace(/^\+?880?/, '');
+                    const after = v.slice(4).replace(/\D/g, '').slice(0, 10);
+                    setProfile({ ...profile, phone: '+880' + after });
+                  }}
+                  maxLength={14}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              ) : (
+                <p className="text-gray-900 dark:text-white">{profile.phone || '+880'}</p>
+              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400">Digits remaining: {Math.max(0, 10 - Math.max(0, (profile.phone?.length || 4) - 4))}</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Location
               </label>
               {isEditing ? (
@@ -236,6 +344,61 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* Status Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Status
+          </h2>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Current Status
+            </label>
+            <div className="flex items-center space-x-2 mb-4">
+              {React.createElement(getStatusIcon(currentStatus), {
+                className: `w-5 h-5 ${getStatusColor(currentStatus)}`
+              })}
+              <span className="text-lg font-medium text-gray-900 dark:text-white">
+                {getStatusLabel(currentStatus)}
+              </span>
+              {statusLoading && (
+                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Change Status
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {statusOptions.map((option) => {
+                const IconComponent = option.icon;
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => handleStatusChange(option.value)}
+                    disabled={statusLoading || option.value === currentStatus}
+                    className={`p-3 rounded-lg border-2 transition-colors flex items-center space-x-2 ${
+                      option.value === currentStatus
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
+                    } ${statusLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <IconComponent className={`w-4 h-4 ${option.color}`} />
+                    <span className="text-sm font-medium">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="text-right">
         <button
           onClick={handleDeleteAccount}
