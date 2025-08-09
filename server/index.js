@@ -8,6 +8,8 @@ const http = require('http');
 const morgan = require('morgan');
 const jwt = require('jsonwebtoken');
 const { initSocket } = require('./utils/socket');
+const fs = require('fs');
+const path = require('path');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -30,6 +32,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+
+// Ensure uploads directory exists for multer
+const uploadsDir = path.join(__dirname, 'uploads');
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Could not create uploads directory:', e?.message);
+}
 
 // Routes
 app.use('/api/auth', authRoutes);

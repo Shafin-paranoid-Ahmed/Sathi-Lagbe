@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { logout } from '../api/auth';
+import { logout, verifyToken, updateStatus, getCurrentUserStatus } from '../api/auth';
 import { 
   HomeIcon, 
   ChatBubbleLeftRightIcon, 
@@ -14,7 +14,11 @@ import {
   MoonIcon,
   ArrowRightOnRectangleIcon,
   UserCircleIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  ClockIcon,
+  BookOpenIcon,
+  CheckCircleIcon,
+  WifiIcon
 } from '@heroicons/react/24/outline';
 import NotificationBell from './NotificationBell';
 
@@ -27,6 +31,9 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
   });
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [userName, setUserName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [currentStatus, setCurrentStatus] = useState('available');
+  const [statusLoading, setStatusLoading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -40,11 +47,66 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     { name: 'Routine', href: '/routine', icon: AcademicCapIcon },
   ];
 
-  // Get user name from session storage
+  const statusOptions = [
+    { value: 'available', label: 'Available', icon: WifiIcon, color: 'text-green-600' },
+    { value: 'busy', label: 'Busy', icon: ClockIcon, color: 'text-red-600' },
+    { value: 'in_class', label: 'In Class', icon: BookOpenIcon, color: 'text-blue-600' },
+    { value: 'studying', label: 'Studying', icon: BookOpenIcon, color: 'text-purple-600' },
+    { value: 'free', label: 'Free', icon: CheckCircleIcon, color: 'text-orange-600' }
+  ];
+
+  // Load basic user info and refresh from server
   useEffect(() => {
     const name = sessionStorage.getItem('userName') || 'User';
+    const avatar = sessionStorage.getItem('userAvatarUrl') || '';
     setUserName(name);
+    setAvatarUrl(avatar);
+
+    // Best-effort refresh
+    (async () => {
+      try {
+        const res = await verifyToken();
+        const n = res.data?.user?.name || name;
+        const av = res.data?.user?.avatarUrl || '';
+        setUserName(n);
+        if (n) sessionStorage.setItem('userName', n);
+        if (av) {
+          setAvatarUrl(av);
+          sessionStorage.setItem('userAvatarUrl', av);
+        }
+      } catch (error) {
+        console.error('Error refreshing user data:', error);
+      }
+    })();
+
+    // Fetch current status
+    fetchCurrentStatus();
   }, []);
+
+  const fetchCurrentStatus = async () => {
+    try {
+      const response = await getCurrentUserStatus();
+      if (response.data?.status?.current) {
+        setCurrentStatus(response.data.status.current);
+      }
+    } catch (error) {
+      console.error('Error fetching status:', error);
+    }
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    if (newStatus === currentStatus || statusLoading) return;
+    
+    setStatusLoading(true);
+    try {
+      await updateStatus({ status: newStatus });
+      setCurrentStatus(newStatus);
+    } catch (error) {
+      console.error('Error updating status:', error);
+    } finally {
+      setStatusLoading(false);
+    }
+  };
 
   // Apply dark mode on component mount and when it changes
   useEffect(() => {
@@ -60,7 +122,7 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     setDarkMode(!darkMode);
   };
 
-    const handleLogout = async () => {
+  const handleLogout = async () => {
     try {
       await logout();
     } catch (err) {
@@ -68,6 +130,21 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     }
     setIsAuthenticated(false);
     navigate('/login');
+  };
+
+  const getStatusIcon = (statusValue) => {
+    const option = statusOptions.find(opt => opt.value === statusValue);
+    return option ? option.icon : WifiIcon;
+  };
+
+  const getStatusColor = (statusValue) => {
+    const option = statusOptions.find(opt => opt.value === statusValue);
+    return option ? option.color : 'text-gray-600';
+  };
+
+  const getStatusLabel = (statusValue) => {
+    const option = statusOptions.find(opt => opt.value === statusValue);
+    return option ? option.label : 'Available';
   };
 
   return (
@@ -107,19 +184,60 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                 className="flex items-center space-x-2 p-2 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shadow-sm hover:shadow-md"
               >
-                <UserCircleIcon className="h-5 w-5" />
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="h-6 w-6 rounded-full object-cover" />
+                ) : (
+                  <UserCircleIcon className="h-5 w-5" />
+                )}
                 <span className="hidden sm:block text-sm font-medium">{userName}</span>
                 <ChevronDownIcon className="h-4 w-4" />
               </button>
 
               {/* Dropdown Menu */}
               {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                   <div className="py-2">
                     <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600">
                       <p className="font-medium">{userName}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Signed in</p>
                     </div>
+                    
+                    {/* Status Section */}
+                    <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-600">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">STATUS</p>
+                      <div className="flex items-center space-x-2 mb-2">
+                        {React.createElement(getStatusIcon(currentStatus), {
+                          className: `w-4 h-4 ${getStatusColor(currentStatus)}`
+                        })}
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {getStatusLabel(currentStatus)}
+                        </span>
+                        {statusLoading && (
+                          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-1">
+                        {statusOptions.map((option) => {
+                          const IconComponent = option.icon;
+                          return (
+                            <button
+                              key={option.value}
+                              onClick={() => handleStatusChange(option.value)}
+                              disabled={statusLoading || option.value === currentStatus}
+                              className={`p-2 rounded text-xs flex items-center space-x-1 transition-colors ${
+                                option.value === currentStatus
+                                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                              } ${statusLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                              <IconComponent className={`w-3 h-3 ${option.color}`} />
+                              <span>{option.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     <Link
                       to="/profile"
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"

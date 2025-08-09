@@ -1,5 +1,7 @@
 // server/controllers/userController.js
 const User = require('../models/User');
+const cloudinary = require('../utils/cloudinary');
+const fs = require('fs');
 
 /**
  * Get all users (except the current user)
@@ -76,18 +78,25 @@ exports.getUserProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    const { name, location, gender } = req.body;
+    const { name, location, gender, phone } = req.body;
     
     const updates = {};
     if (name) updates.name = name;
     if (location) updates.location = location;
     if (gender) updates.gender = gender;
+    if (phone) {
+      const bdPhoneRegex = /^\+880\d{10}$/;
+      if (!bdPhoneRegex.test(phone)) {
+        return res.status(400).json({ error: 'Phone must be in Bangladeshi format +880XXXXXXXXXX (10 digits)' });
+      }
+      updates.phone = phone;
+    }
     
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: updates },
       { new: true }
-    ).select('name email gender location');
+    ).select('name email gender location phone avatarUrl');
     
     res.json(user);
   } catch (err) {
@@ -159,5 +168,42 @@ exports.getUserStatus = async (req, res) => {
   } catch (err) {
     console.error('Error fetching user status:', err);
     res.status(500).json({ error: err.message || 'Failed to fetch user status' });
+  }
+};
+
+/**
+ * Upload or update profile picture
+ */
+exports.updateAvatar = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const { file } = req;
+    if (!file) return res.status(400).json({ error: 'No image uploaded' });
+
+    // Upload to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(file.path, {
+      folder: 'sathi-lagbe/avatars',
+      transformation: [{ width: 256, height: 256, crop: 'thumb', gravity: 'face' }]
+    });
+
+    // Delete previous avatar if exists
+    const current = await User.findById(userId).select('avatarPublicId');
+    if (current?.avatarPublicId) {
+      try { await cloudinary.uploader.destroy(current.avatarPublicId); } catch {}
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set: { avatarUrl: uploadResult.secure_url, avatarPublicId: uploadResult.public_id } },
+      { new: true }
+    ).select('name email gender location avatarUrl');
+
+    // Cleanup temp file
+    try { fs.unlink(file.path, () => {}); } catch {}
+
+    res.json({ message: 'Avatar updated', user: updated });
+  } catch (err) {
+    console.error('Error updating avatar:', err);
+    res.status(500).json({ error: err.message || 'Failed to update avatar' });
   }
 };

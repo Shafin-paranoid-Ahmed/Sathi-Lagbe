@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, X, MessageCircle } from 'lucide-react';
-import axios from 'axios';
 import socketService from '../services/socketService';
+import { API } from '../api/auth';
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
@@ -28,10 +28,7 @@ const NotificationBell = () => {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/notifications`,
-        { headers: { "Authorization": `Bearer ${token}` } }
-      );
+      const response = await API.get('/notifications');
       setNotifications(response.data);
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -42,10 +39,7 @@ const NotificationBell = () => {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/notifications/unread-count`,
-        { headers: { "Authorization": `Bearer ${token}` } }
-      );
+      const response = await API.get('/notifications/unread-count');
       setUnreadCount(response.data.count);
     } catch (error) {
       console.error('Error fetching unread count:', error);
@@ -54,11 +48,7 @@ const NotificationBell = () => {
 
   const markAsRead = async (notificationId) => {
     try {
-      await axios.patch(
-        `${import.meta.env.VITE_API_URL}/notifications/${notificationId}/read`,
-        {},
-        { headers: { "Authorization": `Bearer ${token}` } }
-      );
+      await API.patch(`/notifications/${notificationId}/read`);
       
       setNotifications(prev => 
         prev.map(notif => 

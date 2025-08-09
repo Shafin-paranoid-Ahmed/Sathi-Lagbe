@@ -12,13 +12,13 @@ const isBracuEmail = (email) => /^[^@\s]+@(?:g\.)?bracu\.ac\.bd$/i.test(email);
  */
 const registerUser = async (req, res) => {
     try {
-        const { name, email, password, gender, location } = req.body;
+        const { name, email, password, gender, location, phone } = req.body;
 
         // Validate required fields
-        if (!email || !password) {
+        if (!name || !email || !password || !phone) {
             return res.status(400).json({ 
-                error: "Email and password are required",
-                message: "Email and password are required" 
+                error: "Name, email, password and phone are required",
+                message: "Missing required fields" 
             });
         }
 
@@ -43,13 +43,23 @@ const registerUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
+        // Validate Bangladeshi phone: +880 followed by 10 digits
+        const bdPhoneRegex = /^\+880\d{10}$/;
+        if (!bdPhoneRegex.test(phone)) {
+            return res.status(400).json({
+                error: "Phone must be in Bangladeshi format +880XXXXXXXXXX (10 digits)",
+                message: "Invalid phone number format"
+            });
+        }
+
         // Create new user
         const user = new User({
             email,
             password: hashedPassword,
-            name: name || email.split('@')[0], // Use part of email as name if not provided
+            name,
             gender,
             location,
+            phone,
             preferences: {
                 darkMode: false
             }
@@ -140,7 +150,9 @@ const loginUser = async (req, res) => {
             email: user.email,
             gender: user.gender,
             location: user.location,
-            preferences: user.preferences
+            phone: user.phone,
+            preferences: user.preferences,
+            avatarUrl: user.avatarUrl || ''
         };
 
         // Return token and user data
@@ -194,7 +206,9 @@ const verifyToken = async (req, res) => {
             email: user.email,
             gender: user.gender,
             location: user.location,
-            preferences: user.preferences
+            phone: user.phone,
+            preferences: user.preferences,
+            avatarUrl: user.avatarUrl || ''
         };
 
         res.json({
