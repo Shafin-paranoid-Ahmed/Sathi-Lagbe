@@ -106,12 +106,12 @@ const NotificationBell = () => {
 
       {/* Notification Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
-          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Notifications</h3>
+        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-96 overflow-y-auto">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Notifications</h3>
             <button
               onClick={() => setIsOpen(false)}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
               <X className="w-5 h-5" />
             </button>
@@ -119,16 +119,16 @@ const NotificationBell = () => {
 
           <div className="p-2">
             {loading ? (
-              <div className="text-center py-4 text-gray-500">Loading...</div>
+              <div className="text-center py-4 text-gray-500 dark:text-gray-400">Loading...</div>
             ) : notifications.length === 0 ? (
-              <div className="text-center py-4 text-gray-500">No notifications</div>
+              <div className="text-center py-4 text-gray-500 dark:text-gray-400">No notifications</div>
             ) : (
               notifications.map((notification) => (
                 <div
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                    !notification.isRead ? 'bg-blue-50' : ''
+                  className={`p-3 border-b border-gray-100 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                    !notification.isRead ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                   }`}
                 >
                   <div className="flex items-start space-x-3">
@@ -138,13 +138,13 @@ const NotificationBell = () => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {notification.title}
                       </p>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                         {notification.message}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                         {formatTime(notification.createdAt)}
                       </p>
                     </div>

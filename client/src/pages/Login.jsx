@@ -58,8 +58,8 @@ export default function Login({ setIsAuthenticated }) {
       // Update authentication state
       setIsAuthenticated(true);
       
-      // Navigate to success page
-      navigate('/chat');
+      // Navigate to home page instead of chat
+      navigate('/home');
     } catch (err) {
       console.error('Login error:', err);
       setError(err.response?.data?.message || err.response?.data?.error || 'Login failed');

@@ -107,113 +107,106 @@ export default function RideCoordination() {
   if (error) return <div className="p-4 text-red-500">{error}</div>;
 
   return (
-    <div className="max-w-xl mx-auto p-6 bg-white rounded-lg shadow space-y-6">
-      <h2 className="text-2xl font-semibold">Manage Ride</h2>
-
-      {/* Ride details */}
-      <div className="space-y-1">
-        <p><strong>From:</strong> {ride.startLocation}</p>
-        <p><strong>To:</strong> {ride.endLocation}</p>
-        <p><strong>Departure:</strong> {new Date(ride.departureTime).toLocaleString()}</p>
-      </div>
-
-      {/* Map View */}
-      {ride && ride.startLocation && ride.endLocation && (
-        <div className="my-4">
-          <h3 className="text-xl font-medium mb-2">Ride Route</h3>
-          <MapView startLocation={ride.startLocation} endLocation={ride.endLocation} />
-        </div>
-      )}
-
-      {/* Pending Requests */}
-      <div>
-        <h3 className="text-xl font-medium mb-2">Pending Requests</h3>
-        {ride.requestedRiders.length === 0 ? (
-          <div className="flex items-center text-gray-600 space-x-2">
-            <InboxIcon className="w-5 h-5" />
-            <span>No pending requests.</span>
+    <div className="max-w-xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow space-y-6 border border-gray-200 dark:border-gray-700">
+      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Ride Coordination</h2>
+      
+      {loading ? (
+        <p className="text-gray-600 dark:text-gray-400">Loading ride details...</p>
+      ) : error ? (
+        <p className="text-red-600 dark:text-red-400">{error}</p>
+      ) : ride ? (
+        <div className="space-y-4">
+          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Ride Details</h3>
+            <p className="text-gray-700 dark:text-gray-300">
+              <strong>From:</strong> {ride.startLocation} <strong>To:</strong> {ride.endLocation}
+            </p>
+            <p className="text-gray-700 dark:text-gray-300">
+              <strong>Departure:</strong> {new Date(ride.departureTime).toLocaleString()}
+            </p>
+            <p className="text-gray-700 dark:text-gray-300">
+              <strong>Available Seats:</strong> {ride.availableSeats}
+            </p>
           </div>
-        ) : (
-          ride.requestedRiders.map(u => (
-            <div key={u._id} className="flex justify-between items-center border p-3 rounded mb-2">
-              <span>{u.name} ({u.email})</span>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleConfirm(u._id)}
-                  disabled={!!actionsDisabled[u._id]}
-                  className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                >
-                  <UserCheckIcon className="w-4 h-4 inline mr-1" />
-                  Confirm
-                </button>
-                <button
-                  onClick={() => handleDeny(u._id)}
-                  disabled={!!actionsDisabled[u._id]}
-                  className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                >
-                  <TrashIcon className="w-4 h-4 inline mr-1" />
-                  Deny
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
 
-      {/* Confirmed Riders + Rating UI */}
-      <div>
-        <h3 className="text-xl font-medium mb-2">Confirmed Riders</h3>
-        {ride.confirmedRiders.length === 0 ? (
-          <div className="flex items-center text-gray-600 space-x-2">
-            <InboxIcon className="w-5 h-5" />
-            <span>No confirmed riders yet.</span>
-          </div>
-        ) : (
-          ride.confirmedRiders.map(u => (
-            <div key={u._id} className="border p-4 rounded mb-4">
-              <p className="font-medium mb-2">{u.name} ({u.email})</p>
-
-              {/* Rating form for this user */}
+          {ride.requestedRiders && ride.requestedRiders.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Pending Requests</h3>
               <div className="space-y-2">
-                <div>
-                  <label className="block text-sm font-medium">Score:</label>
-                  <select
-                    value={ratingInputs[u._id]?.score || ''}
-                    onChange={e => handleRatingChange(u._id, 'score', e.target.value)}
-                    disabled={!!actionsDisabled[u._id]}
-                    className="mt-1 block w-24 border border-gray-300 p-1 rounded disabled:opacity-50"
-                  >
-                    <option value="">Select</option>
-                    {[1,2,3,4,5].map(num => (
-                      <option key={num} value={num}>{num}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium">Comment (optional):</label>
-                  <textarea
-                    rows="2"
-                    value={ratingInputs[u._id]?.comment || ''}
-                    onChange={e => handleRatingChange(u._id, 'comment', e.target.value)}
-                    disabled={!!actionsDisabled[u._id]}
-                    className="mt-1 block w-full border border-gray-300 p-1 rounded disabled:opacity-50"
-                  />
-                </div>
-                <button
-                  onClick={() => submitRating(u._id)}
-                  disabled={!!actionsDisabled[u._id]}
-                  className="px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                >Submit Rating</button>
-                {ratingStatus[u._id] && (
-                  <p className={`mt-1 text-sm ${ratingStatus[u._id].includes('Rating submitted') ? 'text-green-600' : 'text-red-600'}`}>
-                    {ratingStatus[u._id]}
-                  </p>
-                )}
+                {ride.requestedRiders.map((rider) => (
+                  <div key={rider._id} className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">{rider.name || rider.email}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Requested to join</p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleConfirm(rider._id)}
+                        className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        onClick={() => handleDeny(rider._id)}
+                        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                      >
+                        Deny
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))
-        )}
-      </div>
+          )}
+
+          {ride.confirmedRiders && ride.confirmedRiders.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Confirmed Riders</h3>
+              <div className="space-y-2">
+                {ride.confirmedRiders.map((rider) => (
+                  <div key={rider._id} className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{rider.name || rider.email}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Confirmed</p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Rating:</span>
+                        <select
+                          value={ratingInputs[rider._id]?.score || ''}
+                          onChange={(e) => handleRatingChange(rider._id, 'score', e.target.value)}
+                          className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        >
+                          <option value="">Select</option>
+                          {[1, 2, 3, 4, 5].map(num => (
+                            <option key={num} value={num}>{num}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => submitRating(rider._id)}
+                          disabled={!ratingInputs[rider._id]?.score}
+                          className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                        >
+                          Rate
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(!ride.requestedRiders || ride.requestedRiders.length === 0) && 
+           (!ride.confirmedRiders || ride.confirmedRiders.length === 0) && (
+            <p className="text-gray-600 dark:text-gray-400 text-center py-4">
+              No riders have joined this ride yet.
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-gray-600 dark:text-gray-400">Ride not found.</p>
+      )}
     </div>
   );
 }
