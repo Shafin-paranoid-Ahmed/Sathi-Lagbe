@@ -134,13 +134,32 @@ exports.getAllChats = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
     
+    console.log('getAllChats called for user:', userId);
+    
+    // First, get chats without populating lastMessage to avoid potential errors
     const chats = await Chat.find({ members: { $in: [userId] } })
       .populate('members', 'name email')
-      .populate('lastMessage')
       .sort({ updatedAt: -1 });
     
+    // Manually populate lastMessage for each chat with error handling
+    const populatedChats = await Promise.all(chats.map(async (chat) => {
+      try {
+        const chatObj = chat.toObject();
+        if (chatObj.lastMessage) {
+          const lastMessage = await Message.findById(chatObj.lastMessage)
+            .populate('sender', 'name email');
+          chatObj.lastMessage = lastMessage;
+        }
+        return chatObj;
+      } catch (err) {
+        console.error('Error populating lastMessage for chat:', chat._id, err);
+        // Return chat without lastMessage if there's an error
+        return chat.toObject();
+      }
+    }));
+    
     // If no chats found, return empty array instead of error
-    if (!chats || chats.length === 0) {
+    if (!populatedChats || populatedChats.length === 0) {
       return res.status(200).json({
         message: 'No chats found',
         success: true,
@@ -151,11 +170,15 @@ exports.getAllChats = async (req, res) => {
     res.status(200).json({
       message: 'Chats fetched successfully',
       success: true,
-      data: chats
+      data: populatedChats
     });
   } catch (err) {
     console.error('Error fetching chats:', err);
-    res.status(500).json({ error: err.message || 'Failed to fetch chats' });
+    console.error('Error stack:', err.stack);
+    res.status(500).json({ 
+      error: err.message || 'Failed to fetch chats',
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 };
 
