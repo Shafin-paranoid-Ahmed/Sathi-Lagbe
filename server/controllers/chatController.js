@@ -134,28 +134,57 @@ exports.getAllChats = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
     
+    console.log('getAllChats called for user:', userId);
+    console.log('User object:', req.user);
+    
+    // Import Message model at the top if not already imported
+    const Message = require('../models/Message');
+    
+    // First, get chats without populating lastMessage to avoid potential errors
     const chats = await Chat.find({ members: { $in: [userId] } })
       .populate('members', 'name email')
-      .populate('lastMessage')
-      .sort({ updatedAt: -1 });
+      .sort({ updatedAt: -1 })
+      .lean(); // Use lean() for better performance
     
-    // If no chats found, return empty array instead of error
-    if (!chats || chats.length === 0) {
-      return res.status(200).json({
-        message: 'No chats found',
-        success: true,
-        data: []
-      });
-    }
-      
+    console.log(`Found ${chats.length} chats for user ${userId}`);
+    
+    // Manually populate lastMessage for each chat with error handling
+    const populatedChats = await Promise.all(chats.map(async (chat) => {
+      try {
+        if (chat.lastMessage) {
+          console.log(`Populating lastMessage ${chat.lastMessage} for chat ${chat._id}`);
+          const lastMessage = await Message.findById(chat.lastMessage)
+            .populate('sender', 'name email')
+            .lean();
+          if (lastMessage) {
+            chat.lastMessage = lastMessage;
+          } else {
+            console.log(`Message ${chat.lastMessage} not found for chat ${chat._id}`);
+            chat.lastMessage = null;
+          }
+        }
+        return chat;
+      } catch (err) {
+        console.error('Error populating lastMessage for chat:', chat._id, err);
+        // Return chat without lastMessage if there's an error
+        chat.lastMessage = null;
+        return chat;
+      }
+    }));
+    
+    // Return response with data
     res.status(200).json({
       message: 'Chats fetched successfully',
       success: true,
-      data: chats
+      data: populatedChats || []
     });
   } catch (err) {
     console.error('Error fetching chats:', err);
-    res.status(500).json({ error: err.message || 'Failed to fetch chats' });
+    console.error('Error stack:', err.stack);
+    res.status(500).json({ 
+      error: err.message || 'Failed to fetch chats',
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 };
 
