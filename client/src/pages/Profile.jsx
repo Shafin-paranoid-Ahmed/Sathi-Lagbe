@@ -10,7 +10,8 @@ export default function Profile() {
     gender: '',
     location: '',
     phone: '+880',
-    preferences: { darkMode: false }
+    preferences: { darkMode: false },
+    bracuId: ''
   });
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,7 @@ export default function Profile() {
           gender: response.data.user.gender || '',
           location: response.data.user.location || '',
           phone: response.data.user.phone || '+880',
+          bracuId: response.data.user.bracuId || '',
           preferences: response.data.user.preferences || { darkMode: false }
         });
         setAvatarPreview(response.data.user.avatarUrl || '');
@@ -97,7 +99,8 @@ export default function Profile() {
         name: profile.name,
         location: profile.location,
         gender: profile.gender,
-        phone: profile.phone
+        phone: profile.phone,
+        bracuId: profile.bracuId
       });
 
       setSuccess('Profile updated successfully!');
@@ -106,6 +109,11 @@ export default function Profile() {
       if (profile.name) {
         sessionStorage.setItem('userName', profile.name);
       }
+      
+      // Dispatch custom event to notify other components about the name change
+      window.dispatchEvent(new CustomEvent('userNameChanged', { 
+        detail: { userName: profile.name } 
+      }));
     } catch (err) {
       console.error('Error updating profile:', err);
       setError(err.response?.data?.error || 'Failed to update profile');
@@ -257,6 +265,21 @@ export default function Profile() {
           </div>
 
           <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                BRACU ID
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={profile.bracuId}
+                  onChange={(e) => setProfile({ ...profile, bracuId: e.target.value })}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              ) : (
+                <p className="text-gray-900 dark:text-white">{profile.bracuId || 'Not set'}</p>
+              )}
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Name

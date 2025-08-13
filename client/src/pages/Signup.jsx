@@ -10,6 +10,7 @@ export default function Signup() {
   const [password, setPass] = useState('');
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
+  const [bracuId, setBracuId] = useState('');
   const [gender, setGender] = useState('');
   const [phone, setPhone] = useState('+880');
   const [loading, setLoading] = useState(false);
@@ -31,6 +32,11 @@ export default function Signup() {
         setLoading(false);
         return;
       }
+      if (!bracuId.trim()) {
+        setError('BRACU ID is required');
+        setLoading(false);
+        return;
+      }
       // Validate Bangladeshi phone: +880 followed by 10 digits
       const bdPhoneRegex = /^\+880\d{10}$/;
       if (!bdPhoneRegex.test(phone)) {
@@ -46,7 +52,8 @@ export default function Signup() {
         name,
         location,
         gender,
-        phone
+        phone,
+        bracuId
       });
       navigate('/signup-success');
     } catch (err) {
@@ -73,6 +80,17 @@ export default function Signup() {
         )}
 
         <label className="block mb-2 text-gray-700 dark:text-gray-300">
+          BRACU ID
+          <input
+            type="text"
+            required
+            value={bracuId}
+            onChange={e => setBracuId(e.target.value)}
+            className="mt-1 w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-gray-700 dark:border-gray-600"
+          />
+        </label>
+
+        <label className="block mb-2 text-gray-700 dark:text-gray-300">
           Name
           <input
             type="text"
@@ -94,15 +112,7 @@ export default function Signup() {
           />
         </label>
 
-        <label className="block mb-2 text-gray-700 dark:text-gray-300">
-          Name (optional)
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            className="mt-1 w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-gray-700 dark:border-gray-600"
-          />
-        </label>
+        
 
         <label className="block mb-2 text-gray-700 dark:text-gray-300">
           Gender (optional)

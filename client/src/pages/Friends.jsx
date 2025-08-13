@@ -262,11 +262,15 @@ export default function Friends() {
                 <div key={friend.friendshipId} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                   <div className="flex items-center space-x-3">
                     <div className="flex-shrink-0">
-                      <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-semibold">
-                          {friend.friend.name ? friend.friend.name.charAt(0).toUpperCase() : 'U'}
-                        </span>
-                      </div>
+                      {friend.friend.avatarUrl ? (
+                        <img src={friend.friend.avatarUrl} alt={friend.friend.name} className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
+                          <span className="text-white font-semibold">
+                            {friend.friend.name ? friend.friend.name.charAt(0).toUpperCase() : 'U'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
@@ -316,11 +320,15 @@ export default function Friends() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="flex-shrink-0">
-                        <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
-                          <span className="text-white font-semibold">
-                            {request.user.name ? request.user.name.charAt(0).toUpperCase() : 'U'}
-                          </span>
-                        </div>
+                        {request.user.avatarUrl ? (
+                          <img src={request.user.avatarUrl} alt={request.user.name} className="h-10 w-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-semibold">
+                              {request.user.name ? request.user.name.charAt(0).toUpperCase() : 'U'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -369,13 +377,17 @@ export default function Friends() {
               {pendingRequests.map(request => (
                 <div key={request._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                   <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-semibold">
-                          {request.friend.name ? request.friend.name.charAt(0).toUpperCase() : 'U'}
-                        </span>
+                      <div className="flex-shrink-0">
+                        {request.friend.avatarUrl ? (
+                          <img src={request.friend.avatarUrl} alt={request.friend.name} className="h-10 w-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-semibold">
+                              {request.friend.name ? request.friend.name.charAt(0).toUpperCase() : 'U'}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {request.friend.name || 'Unknown User'}
@@ -438,11 +450,15 @@ export default function Friends() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="flex-shrink-0">
-                        <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
-                          <span className="text-white font-semibold">
-                            {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                          </span>
-                        </div>
+                        {user.avatarUrl ? (
+                          <img src={user.avatarUrl} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-semibold">
+                              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -505,11 +521,15 @@ export default function Friends() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="flex-shrink-0">
-                          <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-semibold">
-                              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                            </span>
-                          </div>
+                          {user.avatarUrl ? (
+                            <img src={user.avatarUrl} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold">
+                                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                              </span>
+                            </div>
+                          )}
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">

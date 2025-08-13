@@ -84,6 +84,21 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     fetchCurrentStatus();
   }, []);
 
+  // Listen for userName changes from Profile component
+  useEffect(() => {
+    const handleUserNameChange = (event) => {
+      const newUserName = event.detail.userName;
+      setUserName(newUserName);
+      console.log('UserName updated in ArgonLayout:', newUserName);
+    };
+
+    window.addEventListener('userNameChanged', handleUserNameChange);
+    
+    return () => {
+      window.removeEventListener('userNameChanged', handleUserNameChange);
+    };
+  }, []);
+
   // Ensure socket connection once user is authenticated
   useEffect(() => {
     const token = sessionStorage.getItem('token');

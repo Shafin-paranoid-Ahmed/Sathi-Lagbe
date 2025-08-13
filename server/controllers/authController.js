@@ -12,12 +12,12 @@ const isBracuEmail = (email) => /^[^@\s]+@(?:g\.)?bracu\.ac\.bd$/i.test(email);
  */
 const registerUser = async (req, res) => {
     try {
-        const { name, email, password, gender, location, phone } = req.body;
+        const { name, email, password, gender, location, phone, bracuId } = req.body;
 
         // Validate required fields
-        if (!name || !email || !password || !phone) {
+        if (!name || !email || !password || !phone || !bracuId) {
             return res.status(400).json({ 
-                error: "Name, email, password and phone are required",
+                error: "Name, email, password, phone and BRACU ID are required",
                 message: "Missing required fields" 
             });
         }
@@ -52,6 +52,12 @@ const registerUser = async (req, res) => {
             });
         }
 
+        // Ensure unique BRACU ID
+        const existingId = await User.findOne({ bracuId });
+        if (existingId) {
+            return res.status(400).json({ error: 'BRACU ID already exists' });
+        }
+
         // Create new user
         const user = new User({
             email,
@@ -60,6 +66,7 @@ const registerUser = async (req, res) => {
             gender,
             location,
             phone,
+            bracuId,
             preferences: {
                 darkMode: false
             }
@@ -87,18 +94,20 @@ const registerUser = async (req, res) => {
  */
 const loginUser = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, bracuId } = req.body;
 
-        // Validate input
-        if (!email || !password) {
+        // Validate input (allow either email or BRACU ID)
+        if ((!email && !bracuId) || !password) {
             return res.status(400).json({ 
-                error: "Email and password are required",
-                message: "Missing email or password" 
+                error: "Email/BRACU ID and password are required",
+                message: "Missing credentials" 
             });
         }
 
-        // Find user
-        const user = await User.findOne({ email });
+        // Find user by email or BRACU ID
+        const user = email 
+            ? await User.findOne({ email })
+            : await User.findOne({ bracuId });
         if (!user) {
             return res.status(404).json({
                 error: "User not found",
@@ -106,8 +115,8 @@ const loginUser = async (req, res) => {
             });
         }
 
-        // Ensure user is using BRACU email
-        if (!isBracuEmail(user.email)) {
+        // Ensure user is using BRACU email when logging in via email
+        if (email && !isBracuEmail(user.email)) {
             return res.status(401).json({
                 error: "Only BRACU emails are allowed",
                 message: "Only BRACU emails are allowed"
@@ -137,7 +146,8 @@ const loginUser = async (req, res) => {
             { 
                 id: user._id,          // Sathi_Lagbe format
                 userId: user._id,       // ONLYGWUB format
-                email: user.email 
+                email: user.email,
+                bracuId: user.bracuId 
             },
             secret,
             { expiresIn: '3d' }
@@ -151,6 +161,7 @@ const loginUser = async (req, res) => {
             gender: user.gender,
             location: user.location,
             phone: user.phone,
+            bracuId: user.bracuId,
             preferences: user.preferences,
             avatarUrl: user.avatarUrl || ''
         };
