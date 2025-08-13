@@ -114,7 +114,7 @@ export default function Login({ setIsAuthenticated }) {
               type="text"
               value={bracuId}
               onChange={e => setBracuId(e.target.value)}
-              placeholder="e.g., 2010xxxx"
+              placeholder="e.g., 2220xxxx"
               className="mt-1 w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-gray-700 dark:border-gray-600"
             />
           </label>
