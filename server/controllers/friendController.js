@@ -1,6 +1,7 @@
 // server/controllers/friendController.js - Refactored to use new Friend model
 const Friend = require('../models/Friend');
 const User = require('../models/User');
+const { getIO } = require('../utils/socket');
 const SosContact = require('../models/sosContact');
 
 /**
@@ -48,6 +49,15 @@ exports.sendFriendRequest = async (req, res) => {
 
     // Populate user details for response
     await friendRequest.populate('friend', 'name email profilePicture');
+
+    // Realtime update for both users
+    try {
+      const io = getIO();
+      io.to(`user_${userId}`).emit('friends_updated', { reason: 'request_sent' });
+      io.to(`user_${friendId}`).emit('friends_updated', { reason: 'request_received' });
+    } catch (e) {
+      console.warn('friends_updated emit failed:', e?.message);
+    }
 
     res.status(201).json({
       message: 'Friend request sent successfully',
@@ -106,6 +116,15 @@ exports.acceptFriendRequest = async (req, res) => {
     // Populate user details for response
     await friendRequest.populate('user', 'name email profilePicture');
 
+    // Realtime update for both users
+    try {
+      const io = getIO();
+      io.to(`user_${friendRequest.user}`).emit('friends_updated', { reason: 'request_accepted' });
+      io.to(`user_${friendRequest.friend}`).emit('friends_updated', { reason: 'request_accepted' });
+    } catch (e) {
+      console.warn('friends_updated emit failed:', e?.message);
+    }
+
     res.json({
       message: 'Friend request accepted',
       friendRequest
@@ -141,6 +160,15 @@ exports.rejectFriendRequest = async (req, res) => {
     friendRequest.status = 'rejected';
     await friendRequest.save();
 
+    // Realtime update for both users
+    try {
+      const io = getIO();
+      io.to(`user_${friendRequest.user}`).emit('friends_updated', { reason: 'request_rejected' });
+      io.to(`user_${friendRequest.friend}`).emit('friends_updated', { reason: 'request_rejected' });
+    } catch (e) {
+      console.warn('friends_updated emit failed:', e?.message);
+    }
+
     res.json({
       message: 'Friend request rejected',
       friendRequest
@@ -157,18 +185,17 @@ exports.rejectFriendRequest = async (req, res) => {
 exports.getFriendRequests = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    const { status } = req.query;
+    const { status, scope } = req.query;
 
-    let query = {
-      $or: [
-        { user: userId },
-        { friend: userId }
-      ]
-    };
-
-    if (status) {
-      query.status = status;
+    let query = {};
+    if (scope === 'incoming') {
+      query.friend = userId;
+    } else if (scope === 'outgoing') {
+      query.user = userId;
+    } else {
+      query.$or = [{ user: userId }, { friend: userId }];
     }
+    if (status) query.status = status;
 
     const friendRequests = await Friend.find(query)
       .populate('user', 'name email profilePicture')
@@ -244,6 +271,15 @@ exports.removeFriend = async (req, res) => {
     res.json({
       message: 'Friend removed successfully'
     });
+
+    // Realtime update for both users
+    try {
+      const io = getIO();
+      io.to(`user_${friendship.user}`).emit('friends_updated', { reason: 'friend_removed' });
+      io.to(`user_${friendship.friend}`).emit('friends_updated', { reason: 'friend_removed' });
+    } catch (e) {
+      console.warn('friends_updated emit failed:', e?.message);
+    }
   } catch (err) {
     console.error('Error removing friend:', err);
     res.status(500).json({ error: err.message || 'Failed to remove friend' });

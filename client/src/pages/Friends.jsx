@@ -27,7 +27,8 @@ export default function Friends() {
 
   const fetchFriendRequests = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/friends/requests?status=pending', {
+      // Incoming requests to me
+      const response = await axios.get('http://localhost:5000/api/friends/requests?status=pending&scope=incoming', {
         headers: { "Authorization": token }
       });
       setFriendRequests(response.data);
@@ -38,7 +39,8 @@ export default function Friends() {
 
   const fetchPendingRequests = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/friends/requests?status=pending', {
+      // Outgoing requests I sent
+      const response = await axios.get('http://localhost:5000/api/friends/requests?status=pending&scope=outgoing', {
         headers: { "Authorization": token }
       });
       setPendingRequests(response.data);
@@ -93,7 +95,7 @@ export default function Friends() {
       );
       // Refresh pending requests
       await fetchPendingRequests();
-      // Remove user from allUsers and searchResults to avoid duplicate requests
+      // Remove user from add list and search results to avoid duplicates
       setAllUsers(prev => prev.filter(user => user._id !== userId));
       setSearchResults(prev => prev.filter(user => user._id !== userId));
     } catch (err) {
@@ -113,6 +115,27 @@ export default function Friends() {
       setLoading(false);
     };
     loadData();
+  }, []);
+
+  // Real-time updates
+  useEffect(() => {
+    const handler = () => {
+      // Refresh all lists on any friends_updated event
+      Promise.all([
+        fetchFriends(),
+        fetchFriendRequests(),
+        fetchPendingRequests(),
+        fetchAllUsers()
+      ]).catch(() => {});
+    };
+    try {
+      const socket = window?.debugSocket?.socket || null;
+      // Fallback: use our socketService singleton
+      const { default: socketService } = require('../services/socketService');
+      socketService.onNewNotification(() => {}); // ensure initialized
+      socketService.socket?.on?.('friends_updated', handler);
+      return () => socketService.socket?.off?.('friends_updated', handler);
+    } catch {}
   }, []);
 
   const handleAcceptRequest = async (requestId) => {
@@ -464,7 +487,20 @@ export default function Friends() {
                   <p className="text-gray-500 dark:text-gray-400">No users available</p>
                 </div>
               ) : (
-                allUsers.map(user => (
+                // Filter out myself, current friends, and users with any pending/accepted request either direction
+                allUsers
+                  .filter(user => {
+                    const myId = sessionStorage.getItem('userId');
+                    if (user._id === myId) return false; // not myself
+                    const isFriend = friends.some(f => f.friend?._id === user._id);
+                    if (isFriend) return false;
+                    const hasIncomingPending = friendRequests.some(r => r.user?._id === user._id);
+                    if (hasIncomingPending) return false;
+                    const hasOutgoingPending = pendingRequests.some(r => r.friend?._id === user._id);
+                    if (hasOutgoingPending) return false;
+                    return true;
+                  })
+                  .map(user => (
                   <div key={user._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">

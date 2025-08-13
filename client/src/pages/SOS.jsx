@@ -83,6 +83,11 @@ export default function Sos() {
         setError('Invalid friend selected');
         return;
       }
+      // Prevent duplicates (by userId)
+      if (contacts.some(c => c.userId === friend._id)) {
+        setError('This contact is already added');
+        return;
+      }
       const contactToAdd = { name: friend.name, phone: friend.phone || '(in-app user)', userId: friend._id };
       setContacts(prev => [...prev, contactToAdd]);
       setSelectedFriendId('');
@@ -92,6 +97,11 @@ export default function Sos() {
     } else {
       if (!newContact.name || !newContact.phone) {
         setError('Name and phone are required');
+        return;
+      }
+      // Prevent duplicates (by phone)
+      if (contacts.some(c => c.phone === newContact.phone)) {
+        setError('This phone number is already added');
         return;
       }
       setContacts(prev => [...prev, newContact]);
