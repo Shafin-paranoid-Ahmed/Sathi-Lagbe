@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { UserGroupIcon, CheckCircleIcon, XCircleIcon, UserPlusIcon, ClockIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { 
+  UserGroupIcon, 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  UserPlusIcon, 
+  ClockIcon, 
+  MagnifyingGlassIcon,
+  WifiIcon,
+  BookOpenIcon,
+  ExclamationTriangleIcon
+} from '@heroicons/react/24/outline';
+import React from 'react'; // Added missing import for React
 
 export default function Friends() {
   const [friends, setFriends] = useState([]);
@@ -13,6 +24,25 @@ export default function Friends() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('friends'); // 'friends', 'requests', 'pending', 'add'
   const token = sessionStorage.getItem('token');
+
+  // Helper function to get status icon and color
+  const getStatusIcon = (statusValue) => {
+    const status = String(statusValue || '').toLowerCase();
+    switch (status) {
+      case 'available':
+        return { icon: WifiIcon, color: 'text-green-600', label: 'Available' };
+      case 'free':
+        return { icon: CheckCircleIcon, color: 'text-orange-600', label: 'Free' };
+      case 'busy':
+        return { icon: ExclamationTriangleIcon, color: 'text-red-600', label: 'Busy' };
+      case 'in_class':
+        return { icon: BookOpenIcon, color: 'text-blue-600', label: 'In Class' };
+      case 'studying':
+        return { icon: BookOpenIcon, color: 'text-purple-600', label: 'Studying' };
+      default:
+        return { icon: WifiIcon, color: 'text-gray-400', label: 'No status' };
+    }
+  };
 
   const fetchFriends = async () => {
     try {
@@ -117,10 +147,10 @@ export default function Friends() {
     loadData();
   }, []);
 
-  // Real-time updates
+  // Listen for real-time friend updates
   useEffect(() => {
     const handler = () => {
-      // Refresh all lists on any friends_updated event
+      // Refresh all friend-related data
       Promise.all([
         fetchFriends(),
         fetchFriendRequests(),
@@ -128,14 +158,16 @@ export default function Friends() {
         fetchAllUsers()
       ]).catch(() => {});
     };
+    
     try {
-      const socket = window?.debugSocket?.socket || null;
-      // Fallback: use our socketService singleton
-      const { default: socketService } = require('../services/socketService');
-      socketService.onNewNotification(() => {}); // ensure initialized
-      socketService.socket?.on?.('friends_updated', handler);
-      return () => socketService.socket?.off?.('friends_updated', handler);
-    } catch {}
+      // Use socketService for real-time updates
+      import('../services/socketService').then(({ default: socketService }) => {
+        socketService.socket?.on?.('friends_updated', handler);
+        return () => socketService.socket?.off?.('friends_updated', handler);
+      });
+    } catch (error) {
+      console.warn('Socket service not available:', error);
+    }
   }, []);
 
   const handleAcceptRequest = async (requestId) => {
@@ -276,9 +308,12 @@ export default function Friends() {
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {friend.friend.name || 'Unknown User'}
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                        {friend.friend.status?.current || 'No status'}
-                      </p>
+                      <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                        {React.createElement(getStatusIcon(friend.friend.status?.current).icon, {
+                          className: `mr-1 h-4 w-4 ${getStatusIcon(friend.friend.status?.current).color}`
+                        })}
+                        <span>{getStatusIcon(friend.friend.status?.current).label}</span>
+                      </div>
                       {friend.friend.status?.location && (
                         <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
                           📍 {friend.friend.status.location}
@@ -467,6 +502,14 @@ export default function Friends() {
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                           {user.email}
                         </p>
+                        {user.status?.current && (
+                          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                            {React.createElement(getStatusIcon(user.status.current).icon, {
+                              className: `mr-1 h-3 w-3 ${getStatusIcon(user.status.current).color}`
+                            })}
+                            <span>{getStatusIcon(user.status.current).label}</span>
+                          </div>
+                        )}
                         {user.location && (
                           <p className="text-xs text-gray-400 dark:text-gray-500">
                             📍 {user.location}
@@ -538,6 +581,14 @@ export default function Friends() {
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             {user.email}
                           </p>
+                          {user.status?.current && (
+                            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                              {React.createElement(getStatusIcon(user.status.current).icon, {
+                                className: `mr-1 h-3 w-3 ${getStatusIcon(user.status.current).color}`
+                              })}
+                              <span>{getStatusIcon(user.status.current).label}</span>
+                            </div>
+                          )}
                           {user.location && (
                             <p className="text-xs text-gray-400 dark:text-gray-500">
                               📍 {user.location}

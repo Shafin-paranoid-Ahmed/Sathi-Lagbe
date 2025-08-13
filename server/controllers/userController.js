@@ -136,9 +136,16 @@ exports.updateStatus = async (req, res) => {
       { new: true }
     ).select('name email status');
     
-    // Send notification to friends about status change
-    const notificationService = require('../services/notificationService');
-    await notificationService.sendStatusChangeNotification(userId, status, location);
+    // Send notification to friends only when user becomes 'available' or 'free'
+    try {
+      const shouldNotify = ['available', 'free'].includes(String(status).toLowerCase());
+      if (shouldNotify) {
+        const notificationService = require('../services/notificationService');
+        await notificationService.sendStatusChangeNotification(userId, status, location);
+      }
+    } catch (notifyErr) {
+      console.warn('Status change notification skipped/failed:', notifyErr?.message);
+    }
     
     res.json(user);
   } catch (err) {
