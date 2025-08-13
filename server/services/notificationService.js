@@ -4,6 +4,55 @@ const Friend = require('../models/Friend');
 const { getIO } = require('../utils/socket');
 
 class NotificationService {
+  // Send SOS notification to specific recipients with location data
+  async sendSosNotification({ recipientIds, senderId, location, latitude, longitude, message }) {
+    try {
+      console.log('=== SOS NOTIFICATION SERVICE DEBUG ===');
+      console.log('Recipient IDs:', recipientIds);
+      console.log('Sender ID:', senderId);
+      
+      const sender = await User.findById(senderId);
+      if (!sender) {
+        console.error('Sender not found for ID:', senderId);
+        throw new Error('Sender not found');
+      }
+      console.log('Sender found:', sender.name, sender.email);
+
+      const notifications = [];
+      for (const recipientId of recipientIds) {
+        console.log('Creating notification for recipient:', recipientId);
+        const notification = new Notification({
+          recipient: recipientId,
+          sender: senderId,
+          type: 'sos',
+          title: `${sender.name || 'A friend'} sent an SOS!`,
+          message: message || `${sender.name || 'A friend'} needs help${location ? ` at ${location}` : ''}.`,
+          data: {
+            userId: senderId,
+            userName: sender.name,
+            location: location || '',
+            coordinates: latitude && longitude ? { latitude, longitude } : undefined,
+            timestamp: new Date()
+          }
+        });
+        notifications.push(notification);
+      }
+
+      if (notifications.length) {
+        console.log('Saving', notifications.length, 'notifications to database');
+        const savedNotifications = await Notification.insertMany(notifications);
+        console.log('Notifications saved:', savedNotifications.map(n => n._id));
+        
+        console.log('Sending realtime notifications');
+        this.sendRealtimeNotifications(savedNotifications);
+      }
+
+      return notifications;
+    } catch (error) {
+      console.error('Error sending SOS notification:', error);
+      throw error;
+    }
+  }
   // Send status change notification to all friends
   async sendStatusChangeNotification(userId, newStatus, location = '') {
     try {
@@ -78,18 +127,34 @@ class NotificationService {
 
   // Send real-time notifications via socket
   sendRealtimeNotifications(notifications) {
-    const io = getIO();
-    
-    notifications.forEach(notification => {
-      io.to(`user_${notification.recipient}`).emit('new_notification', {
-        id: notification._id,
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        data: notification.data,
-        createdAt: notification.createdAt
+    try {
+      const io = getIO();
+      console.log('=== REALTIME NOTIFICATION DEBUG ===');
+      
+      notifications.forEach(notification => {
+        const room = `user_${notification.recipient.toString()}`;
+        console.log('Emitting to room:', room);
+        console.log('Notification data:', {
+          id: notification._id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message
+        });
+        
+        io.to(room).emit('new_notification', {
+          id: notification._id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+          isRead: false,
+          createdAt: notification.createdAt
+        });
+        console.log('Notification emitted to room:', room);
       });
-    });
+    } catch (error) {
+      console.error('Error sending realtime notifications:', error);
+    }
   }
 
   // Mark notification as read

@@ -1,6 +1,7 @@
 // server/controllers/sosController.js - Merged implementation
 const Emergency = require('../models/Emergency');
 const SosContact = require('../models/sosContact');
+const notificationService = require('../services/notificationService');
 
 /**
  * Get all SOS contacts for the current user
@@ -147,15 +148,36 @@ exports.triggerSOS = async (req, res) => {
     });
     
     await emergency.save();
-    
-    // Here you would integrate with SMS/notification service
-    // This is a simplified version
-    console.log(`SOS Alert triggered by user ${userId}`);
-    console.log(`Location: ${location || 'Unknown'}`);
-    console.log(`Message: ${message || 'Help needed!'}`);
-    contactsToUse.forEach(contact => {
-      console.log(`Alert sent to ${contact.name || 'Unknown'} at ${contact.phone || 'Unknown phone'}`);
-    });
+
+    console.log('=== SOS TRIGGER DEBUG ===');
+    console.log('User ID:', userId);
+    console.log('Contacts to use:', JSON.stringify(contactsToUse, null, 2));
+
+    // Send in-app notifications to contacts who are app users (have userId)
+    const recipientIds = contactsToUse
+      .filter(c => c.userId)
+      .map(c => c.userId.toString());
+
+    console.log('Recipient IDs for notifications:', recipientIds);
+
+    if (recipientIds.length > 0) {
+      console.log('Sending SOS notifications to:', recipientIds);
+      try {
+        const result = await notificationService.sendSosNotification({
+          recipientIds,
+          senderId: userId,
+          location: location || '',
+          latitude: latitude || null,
+          longitude: longitude || null,
+          message: message || 'Help needed!'
+        });
+        console.log('SOS notifications sent successfully:', result.length);
+      } catch (error) {
+        console.error('Error sending SOS notifications:', error);
+      }
+    } else {
+      console.log('No in-app contacts found for SOS notifications');
+    }
     
     res.json({ 
       message: "SOS alert triggered", 

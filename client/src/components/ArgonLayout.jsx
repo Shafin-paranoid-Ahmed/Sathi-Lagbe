@@ -21,6 +21,7 @@ import {
   WifiIcon
 } from '@heroicons/react/24/outline';
 import NotificationBell from './NotificationBell';
+import socketService from '../services/socketService';
 
 const ArgonLayout = ({ children, setIsAuthenticated }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -81,6 +82,24 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
 
     // Fetch current status
     fetchCurrentStatus();
+  }, []);
+
+  // Ensure socket connection once user is authenticated
+  useEffect(() => {
+    const token = sessionStorage.getItem('token');
+    const userId = sessionStorage.getItem('userId');
+    if (token) {
+      console.log('=== SOCKET CONNECTION DEBUG ===');
+      console.log('Token exists, connecting socket for user:', userId);
+      try {
+        socketService.connect(token);
+        console.log('Socket connect initiated');
+      } catch (e) {
+        console.error('Socket connect error:', e);
+      }
+    } else {
+      console.log('No token found, cannot connect socket');
+    }
   }, []);
 
   const fetchCurrentStatus = async () => {

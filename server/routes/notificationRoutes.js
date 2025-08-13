@@ -7,8 +7,9 @@ const notificationService = require('../services/notificationService');
 router.get('/', auth, async (req, res) => {
   try {
     const { limit = 20, offset = 0 } = req.query;
+    const userId = req.user.userId || req.user.id;
     const notifications = await notificationService.getUserNotifications(
-      req.user.userId, 
+      userId, 
       parseInt(limit), 
       parseInt(offset)
     );
@@ -24,7 +25,8 @@ router.get('/', auth, async (req, res) => {
 router.patch('/:notificationId/read', auth, async (req, res) => {
   try {
     const { notificationId } = req.params;
-    const notification = await notificationService.markAsRead(notificationId, req.user.userId);
+    const userId = req.user.userId || req.user.id;
+    const notification = await notificationService.markAsRead(notificationId, userId);
     
     if (!notification) {
       return res.status(404).json({ error: 'Notification not found' });
@@ -40,7 +42,8 @@ router.patch('/:notificationId/read', auth, async (req, res) => {
 // Get unread notification count
 router.get('/unread-count', auth, async (req, res) => {
   try {
-    const count = await notificationService.getUnreadCount(req.user.userId);
+    const userId = req.user.userId || req.user.id;
+    const count = await notificationService.getUnreadCount(userId);
     res.json({ count });
   } catch (error) {
     console.error('Error getting unread count:', error);
@@ -51,7 +54,8 @@ router.get('/unread-count', auth, async (req, res) => {
 // Mark all notifications as read
 router.patch('/mark-all-read', auth, async (req, res) => {
   try {
-    const result = await notificationService.markAllAsRead(req.user.userId);
+    const userId = req.user.userId || req.user.id;
+    const result = await notificationService.markAllAsRead(userId);
     res.json({ message: 'All notifications marked as read', count: result.modifiedCount });
   } catch (error) {
     console.error('Error marking all notifications as read:', error);

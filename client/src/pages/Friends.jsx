@@ -7,6 +7,7 @@ export default function Friends() {
   const [friendRequests, setFriendRequests] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
+  const [allUsers, setAllUsers] = useState([]); // Add state for all users
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -46,6 +47,24 @@ export default function Friends() {
     }
   };
 
+  // Add function to fetch all users
+  const fetchAllUsers = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/users', {
+        headers: { "Authorization": token }
+      });
+      // Sort users alphabetically by name
+      const sortedUsers = response.data.sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+      setAllUsers(sortedUsers);
+    } catch (err) {
+      console.error('Error fetching all users:', err);
+    }
+  };
+
   const searchUsers = async () => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -74,7 +93,8 @@ export default function Friends() {
       );
       // Refresh pending requests
       await fetchPendingRequests();
-      // Clear search results for this user
+      // Remove user from allUsers and searchResults to avoid duplicate requests
+      setAllUsers(prev => prev.filter(user => user._id !== userId));
       setSearchResults(prev => prev.filter(user => user._id !== userId));
     } catch (err) {
       console.error('Error sending friend request:', err);
@@ -87,7 +107,8 @@ export default function Friends() {
       await Promise.all([
         fetchFriends(),
         fetchFriendRequests(),
-        fetchPendingRequests()
+        fetchPendingRequests(),
+        fetchAllUsers() // Add this to load all users
       ]);
       setLoading(false);
     };
@@ -382,8 +403,9 @@ export default function Friends() {
             </div>
           </div>
 
-          {/* Search Results */}
-          {searchResults.length > 0 && (
+          {/* Users List - Show search results if searching, otherwise show all users */}
+          {(searchQuery.trim() && searchResults.length > 0) ? (
+            // Search Results
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                 Search Results ({searchResults.length})
@@ -424,12 +446,60 @@ export default function Friends() {
                 </div>
               ))}
             </div>
-          )}
-
-          {searchQuery && searchResults.length === 0 && !searchLoading && (
+          ) : searchQuery.trim() && searchResults.length === 0 && !searchLoading ? (
+            // No search results
             <div className="text-center py-8">
               <UserGroupIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500 dark:text-gray-400">No users found</p>
+            </div>
+          ) : (
+            // All Users List (default view)
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                All Users ({allUsers.length})
+              </h3>
+              {allUsers.length === 0 ? (
+                <div className="text-center py-8">
+                  <UserGroupIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">No users available</p>
+                </div>
+              ) : (
+                allUsers.map(user => (
+                  <div key={user._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-semibold">
+                              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {user.name || 'Unknown User'}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {user.email}
+                          </p>
+                          {user.location && (
+                            <p className="text-xs text-gray-400 dark:text-gray-500">
+                              📍 {user.location}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => sendFriendRequest(user._id)}
+                        className="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600 flex items-center space-x-2"
+                      >
+                        <UserPlusIcon className="h-4 w-4" />
+                        <span>Add Friend</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
