@@ -11,6 +11,7 @@ export default function Login({ setIsAuthenticated }) {
   const isExpired = queryParams.get('expired') === 'true';
   
   const [email, setEmail] = useState('');
+  const [bracuId, setBracuId] = useState('');
   const [password, setPass] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,13 +22,18 @@ export default function Login({ setIsAuthenticated }) {
     setLoading(true);
     setError('');
     try {
-      if (!isBracuEmail(email)) {
+      if (!email && !bracuId) {
+        setError('Enter email or BRACU ID');
+        setLoading(false);
+        return;
+      }
+      if (email && !isBracuEmail(email)) {
         setError('Please use your BRACU G-Suite email');
         setLoading(false);
         return;
       }
 
-      const res = await login({ email, password });
+      const res = await login({ email, password, bracuId });
       
       // Debug logging
       console.log('Login response:', res.data);
@@ -90,16 +96,29 @@ export default function Login({ setIsAuthenticated }) {
           </div>
         )}
 
-        <label className="block mb-2 text-gray-700 dark:text-gray-300">
-          Email
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            className="mt-1 w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-gray-700 dark:border-gray-600"
-          />
-        </label>
+        <div className="grid grid-cols-1 gap-3">
+          <label className="block mb-2 text-gray-700 dark:text-gray-300">
+            Email (BRACU)
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="name@g.bracu.ac.bd"
+              className="mt-1 w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-gray-700 dark:border-gray-600"
+            />
+          </label>
+          <div className="text-center text-gray-500 dark:text-gray-400">or</div>
+          <label className="block mb-2 text-gray-700 dark:text-gray-300">
+            BRACU ID
+            <input
+              type="text"
+              value={bracuId}
+              onChange={e => setBracuId(e.target.value)}
+              placeholder="e.g., 2010xxxx"
+              className="mt-1 w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-gray-700 dark:border-gray-600"
+            />
+          </label>
+        </div>
 
         <label className="block mb-4 text-gray-700 dark:text-gray-300">
           Password

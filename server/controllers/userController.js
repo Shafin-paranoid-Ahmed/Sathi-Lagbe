@@ -11,7 +11,7 @@ exports.getAllUsers = async (req, res) => {
     const currentUserId = req.user.id || req.user.userId;
     
     const users = await User.find({ _id: { $ne: currentUserId } })
-      .select('name email location');
+      .select('name email location avatarUrl bracuId');
       
     res.json(users);
   } catch (err) {
@@ -42,7 +42,7 @@ exports.searchUsers = async (req, res) => {
           ]
         }
       ]
-    }).select('name email location');
+    }).select('name email location avatarUrl bracuId');
     
     res.json(users);
   } catch (err) {
@@ -59,7 +59,7 @@ exports.getUserProfile = async (req, res) => {
     const userId = req.params.id;
     
     const user = await User.findById(userId)
-      .select('name email gender location');
+      .select('name email gender location avatarUrl bracuId');
       
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -78,12 +78,13 @@ exports.getUserProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    const { name, location, gender, phone } = req.body;
+    const { name, location, gender, phone, bracuId } = req.body;
     
     const updates = {};
     if (name) updates.name = name;
     if (location) updates.location = location;
     if (gender) updates.gender = gender;
+    if (bracuId) updates.bracuId = bracuId;
     if (phone) {
       const bdPhoneRegex = /^\+880\d{10}$/;
       if (!bdPhoneRegex.test(phone)) {

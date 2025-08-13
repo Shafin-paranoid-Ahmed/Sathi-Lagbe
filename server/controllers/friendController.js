@@ -157,8 +157,8 @@ exports.rejectFriendRequest = async (req, res) => {
       return res.status(400).json({ error: 'Request is not pending' });
     }
 
-    friendRequest.status = 'rejected';
-    await friendRequest.save();
+    // Remove the pending request instead of setting an unsupported 'rejected' status
+    await Friend.findByIdAndDelete(requestId);
 
     // Realtime update for both users
     try {
@@ -171,7 +171,7 @@ exports.rejectFriendRequest = async (req, res) => {
 
     res.json({
       message: 'Friend request rejected',
-      friendRequest
+      requestId
     });
   } catch (err) {
     console.error('Error rejecting friend request:', err);
@@ -198,8 +198,8 @@ exports.getFriendRequests = async (req, res) => {
     if (status) query.status = status;
 
     const friendRequests = await Friend.find(query)
-      .populate('user', 'name email profilePicture')
-      .populate('friend', 'name email profilePicture')
+      .populate('user', 'name email avatarUrl')
+      .populate('friend', 'name email avatarUrl')
       .sort({ updatedAt: -1 });
 
     res.json(friendRequests);
@@ -223,8 +223,8 @@ exports.getAcceptedFriends = async (req, res) => {
         { friend: userId }
       ]
     })
-    .populate('user', 'name email profilePicture status')
-    .populate('friend', 'name email profilePicture status');
+    .populate('user', 'name email avatarUrl status')
+    .populate('friend', 'name email avatarUrl status');
 
     // Transform the data to show friend details consistently
     const friends = acceptedFriendships.map(friendship => {

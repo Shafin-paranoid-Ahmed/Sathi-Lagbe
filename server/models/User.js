@@ -6,6 +6,8 @@ const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  // BRACU ID (student ID)
+  bracuId: { type: String, unique: true, trim: true },
   phone: { type: String, required: true, match: /^\+880\d{10}$/ },
   
   // Fields from server/models/User.js in Sathi_Lagbe
