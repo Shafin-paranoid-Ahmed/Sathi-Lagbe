@@ -90,9 +90,10 @@ const authenticateSocket = (socket, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    socket.userId = decoded.userId;
-    socket.userName = decoded.name;
+    const secret = process.env.JWT_SECRET || process.env.SECRET_KEY;
+    const decoded = jwt.verify(token, secret);
+    socket.userId = decoded.userId || decoded.id;
+    socket.userName = decoded.name || decoded.email || 'User';
     next();
   } catch (error) {
     return next(new Error('Authentication error: Invalid token'));
@@ -107,7 +108,9 @@ io.on('connection', (socket) => {
   console.log(`User connected: ${socket.userName} (${socket.userId})`);
   
   // Store user's socket connection
-  socket.join(`user_${socket.userId}`);
+  const userRoom = `user_${socket.userId}`;
+  socket.join(userRoom);
+  console.log(`User ${socket.userName} joined room: ${userRoom}`);
   
   // Handle joining chat rooms
   socket.on('join_chat', (chatId) => {

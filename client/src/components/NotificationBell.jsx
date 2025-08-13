@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, X, MessageCircle } from 'lucide-react';
+import { Bell, X, MessageCircle, AlertTriangle, MapPin } from 'lucide-react';
 import socketService from '../services/socketService';
 import { API } from '../api/auth';
 
@@ -16,6 +16,8 @@ const NotificationBell = () => {
     
     // Listen for new notifications
     socketService.onNewNotification((notification) => {
+      console.log('=== CLIENT RECEIVED NOTIFICATION ===');
+      console.log('Notification:', notification);
       setNotifications(prev => [notification, ...prev]);
       setUnreadCount(prev => prev + 1);
     });
@@ -29,7 +31,16 @@ const NotificationBell = () => {
     try {
       setLoading(true);
       const response = await API.get('/notifications');
-      setNotifications(response.data);
+      const list = (response.data || []).map(n => ({
+        id: n.id || n._id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        data: n.data,
+        isRead: n.isRead,
+        createdAt: n.createdAt
+      }));
+      setNotifications(list);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
@@ -73,6 +84,15 @@ const NotificationBell = () => {
     if (notification.type === 'status_change' && notification.data?.userId) {
       // Navigate to chat with the user
       window.location.href = `/chat/${notification.data.userId}`;
+    }
+    
+    // If it's an SOS notification, and it has coordinates, open Google Maps
+    if (notification.type === 'sos') {
+      const coords = notification.data?.coordinates;
+      if (coords?.latitude && coords?.longitude) {
+        const url = `https://www.google.com/maps?q=${coords.latitude},${coords.longitude}`;
+        window.open(url, '_blank');
+      }
     }
     
     setIsOpen(false);
@@ -136,6 +156,9 @@ const NotificationBell = () => {
                       {notification.type === 'status_change' && (
                         <MessageCircle className="w-5 h-5 text-blue-500" />
                       )}
+                      {notification.type === 'sos' && (
+                        <AlertTriangle className="w-5 h-5 text-red-500" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -144,6 +167,23 @@ const NotificationBell = () => {
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                         {notification.message}
                       </p>
+                      {notification.type === 'sos' && notification.data?.coordinates && (
+                        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          <MapPin className="w-3 h-3" />
+                          <span>
+                            {notification.data.coordinates.latitude}, {notification.data.coordinates.longitude}
+                          </span>
+                          <a
+                            href={`https://www.google.com/maps?q=${notification.data.coordinates.latitude},${notification.data.coordinates.longitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-600 dark:text-blue-400 underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            View map
+                          </a>
+                        </div>
+                      )}
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                         {formatTime(notification.createdAt)}
                       </p>

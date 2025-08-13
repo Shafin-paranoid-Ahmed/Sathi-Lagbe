@@ -11,7 +11,8 @@ const sosContactSchema = new mongoose.Schema(
     contacts: [
       {
         name: String,
-        phone: String,
+      phone: String,
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       },
     ],
   },

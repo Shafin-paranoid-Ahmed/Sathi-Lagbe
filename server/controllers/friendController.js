@@ -1,6 +1,7 @@
 // server/controllers/friendController.js - Refactored to use new Friend model
 const Friend = require('../models/Friend');
 const User = require('../models/User');
+const SosContact = require('../models/sosContact');
 
 /**
  * Send a friend request
@@ -82,6 +83,25 @@ exports.acceptFriendRequest = async (req, res) => {
 
     friendRequest.status = 'accepted';
     await friendRequest.save();
+
+    // Best-effort: scaffold each other into SOS list as in-app contact (non-blocking)
+    try {
+      const pairs = [
+        { owner: friendRequest.user, contact: friendRequest.friend },
+        { owner: friendRequest.friend, contact: friendRequest.user }
+      ];
+      for (const p of pairs) {
+        let entry = await SosContact.findOne({ user: p.owner });
+        if (!entry) entry = await SosContact.create({ user: p.owner, contacts: [] });
+        const exists = (entry.contacts || []).some(c => c.userId?.toString() === p.contact.toString());
+        if (!exists) {
+          entry.contacts.push({ name: '', phone: '', userId: p.contact });
+          await entry.save();
+        }
+      }
+    } catch (e) {
+      console.warn('SOS scaffold on friend accept failed:', e?.message);
+    }
 
     // Populate user details for response
     await friendRequest.populate('user', 'name email profilePicture');
