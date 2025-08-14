@@ -13,7 +13,17 @@ import { MessageSquareIcon, SendIcon, ArrowLeftIcon, CheckIcon, PlusIcon } from 
 
 export default function Chat() {
   const [activeTab, setActiveTab] = useState('chats'); // 'chats' or 'friends'
-  const [chats, setChats] = useState([]);
+  const [chats, setChats] = useState(() => {
+    // Try to load from localStorage for persistence, per user
+    try {
+      const currentUserId = sessionStorage.getItem('userId');
+      if (!currentUserId) return [];
+      const saved = localStorage.getItem(`chatList_${currentUserId}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
@@ -44,9 +54,12 @@ export default function Chat() {
       if (res.data && Array.isArray(res.data.data)) {
         console.log(`fetchChats: Found ${res.data.data.length} chats.`);
         setChats(res.data.data);
+        // Save to localStorage for persistence, per user
+        localStorage.setItem(`chatList_${currentUserId}`, JSON.stringify(res.data.data));
       } else {
         console.warn("fetchChats: Response was not in the expected format or contained no data.", res.data);
         setChats([]);
+        localStorage.removeItem(`chatList_${currentUserId}`);
       }
       
     } catch (err) {
@@ -192,10 +205,24 @@ export default function Chat() {
     fetchChats();
   }, [fetchChats]);
 
+  // When chats state changes, update localStorage (for cases like new chat added)
+  useEffect(() => {
+    try {
+      if (!currentUserId) return;
+      localStorage.setItem(`chatList_${currentUserId}`, JSON.stringify(chats));
+    } catch {}
+  }, [chats, currentUserId]);
+
   // When messages load or change, instantly scroll to the bottom.
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [messages]);
+  // Also scroll to bottom when a new chat is opened
+  useEffect(() => {
+    if (selectedChat && messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    }
+  }, [selectedChat]);
 
   // Join chat room when selected chat changes
   useEffect(() => {
@@ -375,9 +402,9 @@ export default function Chat() {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col md:flex-row">
+      <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-4rem)]">
         {/* Sidebar */}
-        <div className="w-full md:w-80 bg-white dark:bg-gray-800 md:border-r dark:border-gray-700 animate-slide-in">
+        <div className="w-full md:w-80 bg-white dark:bg-gray-800 md:border-r dark:border-gray-700 animate-slide-in md:fixed md:top-16 md:left-64 md:h-[calc(100vh-4rem)] z-30">
           {/* Tabs */}
           <div className="flex border-b dark:border-gray-700">
             <button
@@ -464,7 +491,7 @@ export default function Chat() {
         </div>
 
         {/* Main chat area */}
-        <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 animate-slide-in">
+        <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 animate-slide-in md:ml-80 h-full">
           {selectedChat ? (
             <>
               {/* Chat header */}
@@ -492,7 +519,7 @@ export default function Chat() {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
                 {chatLoading ? (
                   <div className="flex justify-center items-center h-full">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-bracu-blue"></div>
