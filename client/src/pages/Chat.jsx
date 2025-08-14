@@ -37,6 +37,8 @@ export default function Chat() {
   const typingTimeoutRef = useRef(null);
   const currentUserId = sessionStorage.getItem('userId');
   const token = sessionStorage.getItem('token');
+  const isInitialLoad = useRef(true);
+  const [replyTo, setReplyTo] = useState(null);
 
   const fetchChats = useCallback(async () => {
     if (!currentUserId) {
@@ -46,7 +48,7 @@ export default function Chat() {
     }
     
     console.log("fetchChats: Starting for user", currentUserId);
-    setLoading(true);
+    if (isInitialLoad.current) setLoading(true);
     try {
       const res = await getAllChats();
       console.log("fetchChats: API response received.", res.data);
@@ -67,7 +69,8 @@ export default function Chat() {
       // It's better not to clear chats on failure, so the UI doesn't flicker.
       // setChats([]); 
     } finally {
-      setLoading(false);
+      if (isInitialLoad.current) setLoading(false);
+      isInitialLoad.current = false;
     }
   }, [currentUserId, setChats, setLoading, setError]);
 
@@ -281,14 +284,14 @@ export default function Chat() {
   // Send a message
   const send = async () => {
     if (!draft.trim() || !selectedChat) return;
-    
+
     // Stop typing indicator
     setIsTyping(false);
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     socketService.stopTyping(selectedChat._id);
-    
+
     // Add the message to the local state with optimistic UI update
     const tempId = Date.now().toString();
     const newMessage = {
@@ -297,32 +300,44 @@ export default function Chat() {
       sender: currentUserId,
       text: draft,
       createdAt: new Date(),
-      pending: true
+      pending: true,
+      replyTo: replyTo ? { _id: replyTo._id, text: replyTo.text, sender: replyTo.sender } : undefined,
     };
-    
+
     setMessages(prev => [...prev, newMessage]);
     const draftCopy = draft;
     setDraft('');
-    
+    setReplyTo(null);
+
     try {
-      // Send the message to the server via HTTP
+      // Send the message to the server via HTTP (ignore replyTo for now)
       const res = await sendNewMessage(selectedChat._id, draftCopy);
       console.log('Message sent:', res.data);
-      
-      // Replace the temporary message with the real one
-      setMessages(prev => 
-        prev.map(msg => msg._id === tempId ? res.data.data : msg)
+
+      // Replace the temporary message with the real one, preserving replyTo if needed
+      setMessages(prev =>
+        prev.map(msg => {
+          if (msg._id === tempId) {
+            const realMsg = res.data.data;
+            // If backend does not return replyTo, preserve it from optimistic message
+            if (!realMsg.replyTo && msg.replyTo) {
+              return { ...realMsg, replyTo: msg.replyTo };
+            }
+            return realMsg;
+          }
+          return msg;
+        })
       );
-      
+
       // Refresh chats to update last message list
       fetchChats();
     } catch (err) {
       console.error('Failed to send message:', err);
       // Mark message as failed
-      setMessages(prev => 
-        prev.map(msg => 
-          msg._id === tempId 
-            ? { ...msg, failed: true, pending: false } 
+      setMessages(prev =>
+        prev.map(msg =>
+          msg._id === tempId
+            ? { ...msg, failed: true, pending: false }
             : msg
         )
       );
@@ -404,7 +419,7 @@ export default function Chat() {
 
       <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-4rem)]">
         {/* Sidebar */}
-        <div className="w-full md:w-80 bg-white dark:bg-gray-800 md:border-r dark:border-gray-700 animate-slide-in md:fixed md:top-16 md:left-64 md:h-[calc(100vh-4rem)] z-30">
+        <div className="w-full md:w-80 bg-white dark:bg-gray-800 md:border-r dark:border-gray-700 md:fixed md:top-16 md:left-64 md:h-[calc(100vh-4rem)] z-30">
           {/* Tabs */}
           <div className="flex border-b dark:border-gray-700">
             <button
@@ -458,11 +473,11 @@ export default function Chat() {
                     <div
                       key={chat._id}
                       onClick={() => setSelectedChat(chat)}
-                      className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200 animate-fade-in ${
+                      className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200 ${
                         selectedChat && selectedChat._id === chat._id
                           ? 'bg-blue-50 dark:bg-blue-900 shadow-md'
                           : 'hover:bg-gray-100 dark:hover:bg-gray-700 hover:shadow'
-                      } delay-${index * 100 > 500 ? 500 : index * 100}`}
+                      }`}
                     >
                       <div className="w-10 h-10 rounded-full bg-bracu-blue flex items-center justify-center text-white font-medium mr-3">
                         {getChatName(chat).charAt(0).toUpperCase()}
@@ -476,7 +491,7 @@ export default function Chat() {
                         </p>
                       </div>
                       {chat.unreadMessageCount > 0 && (
-                        <div className="bg-bracu-blue text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse-slow">
+                        <div className="bg-bracu-blue text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                           {chat.unreadMessageCount}
                         </div>
                       )}
@@ -491,7 +506,7 @@ export default function Chat() {
         </div>
 
         {/* Main chat area */}
-        <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 animate-slide-in md:ml-80 h-full">
+        <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 md:ml-80 h-full">
           {selectedChat ? (
             <>
               {/* Chat header */}
@@ -546,7 +561,7 @@ export default function Chat() {
                       key={msg._id}
                       className={`flex ${
                         isSenderCurrentUser(msg.sender) ? 'justify-end' : 'justify-start'
-                      } mb-4 animate-fade-in delay-${index * 50 > 500 ? 500 : index * 50}`}
+                      } mb-4`}
                     >
                       <div className="flex flex-col max-w-xs md:max-w-md lg:max-w-lg">
                         {/* Show sender name if not current user */}
@@ -555,7 +570,12 @@ export default function Chat() {
                             {getSenderName(msg.sender)}
                           </span>
                         )}
-                        
+                        {/* Reply preview in bubble */}
+                        {msg.replyTo && (
+                          <div className="mb-1 p-2 rounded bg-blue-100 dark:bg-blue-900 text-xs text-blue-700 dark:text-blue-200">
+                            Replying to {getSenderName(msg.replyTo.sender)}: {msg.replyTo.text}
+                          </div>
+                        )}
                         <div
                           className={`px-4 py-3 rounded-lg shadow-sm ${
                             isSenderCurrentUser(msg.sender)
@@ -564,22 +584,31 @@ export default function Chat() {
                           } ${msg.pending ? 'opacity-70' : ''}`}
                         >
                           {msg.text}
-                          <div className="text-xs mt-1 flex justify-end">
-                            {msg.pending ? (
-                              <span className="opacity-70">Sending...</span>
-                            ) : msg.failed ? (
-                              <span className="text-red-300">Failed</span>
-                            ) : (
-                              <span className="opacity-70">
-                                {new Date(msg.createdAt).toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                                {msg.read && (
-                                  <CheckIcon size={12} className="inline ml-1" />
-                                )}
-                              </span>
-                            )}
+                          <div className="text-xs mt-1 flex justify-between items-center">
+                            <span>
+                              {msg.pending ? (
+                                <span className="opacity-70">Sending...</span>
+                              ) : msg.failed ? (
+                                <span className="text-red-300">Failed</span>
+                              ) : (
+                                <span className="opacity-70">
+                                  {new Date(msg.createdAt).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                  {msg.read && (
+                                    <CheckIcon size={12} className="inline ml-1" />
+                                  )}
+                                </span>
+                              )}
+                            </span>
+                            <button
+                              className="ml-2 text-xs text-blue-500 hover:underline focus:outline-none"
+                              onClick={() => setReplyTo(msg)}
+                              title="Reply"
+                            >
+                              Reply
+                            </button>
                           </div>
                         </div>
                         
@@ -596,8 +625,22 @@ export default function Chat() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input area */}
-              <div className="bg-white dark:bg-gray-800 p-4 border-t dark:border-gray-700 shadow-inner">
+              {/* Input area - make sticky at bottom */}
+              <div className="bg-white dark:bg-gray-800 p-4 border-t dark:border-gray-700 shadow-inner sticky bottom-0 z-20">
+                {replyTo && (
+                  <div className="mb-2 p-2 rounded bg-blue-100 dark:bg-blue-900 text-sm flex items-center justify-between">
+                    <div className="truncate">
+                      <span className="font-medium text-blue-700 dark:text-blue-200">Replying to {getSenderName(replyTo.sender)}:</span> {replyTo.text}
+                    </div>
+                    <button
+                      className="ml-2 text-xs text-gray-500 hover:text-red-500 focus:outline-none"
+                      onClick={() => setReplyTo(null)}
+                      title="Cancel reply"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-end space-x-3">
                   <textarea
                     className="flex-1 min-h-10 max-h-32 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-bracu-blue transition-all duration-200"
