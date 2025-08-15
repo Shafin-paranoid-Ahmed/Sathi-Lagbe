@@ -182,7 +182,9 @@ exports.getAllChats = async (req, res) => {
     console.error('Error fetching chats:', err);
     console.error('Error stack:', err.stack);
     res.status(500).json({ 
-      error: err.message || 'Failed to fetch chats',
+      message: 'Failed to fetch chats',
+      success: false,
+      error: err.message || 'Internal server error',
       stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
@@ -224,6 +226,10 @@ exports.clearUnreadMessages = async (req, res) => {
     });
   } catch (err) {
     console.error('Error clearing unread messages:', err);
-    res.status(500).json({ error: err.message || 'Failed to clear unread messages' });
+    res.status(500).json({ 
+      message: 'Failed to clear unread messages',
+      success: false,
+      error: err.message || 'Internal server error'
+    });
   }
 };
