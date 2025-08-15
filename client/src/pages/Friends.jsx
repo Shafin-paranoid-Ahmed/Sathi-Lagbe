@@ -49,9 +49,12 @@ export default function Friends() {
       const response = await axios.get('http://localhost:5000/api/friends/accepted', {
         headers: { "Authorization": token }
       });
-      setFriends(response.data);
+      // Ensure we have valid data and filter out any null entries
+      const validFriends = response.data ? response.data.filter(friend => friend && friend.friend) : [];
+      setFriends(validFriends);
     } catch (err) {
       console.error('Error fetching friends:', err);
+      setFriends([]);
     }
   };
 
@@ -61,9 +64,12 @@ export default function Friends() {
       const response = await axios.get('http://localhost:5000/api/friends/requests?status=pending&scope=incoming', {
         headers: { "Authorization": token }
       });
-      setFriendRequests(response.data);
+      // Ensure we have valid data and filter out any null entries
+      const validRequests = response.data ? response.data.filter(request => request && request.user) : [];
+      setFriendRequests(validRequests);
     } catch (err) {
       console.error('Error fetching friend requests:', err);
+      setFriendRequests([]);
     }
   };
 
@@ -73,9 +79,12 @@ export default function Friends() {
       const response = await axios.get('http://localhost:5000/api/friends/requests?status=pending&scope=outgoing', {
         headers: { "Authorization": token }
       });
-      setPendingRequests(response.data);
+      // Ensure we have valid data and filter out any null entries
+      const validRequests = response.data ? response.data.filter(request => request && request.friend) : [];
+      setPendingRequests(validRequests);
     } catch (err) {
       console.error('Error fetching pending requests:', err);
+      setPendingRequests([]);
     }
   };
 
@@ -85,8 +94,10 @@ export default function Friends() {
       const response = await axios.get('http://localhost:5000/api/users', {
         headers: { "Authorization": token }
       });
+      // Ensure we have valid data and filter out any null entries
+      const validUsers = response.data ? response.data.filter(user => user) : [];
       // Sort users alphabetically by name
-      const sortedUsers = response.data.sort((a, b) => {
+      const sortedUsers = validUsers.sort((a, b) => {
         const nameA = (a.name || '').toLowerCase();
         const nameB = (b.name || '').toLowerCase();
         return nameA.localeCompare(nameB);
@@ -94,6 +105,7 @@ export default function Friends() {
       setAllUsers(sortedUsers);
     } catch (err) {
       console.error('Error fetching all users:', err);
+      setAllUsers([]);
     }
   };
 
@@ -108,7 +120,9 @@ export default function Friends() {
       const response = await axios.get(`http://localhost:5000/api/users/search?q=${encodeURIComponent(searchQuery)}`, {
         headers: { "Authorization": token }
       });
-      setSearchResults(response.data);
+      // Ensure we have valid data and filter out any null entries
+      const validResults = response.data ? response.data.filter(user => user) : [];
+      setSearchResults(validResults);
     } catch (err) {
       console.error('Error searching users:', err);
       setSearchResults([]);
@@ -290,48 +304,55 @@ export default function Friends() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {friends.map(friend => (
-                <div key={friend.friendshipId} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      {friend.friend.avatarUrl ? (
-                        <img src={friend.friend.avatarUrl} alt={friend.friend.name} className="h-10 w-10 rounded-full object-cover" />
-                      ) : (
-                        <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
-                          <span className="text-white font-semibold">
-                            {friend.friend.name ? friend.friend.name.charAt(0).toUpperCase() : 'U'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {friend.friend.name || 'Unknown User'}
-                      </p>
-                      <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                        {React.createElement(getStatusIcon(friend.friend.status?.current).icon, {
-                          className: `mr-1 h-4 w-4 ${getStatusIcon(friend.friend.status?.current).color}`
-                        })}
-                        <span>{getStatusIcon(friend.friend.status?.current).label}</span>
+              {friends.map(friend => {
+                // Skip rendering if friend data is null or undefined
+                if (!friend || !friend.friend) {
+                  return null;
+                }
+                
+                return (
+                  <div key={friend.friendshipId} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0">
+                        {friend.friend.avatarUrl ? (
+                          <img src={friend.friend.avatarUrl} alt={friend.friend.name} className="h-10 w-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-semibold">
+                              {friend.friend.name ? friend.friend.name.charAt(0).toUpperCase() : 'U'}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      {friend.friend.status?.location && (
-                        <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                          📍 {friend.friend.status.location}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {friend.friend.name || 'Unknown User'}
                         </p>
-                      )}
-                    </div>
-                    <div className="flex-shrink-0">
-                      <button
-                        onClick={() => handleRemoveFriend(friend.friendshipId)}
-                        className="text-red-500 hover:text-red-700"
-                        title="Remove friend"
-                      >
-                        <XCircleIcon className="h-5 w-5" />
-                      </button>
+                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                          {React.createElement(getStatusIcon(friend.friend.status?.current).icon, {
+                            className: `mr-1 h-4 w-4 ${getStatusIcon(friend.friend.status?.current).color}`
+                          })}
+                          <span>{getStatusIcon(friend.friend.status?.current).label}</span>
+                        </div>
+                        {friend.friend.status?.location && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                            📍 {friend.friend.status.location}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex-shrink-0">
+                        <button
+                          onClick={() => handleRemoveFriend(friend.friendshipId)}
+                          className="text-red-500 hover:text-red-700"
+                          title="Remove friend"
+                        >
+                          <XCircleIcon className="h-5 w-5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -350,47 +371,54 @@ export default function Friends() {
             </div>
           ) : (
             <div className="space-y-4">
-              {friendRequests.map(request => (
-                <div key={request._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        {request.user.avatarUrl ? (
-                          <img src={request.user.avatarUrl} alt={request.user.name} className="h-10 w-10 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-semibold">
-                              {request.user.name ? request.user.name.charAt(0).toUpperCase() : 'U'}
-                            </span>
-                          </div>
-                        )}
+              {friendRequests.map(request => {
+                // Skip rendering if request data is null or undefined
+                if (!request || !request.user) {
+                  return null;
+                }
+                
+                return (
+                  <div key={request._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          {request.user.avatarUrl ? (
+                            <img src={request.user.avatarUrl} alt={request.user.name} className="h-10 w-10 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold">
+                                {request.user.name ? request.user.name.charAt(0).toUpperCase() : 'U'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {request.user.name || 'Unknown User'}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {request.user.email}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {request.user.name || 'Unknown User'}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {request.user.email}
-                        </p>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleAcceptRequest(request._id)}
+                          className="px-3 py-1 bg-success-500 text-white rounded-lg text-sm hover:bg-success-600"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => handleRejectRequest(request._id)}
+                          className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
+                        >
+                          Reject
+                        </button>
                       </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleAcceptRequest(request._id)}
-                        className="px-3 py-1 bg-success-500 text-white rounded-lg text-sm hover:bg-success-600"
-                      >
-                        Accept
-                      </button>
-                      <button
-                        onClick={() => handleRejectRequest(request._id)}
-                        className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
-                      >
-                        Reject
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -409,36 +437,43 @@ export default function Friends() {
             </div>
           ) : (
             <div className="space-y-4">
-              {pendingRequests.map(request => (
-                <div key={request._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                  <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        {request.friend.avatarUrl ? (
-                          <img src={request.friend.avatarUrl} alt={request.friend.name} className="h-10 w-10 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-semibold">
-                              {request.friend.name ? request.friend.name.charAt(0).toUpperCase() : 'U'}
-                            </span>
-                          </div>
-                        )}
+              {pendingRequests.map(request => {
+                // Skip rendering if request data is null or undefined
+                if (!request || !request.friend) {
+                  return null;
+                }
+                
+                return (
+                  <div key={request._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          {request.friend.avatarUrl ? (
+                            <img src={request.friend.avatarUrl} alt={request.friend.name} className="h-10 w-10 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold">
+                                {request.friend.name ? request.friend.name.charAt(0).toUpperCase() : 'U'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          {request.friend.name || 'Unknown User'}
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {request.friend.email}
+                        </p>
                       </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {request.friend.name || 'Unknown User'}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {request.friend.email}
-                      </p>
-                    </div>
-                    <div className="ml-auto">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                        Pending
-                      </span>
+                      <div className="ml-auto">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Pending
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -480,86 +515,13 @@ export default function Friends() {
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                 Search Results ({searchResults.length})
               </h3>
-              {searchResults.map(user => (
-                <div key={user._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        {user.avatarUrl ? (
-                          <img src={user.avatarUrl} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-semibold">
-                              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {user.name || 'Unknown User'}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {user.email}
-                        </p>
-                        {user.status?.current && (
-                          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-                            {React.createElement(getStatusIcon(user.status.current).icon, {
-                              className: `mr-1 h-3 w-3 ${getStatusIcon(user.status.current).color}`
-                            })}
-                            <span>{getStatusIcon(user.status.current).label}</span>
-                          </div>
-                        )}
-                        {user.location && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500">
-                            📍 {user.location}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => sendFriendRequest(user._id)}
-                      className="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600 flex items-center space-x-2"
-                    >
-                      <UserPlusIcon className="h-4 w-4" />
-                      <span>Add Friend</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : searchQuery.trim() && searchResults.length === 0 && !searchLoading ? (
-            // No search results
-            <div className="text-center py-8">
-              <UserGroupIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">No users found</p>
-            </div>
-          ) : (
-            // All Users List (default view)
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                All Users ({allUsers.length})
-              </h3>
-              {allUsers.length === 0 ? (
-                <div className="text-center py-8">
-                  <UserGroupIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400">No users available</p>
-                </div>
-              ) : (
-                // Filter out myself, current friends, and users with any pending/accepted request either direction
-                allUsers
-                  .filter(user => {
-                    const myId = sessionStorage.getItem('userId');
-                    if (user._id === myId) return false; // not myself
-                    const isFriend = friends.some(f => f.friend?._id === user._id);
-                    if (isFriend) return false;
-                    const hasIncomingPending = friendRequests.some(r => r.user?._id === user._id);
-                    if (hasIncomingPending) return false;
-                    const hasOutgoingPending = pendingRequests.some(r => r.friend?._id === user._id);
-                    if (hasOutgoingPending) return false;
-                    return true;
-                  })
-                  .map(user => (
+              {searchResults.map(user => {
+                // Skip rendering if user data is null or undefined
+                if (!user) {
+                  return null;
+                }
+                
+                return (
                   <div key={user._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
@@ -605,7 +567,97 @@ export default function Friends() {
                       </button>
                     </div>
                   </div>
-                ))
+                );
+              })}
+            </div>
+          ) : searchQuery.trim() && searchResults.length === 0 && !searchLoading ? (
+            // No search results
+            <div className="text-center py-8">
+              <UserGroupIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400">No users found</p>
+            </div>
+          ) : (
+            // All Users List (default view)
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                All Users ({allUsers.length})
+              </h3>
+              {allUsers.length === 0 ? (
+                <div className="text-center py-8">
+                  <UserGroupIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">No users available</p>
+                </div>
+              ) : (
+                // Filter out myself, current friends, and users with any pending/accepted request either direction
+                allUsers
+                  .filter(user => {
+                    // Skip null or undefined users
+                    if (!user) return false;
+                    
+                    const myId = sessionStorage.getItem('userId');
+                    if (user._id === myId) return false; // not myself
+                    const isFriend = friends.some(f => f && f.friend && f.friend._id === user._id);
+                    if (isFriend) return false;
+                    const hasIncomingPending = friendRequests.some(r => r && r.user && r.user._id === user._id);
+                    if (hasIncomingPending) return false;
+                    const hasOutgoingPending = pendingRequests.some(r => r && r.friend && r.friend._id === user._id);
+                    if (hasOutgoingPending) return false;
+                    return true;
+                  })
+                  .map(user => {
+                    // Skip rendering if user data is null or undefined
+                    if (!user) {
+                      return null;
+                    }
+                    
+                    return (
+                      <div key={user._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-shrink-0">
+                              {user.avatarUrl ? (
+                                <img src={user.avatarUrl} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
+                              ) : (
+                                <div className="h-10 w-10 bg-primary-500 rounded-full flex items-center justify-center">
+                                  <span className="text-white font-semibold">
+                                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                {user.name || 'Unknown User'}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {user.email}
+                              </p>
+                              {user.status?.current && (
+                                <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                                  {React.createElement(getStatusIcon(user.status.current).icon, {
+                                    className: `mr-1 h-3 w-3 ${getStatusIcon(user.status.current).color}`
+                                  })}
+                                  <span>{getStatusIcon(user.status.current).label}</span>
+                                </div>
+                              )}
+                              {user.location && (
+                                <p className="text-xs text-gray-400 dark:text-gray-500">
+                                  📍 {user.location}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => sendFriendRequest(user._id)}
+                            className="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600 flex items-center space-x-2"
+                          >
+                            <UserPlusIcon className="h-4 w-4" />
+                            <span>Add Friend</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
               )}
             </div>
           )}
