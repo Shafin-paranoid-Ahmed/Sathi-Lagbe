@@ -17,20 +17,42 @@ export default function Sos() {
   const [friends, setFriends] = useState([]);
   const [selectedFriendId, setSelectedFriendId] = useState('');
 
-  // Load contacts on mount
+  // Load contacts on mount and when user changes
   useEffect(() => {
-    setLoading(true);
-    getContacts()
-      .then(res => {
+    const loadContacts = async () => {
+      setLoading(true);
+      try {
+        const res = await getContacts();
         // Handle different API response structures
-        if (res.data.data) {
-          setContacts(res.data.data.contacts || []);
+        if (res.data && res.data.data && res.data.data.contacts) {
+          setContacts(res.data.data.contacts);
+        } else if (res.data && Array.isArray(res.data)) {
+          setContacts(res.data);
         } else {
-          setContacts(res.data || []);
+          setContacts([]);
         }
-      })
-      .catch(() => setError('Failed to load contacts'))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error('Failed to load contacts:', err);
+        setError('Failed to load contacts');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadContacts();
+    
+    // Cleanup function to clear contacts when component unmounts or user changes
+    return () => {
+      setContacts([]);
+      setError('');
+      
+      // Clear user-specific data on unmount
+      const currentUserId = sessionStorage.getItem('userId');
+      if (currentUserId) {
+        localStorage.removeItem(`sosContacts_${currentUserId}`);
+      }
+    };
+  }, [currentUserId]); // Reload when user changes
       
     // Try to get user's location
     if (navigator.geolocation) {
@@ -73,6 +95,13 @@ export default function Sos() {
 
   // Add a new contact
   const addContact = () => {
+    // Get current user ID from session storage
+    const currentUserId = sessionStorage.getItem('userId');
+    if (!currentUserId) {
+      setError('User session not found. Please login again.');
+      return;
+    }
+
     if (isAppUser) {
       if (!selectedFriendId) {
         setError('Please select a friend');
@@ -88,7 +117,12 @@ export default function Sos() {
         setError('This contact is already added');
         return;
       }
-      const contactToAdd = { name: friend.name, phone: friend.phone || '(in-app user)', userId: friend._id };
+      const contactToAdd = { 
+        name: friend.name || friend.email?.split('@')[0] || 'Unknown User', 
+        phone: friend.phone || 'App User', 
+        userId: friend._id,
+        addedBy: currentUserId // Track who added this contact
+      };
       setContacts(prev => [...prev, contactToAdd]);
       setSelectedFriendId('');
       setIsAppUser(false);
@@ -104,14 +138,33 @@ export default function Sos() {
         setError('This phone number is already added');
         return;
       }
-      setContacts(prev => [...prev, newContact]);
+      // Validate contact data
+      if (!newContact.name.trim() || !newContact.phone.trim()) {
+        setError('Name and phone cannot be empty');
+        return;
+      }
+      
+      const contactToAdd = {
+        ...newContact,
+        addedBy: currentUserId // Track who added this contact
+      };
+      
+      setContacts(prev => [...prev, contactToAdd]);
       setNewContact({ name: '', phone: '' });
-      saveContacts([...contacts, newContact]).catch(() => setError('Failed to save contact'));
+      saveContacts([...contacts, contactToAdd]).catch(() => setError('Failed to save contact'));
     }
   };
 
   // Remove a contact
   const removeContact = (index) => {
+    const contactToRemove = contacts[index];
+    
+    // Validate ownership
+    if (contactToRemove && contactToRemove.addedBy !== currentUserId) {
+      setError('You can only remove your own contacts');
+      return;
+    }
+    
     const updated = contacts.filter((_, i) => i !== index);
     setContacts(updated);
     
@@ -119,10 +172,21 @@ export default function Sos() {
     saveContacts(updated)
       .catch(() => setError('Failed to update contacts'));
   };
+  
+  // Get current user ID for contact ownership validation
+  const currentUserId = sessionStorage.getItem('userId');
+  
+  // Get filtered contacts for display - only show contacts owned by current user
+  const displayContacts = contacts.filter(c => 
+    c && 
+    c.name && 
+    c.name.trim() !== '' && 
+    c.addedBy === currentUserId // Only show contacts added by current user
+  );
 
   // Send an SOS alert
   const handleAlert = async () => {
-    if (contacts.length === 0) {
+    if (displayContacts.length === 0) {
       setError('Please add at least one emergency contact first');
       return;
     }
@@ -221,20 +285,22 @@ export default function Sos() {
 
         {loading && <p className="text-gray-600 dark:text-gray-400">Loading...</p>}
 
-        {!loading && contacts.length === 0 && (
+        {!loading && displayContacts.length === 0 && (
           <p className="text-gray-600 dark:text-gray-400">No contacts added yet.</p>
         )}
 
         <ul className="mb-6 space-y-2">
-          {contacts.map((c, index) => (
+          {displayContacts.map((c, index) => (
             <li
-              key={index}
+              key={c.userId || c.phone || index}
               className="p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow-sm flex justify-between items-center"
             >
               <div>
-                <span className="text-gray-800 dark:text-gray-200 font-medium">{c.name}</span>
+                <span className="text-gray-800 dark:text-gray-200 font-medium">
+                  {c.name || 'Unknown Contact'}
+                </span>
                 <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
-                  {c.phone}
+                  {c.phone || 'App User'}
                 </span>
               </div>
               <button
@@ -273,7 +339,7 @@ export default function Sos() {
           
           <button
             onClick={handleAlert}
-            disabled={alerting || contacts.length === 0}
+            disabled={alerting || displayContacts.length === 0}
             className="w-full py-3 bg-red-600 text-white text-lg font-bold rounded hover:bg-red-700 disabled:opacity-50"
           >
             {alerting ? 'Sending SOS Alert...' : 'SEND SOS ALERT'}

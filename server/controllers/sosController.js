@@ -10,16 +10,23 @@ exports.getContacts = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
     
+    console.log('=== SOS CONTACTS DEBUG ===');
+    console.log('Fetching contacts for user:', userId);
+    
     // Try both models for compatibility
     let contacts = [];
     
     // Try SosContact model first (ONLYGWUB style)
     try {
       const contactEntry = await SosContact.findOne({ user: userId });
-      if (contactEntry) {
+      if (contactEntry && contactEntry.contacts && contactEntry.contacts.length > 0) {
+        const filteredContacts = contactEntry.contacts.filter(c => c.name && c.name.trim() !== '');
+        console.log('Found contacts in SosContact model:', filteredContacts.length);
         return res.json({
           success: true,
-          data: contactEntry
+          data: {
+            contacts: filteredContacts
+          }
         });
       }
     } catch (err) {
@@ -29,15 +36,26 @@ exports.getContacts = async (req, res) => {
     // Try Emergency model (Sathi_Lagbe style)
     try {
       const emergency = await Emergency.findOne({ userId }).sort('-triggeredAt');
-      if (emergency) {
-        return res.json(emergency.contacts || []);
+      if (emergency && emergency.contacts && emergency.contacts.length > 0) {
+        const filteredContacts = emergency.contacts.filter(c => c.name && c.name.trim() !== '');
+        console.log('Found contacts in Emergency model:', filteredContacts.length);
+        return res.json({
+          success: true,
+          data: {
+            contacts: filteredContacts
+          }
+        });
       }
     } catch (err) {
       console.log('Emergency model not found');
     }
     
+    console.log('No contacts found for user:', userId);
     // Return empty array if nothing found
-    return res.json([]);
+    return res.json({
+      success: true,
+      data: { contacts: [] }
+    });
   } catch (err) {
     console.error('Error fetching SOS contacts:', err);
     res.status(500).json({ error: err.message || 'Failed to fetch contacts' });
@@ -56,15 +74,28 @@ exports.saveContacts = async (req, res) => {
       return res.status(400).json({ error: 'Contacts must be an array' });
     }
     
+    // Filter out empty contacts and validate ownership
+    const validContacts = contacts.filter(c => 
+      c && 
+      c.name && 
+      c.name.trim() !== '' && 
+      (c.phone || c.userId) && // Must have either phone or userId
+      c.addedBy === userId // Must be added by the current user
+    );
+    
+    if (validContacts.length === 0) {
+      return res.status(400).json({ error: 'At least one valid contact is required' });
+    }
+    
     // Try SosContact model first (ONLYGWUB style)
     try {
       let contactEntry = await SosContact.findOne({ user: userId });
       
       if (contactEntry) {
-        contactEntry.contacts = contacts;
+        contactEntry.contacts = validContacts;
         await contactEntry.save();
       } else {
-        contactEntry = await SosContact.create({ user: userId, contacts });
+        contactEntry = await SosContact.create({ user: userId, contacts: validContacts });
       }
       
       return res.json({ 
@@ -78,10 +109,16 @@ exports.saveContacts = async (req, res) => {
     
     // Try Emergency model as fallback (Sathi_Lagbe style)
     try {
+      // First, remove any existing contact-only entries for this user
+      await Emergency.deleteMany({ 
+        userId, 
+        triggeredAt: { $exists: false } // Only contact storage entries
+      });
+      
       // Store as newest emergency with contacts but no trigger
       const emergency = new Emergency({
         userId,
-        contacts,
+        contacts: validContacts,
         // Don't set triggeredAt to indicate it's just contacts storage
       });
       

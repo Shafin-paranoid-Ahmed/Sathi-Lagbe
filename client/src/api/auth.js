@@ -35,9 +35,20 @@ API.interceptors.response.use(
       // Prevent multiple redirects
       isRedirecting = true;
       
-      // Clear invalid token
+      // Clear invalid token and user data
+      const userId = sessionStorage.getItem('userId');
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('userId');
+      sessionStorage.removeItem('userName');
+      
+      // Clear user-specific localStorage data
+      if (userId) {
+        localStorage.removeItem(`chatList_${userId}`);
+        localStorage.removeItem(`userAvatarUrl_${userId}`);
+        localStorage.removeItem(`darkMode_${userId}`);
+        localStorage.removeItem(`theme_${userId}`);
+        console.log('Cleared user-specific data on 401 error for:', userId);
+      }
       
       // Add a small delay before redirecting to allow console logs to be seen
       setTimeout(() => {
@@ -58,6 +69,17 @@ export function login(credentials) {
     .then(response => {
       // Log successful login data
       console.log('Login successful, received data:', response.data);
+      
+      // Clear any existing user-specific data from previous sessions
+      const previousUserId = sessionStorage.getItem('userId');
+      if (previousUserId) {
+        localStorage.removeItem(`chatList_${previousUserId}`);
+        localStorage.removeItem(`userAvatarUrl_${previousUserId}`);
+        localStorage.removeItem(`darkMode_${previousUserId}`);
+        localStorage.removeItem(`theme_${previousUserId}`);
+        console.log('Cleared previous user data for:', previousUserId);
+      }
+      
       return response;
     });
 }
@@ -70,9 +92,23 @@ export function verifyToken() {
 }
 
 export function logout() {
+  const userId = sessionStorage.getItem('userId');
+  
+  // Clear session storage
   sessionStorage.removeItem('token');
   sessionStorage.removeItem('userId');
   sessionStorage.removeItem('userName');
+  
+  // Clear user-specific localStorage data
+  if (userId) {
+    localStorage.removeItem(`chatList_${userId}`);
+    localStorage.removeItem(`userAvatarUrl_${userId}`);
+    localStorage.removeItem(`darkMode_${userId}`);
+    localStorage.removeItem(`theme_${userId}`);
+    
+    console.log('Cleared user-specific data for:', userId);
+  }
+  
   return API.post('/auth/logout');
 }
 

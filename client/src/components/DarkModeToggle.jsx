@@ -6,7 +6,14 @@ export default function DarkModeToggle({ isDark, setIsDark }) {
   // Apply or remove 'dark' class on <html>
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    
+    // Store theme preference for current user
+    const currentUserId = sessionStorage.getItem('userId');
+    if (currentUserId) {
+      localStorage.setItem(`theme_${currentUserId}`, isDark ? 'dark' : 'light');
+    } else {
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
   }, [isDark]);
 
   return (
