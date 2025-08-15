@@ -186,7 +186,30 @@ exports.updateAvatar = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
     const { file } = req;
+    
     if (!file) return res.status(400).json({ error: 'No image uploaded' });
+    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+
+    // Validate file type
+    if (!file.mimetype.startsWith('image/')) {
+      return res.status(400).json({ error: 'Only image files are allowed' });
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Image size must be less than 5MB' });
+    }
+
+    // Verify user exists and owns this profile
+    const userExists = await User.findById(userId).select('_id name');
+    if (!userExists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log('=== AVATAR UPLOAD DEBUG ===');
+    console.log('User ID:', userId);
+    console.log('User Name:', userExists.name);
+    console.log('File:', file.originalname, file.size, file.mimetype);
 
     // Upload to Cloudinary
     const uploadResult = await cloudinary.uploader.upload(file.path, {
@@ -197,7 +220,12 @@ exports.updateAvatar = async (req, res) => {
     // Delete previous avatar if exists
     const current = await User.findById(userId).select('avatarPublicId');
     if (current?.avatarPublicId) {
-      try { await cloudinary.uploader.destroy(current.avatarPublicId); } catch {}
+      try { 
+        await cloudinary.uploader.destroy(current.avatarPublicId); 
+        console.log('Previous avatar deleted:', current.avatarPublicId);
+      } catch (destroyErr) {
+        console.warn('Failed to delete previous avatar:', destroyErr.message);
+      }
     }
 
     const updated = await User.findByIdAndUpdate(
@@ -206,10 +234,17 @@ exports.updateAvatar = async (req, res) => {
       { new: true }
     ).select('name email gender location avatarUrl');
 
+    console.log('Avatar updated successfully for user:', userId);
+    console.log('New avatar URL:', uploadResult.secure_url);
+
     // Cleanup temp file
     try { fs.unlink(file.path, () => {}); } catch {}
 
-    res.json({ message: 'Avatar updated', user: updated });
+    res.json({ 
+      message: 'Avatar updated successfully', 
+      user: updated,
+      success: true 
+    });
   } catch (err) {
     console.error('Error updating avatar:', err);
     res.status(500).json({ error: err.message || 'Failed to update avatar' });
