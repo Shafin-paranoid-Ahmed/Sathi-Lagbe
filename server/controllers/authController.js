@@ -218,6 +218,7 @@ const verifyToken = async (req, res) => {
             gender: user.gender,
             location: user.location,
             phone: user.phone,
+            bracuId: user.bracuId || '',
             preferences: user.preferences,
             avatarUrl: user.avatarUrl || ''
         };

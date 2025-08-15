@@ -97,7 +97,7 @@ exports.updateProfile = async (req, res) => {
       userId,
       { $set: updates },
       { new: true }
-    ).select('name email gender location phone avatarUrl');
+    ).select('name email gender location phone bracuId avatarUrl');
     
     res.json(user);
   } catch (err) {
