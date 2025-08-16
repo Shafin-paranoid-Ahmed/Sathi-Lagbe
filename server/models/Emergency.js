@@ -9,7 +9,9 @@ const EmergencySchema = new mongoose.Schema({
   },
   contacts: [{
     name: String,
-    phone: String
+    phone: String,
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // For app users
+    addedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" } // Track who added this contact
   }],
   triggeredAt: Date,
   location: String,

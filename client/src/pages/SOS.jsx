@@ -1,10 +1,12 @@
 // client/src/pages/Sos.jsx
 import { useState, useEffect } from 'react';
 import { getContacts, saveContacts, sendSosAlert } from '../api/sos';
-import axios from 'axios';
 import { API } from '../api/auth';
 
 export default function Sos() {
+  // Get current user ID for contact ownership validation
+  const currentUserId = sessionStorage.getItem('userId');
+  
   const [contacts, setContacts] = useState([]);
   const [newContact, setNewContact] = useState({ name: '', phone: '' });
   const [loading, setLoading] = useState(false);
@@ -23,14 +25,22 @@ export default function Sos() {
       setLoading(true);
       try {
         const res = await getContacts();
+        console.log('=== SOS CONTACTS DEBUG ===');
+        console.log('API Response:', res);
+        console.log('Current User ID:', currentUserId);
+        
         // Handle different API response structures
+        let contactsData = [];
         if (res.data && res.data.data && res.data.data.contacts) {
-          setContacts(res.data.data.contacts);
+          contactsData = res.data.data.contacts;
         } else if (res.data && Array.isArray(res.data)) {
-          setContacts(res.data);
+          contactsData = res.data;
         } else {
-          setContacts([]);
+          contactsData = [];
         }
+        
+        console.log('Parsed contacts data:', contactsData);
+        setContacts(contactsData);
       } catch (err) {
         console.error('Failed to load contacts:', err);
         setError('Failed to load contacts');
@@ -53,7 +63,9 @@ export default function Sos() {
       }
     };
   }, [currentUserId]); // Reload when user changes
-      
+
+  // Get user's location on mount
+  useEffect(() => {
     // Try to get user's location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -114,7 +126,7 @@ export default function Sos() {
       }
       // Prevent duplicates (by userId)
       if (contacts.some(c => c.userId === friend._id)) {
-        setError('This contact is already added');
+        setError('This friend is already added as a contact');
         return;
       }
       const contactToAdd = { 
@@ -123,10 +135,20 @@ export default function Sos() {
         userId: friend._id,
         addedBy: currentUserId // Track who added this contact
       };
-      setContacts(prev => [...prev, contactToAdd]);
+      setContacts(prev => {
+        const newContacts = [...prev, contactToAdd];
+        console.log('Saving contacts to backend:', newContacts);
+        saveContacts(newContacts)
+          .then(() => console.log('Contacts saved successfully'))
+          .catch((err) => {
+            console.error('Failed to save contact:', err);
+            setError('Failed to save contact');
+          });
+        return newContacts;
+      });
       setSelectedFriendId('');
       setIsAppUser(false);
-      saveContacts([...contacts, contactToAdd]).catch(() => setError('Failed to save contact'));
+      setError(''); // Clear any previous errors
       return;
     } else {
       if (!newContact.name || !newContact.phone) {
@@ -149,39 +171,46 @@ export default function Sos() {
         addedBy: currentUserId // Track who added this contact
       };
       
-      setContacts(prev => [...prev, contactToAdd]);
+      setContacts(prev => {
+        const newContacts = [...prev, contactToAdd];
+        console.log('Saving contacts to backend:', newContacts);
+        saveContacts(newContacts)
+          .then(() => console.log('Contacts saved successfully'))
+          .catch((err) => {
+            console.error('Failed to save contact:', err);
+            setError('Failed to save contact');
+          });
+        return newContacts;
+      });
       setNewContact({ name: '', phone: '' });
-      saveContacts([...contacts, contactToAdd]).catch(() => setError('Failed to save contact'));
+      setError(''); // Clear any previous errors
     }
   };
 
   // Remove a contact
   const removeContact = (index) => {
-    const contactToRemove = contacts[index];
-    
-    // Validate ownership
-    if (contactToRemove && contactToRemove.addedBy !== currentUserId) {
-      setError('You can only remove your own contacts');
-      return;
-    }
-    
     const updated = contacts.filter((_, i) => i !== index);
+    console.log('Removing contact, updated list:', updated);
     setContacts(updated);
     
     // Save to backend
     saveContacts(updated)
-      .catch(() => setError('Failed to update contacts'));
+      .then(() => console.log('Contacts updated successfully after removal'))
+      .catch((err) => {
+        console.error('Failed to update contacts:', err);
+        setError('Failed to update contacts');
+      });
+    
+    // Clear any previous errors
+    setError('');
   };
   
-  // Get current user ID for contact ownership validation
-  const currentUserId = sessionStorage.getItem('userId');
-  
-  // Get filtered contacts for display - only show contacts owned by current user
+  // Get filtered contacts for display - show all valid contacts for the current user
   const displayContacts = contacts.filter(c => 
     c && 
     c.name && 
     c.name.trim() !== '' && 
-    c.addedBy === currentUserId // Only show contacts added by current user
+    (c.addedBy === currentUserId || !c.addedBy) // Show contacts added by current user OR contacts without addedBy (legacy)
   );
 
   // Send an SOS alert
@@ -247,8 +276,8 @@ export default function Sos() {
                 className="w-full p-2 border rounded dark:bg-gray-600 dark:text-white"
               >
                 <option value="">Select a friend</option>
-                {friends.map(f => (
-                  <option key={f._id} value={f._id}>{f.name}</option>
+                {friends.map((f, index) => (
+                  <option key={f._id || `friend-${index}`} value={f._id}>{f.name}</option>
                 ))}
               </select>
             ) : (
@@ -286,7 +315,16 @@ export default function Sos() {
         {loading && <p className="text-gray-600 dark:text-gray-400">Loading...</p>}
 
         {!loading && displayContacts.length === 0 && (
-          <p className="text-gray-600 dark:text-gray-400">No contacts added yet.</p>
+          <div>
+            <p className="text-gray-600 dark:text-gray-400">No contacts added yet.</p>
+            {/* Debug info */}
+            <details className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <summary>Debug Info</summary>
+              <p>Raw contacts: {JSON.stringify(contacts)}</p>
+              <p>Display contacts: {JSON.stringify(displayContacts)}</p>
+              <p>Current user ID: {currentUserId}</p>
+            </details>
+          </div>
         )}
 
         <ul className="mb-6 space-y-2">

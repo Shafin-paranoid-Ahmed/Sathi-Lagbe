@@ -123,7 +123,19 @@ export default function FriendList({ onSelectChat }) {
               className="flex items-center justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
             >
               <div className="flex items-center flex-1 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium mr-2">
+                {user.avatarUrl ? (
+                  <img 
+                    src={user.avatarUrl} 
+                    alt={user.name || 'User'} 
+                    className="w-8 h-8 rounded-full object-cover mr-2 shadow-sm"
+                    onError={(e) => {
+                      // Fallback to initials if image fails to load
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div className={`w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium mr-2 ${user.avatarUrl ? 'hidden' : ''}`}>
                   {user.name?.charAt(0).toUpperCase() || '?'}
                 </div>
                 <div className="overflow-hidden">
