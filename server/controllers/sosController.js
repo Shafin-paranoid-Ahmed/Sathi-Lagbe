@@ -18,19 +18,26 @@ exports.getContacts = async (req, res) => {
     
     // Try SosContact model first (ONLYGWUB style)
     try {
+      console.log('=== FETCHING FROM SOSCONTACT MODEL ===');
       const contactEntry = await SosContact.findOne({ user: userId });
+      console.log('SosContact query result:', contactEntry);
+      
       if (contactEntry && contactEntry.contacts && contactEntry.contacts.length > 0) {
         const filteredContacts = contactEntry.contacts.filter(c => c.name && c.name.trim() !== '');
         console.log('Found contacts in SosContact model:', filteredContacts.length);
+        console.log('Filtered contacts:', JSON.stringify(filteredContacts, null, 2));
         return res.json({
           success: true,
           data: {
             contacts: filteredContacts
           }
         });
+      } else {
+        console.log('No contacts found in SosContact model');
       }
     } catch (err) {
-      console.log('SosContact model not found, trying Emergency model');
+      console.log('SosContact model error:', err.message);
+      console.log('Trying Emergency model...');
     }
     
     // Try Emergency model (Sathi_Lagbe style)
@@ -80,23 +87,54 @@ exports.saveContacts = async (req, res) => {
       c.name && 
       c.name.trim() !== '' && 
       (c.phone || c.userId) && // Must have either phone or userId
-      c.addedBy === userId // Must be added by the current user
+      (c.addedBy === userId || !c.addedBy) // Must be added by current user OR legacy contacts without addedBy
     );
     
-    if (validContacts.length === 0) {
+    // Allow empty arrays (user clearing all contacts) but require at least one contact if they're adding contacts
+    console.log('=== VALIDATION DEBUG ===');
+    console.log('Contacts array length:', contacts.length);
+    console.log('Valid contacts length:', validContacts.length);
+    console.log('Raw contacts:', JSON.stringify(contacts, null, 2));
+    
+    // If contacts array is empty, allow it (user clearing all contacts)
+    if (contacts.length === 0) {
+      console.log('Empty contacts array - allowing save (user clearing all contacts)');
+    }
+    // If contacts array has items but none are valid, reject
+    else if (validContacts.length === 0) {
+      console.log('Validation failed: contacts array has items but none are valid');
       return res.status(400).json({ error: 'At least one valid contact is required' });
     }
     
+    console.log('Validation passed: allowing save');
+    
     // Try SosContact model first (ONLYGWUB style)
     try {
+      console.log('=== SAVING TO SOSCONTACT MODEL ===');
+      console.log('User ID:', userId);
+      console.log('Valid contacts:', JSON.stringify(validContacts, null, 2));
+      
       let contactEntry = await SosContact.findOne({ user: userId });
       
       if (contactEntry) {
         contactEntry.contacts = validContacts;
         await contactEntry.save();
-      } else {
+        console.log('Updated existing SosContact entry');
+      } else if (validContacts.length > 0) {
+        // Only create new entry if there are valid contacts
         contactEntry = await SosContact.create({ user: userId, contacts: validContacts });
+        console.log('Created new SosContact entry');
+      } else {
+        // If no valid contacts, just return success (user cleared all contacts)
+        console.log('No valid contacts - user cleared all contacts');
+        return res.json({ 
+          success: true, 
+          message: "All contacts cleared successfully.",
+          data: { contacts: [] }
+        });
       }
+      
+      console.log('Final contact entry:', JSON.stringify(contactEntry, null, 2));
       
       return res.json({ 
         success: true, 
@@ -104,7 +142,8 @@ exports.saveContacts = async (req, res) => {
         data: contactEntry
       });
     } catch (err) {
-      console.log('SosContact model failed, trying Emergency model');
+      console.log('SosContact model failed:', err.message);
+      console.log('Trying Emergency model...');
     }
     
     // Try Emergency model as fallback (Sathi_Lagbe style)
