@@ -1,6 +1,7 @@
 // client/src/components/RideOfferForm.jsx
 import { useState } from 'react';
 import { createRideOffer, createRecurringRides } from '../api/rides';
+import LocationAutocomplete from './LocationAutocomplete';
 
 export default function RideOfferForm() {
   const [form, setForm] = useState({
@@ -118,12 +119,11 @@ export default function RideOfferForm() {
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Start Location
         </label>
-        <input
-          type="text"
-          placeholder="e.g., North Campus"
-          className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+        <LocationAutocomplete
           value={form.startLocation}
-          onChange={e => setForm({ ...form, startLocation: e.target.value })}
+          onChange={(value) => setForm({ ...form, startLocation: value })}
+          placeholder="e.g., Gulshan, Dhaka"
+          disabled={loading}
         />
         {errors.startLocation && (
           <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.startLocation}</p>
@@ -134,12 +134,11 @@ export default function RideOfferForm() {
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           End Location
         </label>
-        <input
-          type="text"
-          placeholder="e.g., South Campus"
-          className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+        <LocationAutocomplete
           value={form.endLocation}
-          onChange={e => setForm({ ...form, endLocation: e.target.value })}
+          onChange={(value) => setForm({ ...form, endLocation: value })}
+          placeholder="e.g., Banani, Dhaka"
+          disabled={loading}
         />
         {errors.endLocation && (
           <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.endLocation}</p>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { searchRides, getAiMatches, requestToJoinRide, getAllAvailableRides } from '../api/rides';
 import MapView from './MapView';
+import LocationAutocomplete from './LocationAutocomplete';
 
 
 export default function RideMatchResults() {
@@ -116,12 +117,11 @@ export default function RideMatchResults() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Start Location
             </label>
-            <input
-              type="text"
-              placeholder="e.g., North Campus"
+            <LocationAutocomplete
               value={searchParams.startLocation}
-              onChange={e => setSearchParams({ ...searchParams, startLocation: e.target.value })}
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+              onChange={(value) => setSearchParams({ ...searchParams, startLocation: value })}
+              placeholder="e.g., Gulshan, Dhaka"
+              disabled={loading}
             />
           </div>
           
@@ -129,12 +129,11 @@ export default function RideMatchResults() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               End Location (optional)
             </label>
-            <input
-              type="text"
-              placeholder="e.g., South Campus"
+            <LocationAutocomplete
               value={searchParams.endLocation}
-              onChange={e => setSearchParams({ ...searchParams, endLocation: e.target.value })}
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+              onChange={(value) => setSearchParams({ ...searchParams, endLocation: value })}
+              placeholder="e.g., Banani, Dhaka"
+              disabled={loading}
             />
           </div>
         </div>
