@@ -211,71 +211,95 @@ export default function RideMatchResults() {
           </div>
         )}
         
-        {!loading && matches.map(ride => (
-          <div 
-            key={ride._id} 
-            className="border dark:border-gray-700 p-4 rounded-lg shadow-sm bg-gray-50 dark:bg-gray-700"
-          >
-            {useAI && isSearching && (
-              <div className="mb-2">
-                <span className="inline-block bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded text-sm">
-                  Match Score: {ride.matchScore}%
-                </span>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
-              <div>
-                <p className="text-gray-700 dark:text-gray-300">
-                  <strong className="text-gray-900 dark:text-gray-100">From:</strong> {ride.startLocation}
-                </p>
-                <p className="text-gray-700 dark:text-gray-300">
-                  <strong className="text-gray-900 dark:text-gray-100">To:</strong> {ride.endLocation}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-700 dark:text-gray-300">
-                  <strong className="text-gray-900 dark:text-gray-100">Departure:</strong>{' '}
-                  {new Date(ride.departureTime).toLocaleString()}
-                </p>
-                {ride.recurring && (
-                  <p className="text-gray-700 dark:text-gray-300">
-                    <strong className="text-gray-900 dark:text-gray-100">Recurring:</strong>{' '}
-                    {ride.recurring.days ? ride.recurring.days.join(', ') : 'Yes'}
-                  </p>
+        {!loading && matches.map(ride => {
+          // Add a failsafe check in case the backend sends a ride with a null riderId
+          if (!ride.riderId) {
+            return null; // Don't render this ride
+          }
+          return (
+            <div 
+              key={ride._id} 
+              className="border dark:border-gray-700 p-4 rounded-lg shadow-sm bg-gray-50 dark:bg-gray-700"
+            >
+              {useAI && isSearching && (
+                <div className="mb-2">
+                  <span className="inline-block bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded text-sm">
+                    Match Score: {ride.matchScore}%
+                  </span>
+                </div>
+              )}
+              
+              <div className="flex items-center space-x-3 mb-3 border-b border-gray-200 dark:border-gray-600 pb-2">
+                {ride.riderId.avatarUrl ? (
+                  <img src={ride.riderId.avatarUrl} alt={ride.riderId.name} className="h-10 w-10 rounded-full object-cover" />
+                ) : (
+                  <div className="h-10 w-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-bold">
+                    {ride.riderId.name.charAt(0)}
+                  </div>
                 )}
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {ride.riderId.name}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Ride Owner
+                  </p>
+                </div>
               </div>
-            </div>
-            
-            <div className="flex items-center space-x-2 mt-2">
-              <input
-                type="number"
-                min="1"
-                value={seatCounts[ride._id] || 1}
-                onChange={e => setSeatCounts({ ...seatCounts, [ride._id]: Number(e.target.value) })}
-                className="w-20 p-2 border rounded bg-white dark:bg-gray-700 dark:text-white"
-              />
-              <button
-                onClick={() => handleRequestToJoin(ride._id)}
-                disabled={ride.requested}
-                className="px-4 py-1 bg-green-600 dark:bg-green-700 text-white rounded hover:bg-green-700 dark:hover:bg-green-800 disabled:opacity-50 transition-colors"
-              >
-                {ride.requested ? 'Request Sent' : 'Request to Join'}
-              </button>
-              <button
-                onClick={() => setVisibleMap(visibleMap === ride._id ? null : ride._id)}
-                className="px-4 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
-              >
-                {visibleMap === ride._id ? 'Hide Route' : 'Show Route'}
-              </button>
-            </div>
-            {visibleMap === ride._id && (
-              <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
-                <MapView startLocation={ride.startLocation} endLocation={ride.endLocation} />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+                <div>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong className="text-gray-900 dark:text-gray-100">From:</strong> {ride.startLocation}
+                  </p>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong className="text-gray-900 dark:text-gray-100">To:</strong> {ride.endLocation}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong className="text-gray-900 dark:text-gray-100">Departure:</strong>{' '}
+                    {new Date(ride.departureTime).toLocaleString()}
+                  </p>
+                  {ride.recurring && (
+                    <p className="text-gray-700 dark:text-gray-300">
+                      <strong className="text-gray-900 dark:text-gray-100">Recurring:</strong>{' '}
+                      {ride.recurring.days ? ride.recurring.days.join(', ') : 'Yes'}
+                    </p>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        ))}
+              
+              <div className="flex items-center space-x-2 mt-2">
+                <input
+                  type="number"
+                  min="1"
+                  value={seatCounts[ride._id] || 1}
+                  onChange={e => setSeatCounts({ ...seatCounts, [ride._id]: Number(e.target.value) })}
+                  className="w-20 p-2 border rounded bg-white dark:bg-gray-700 dark:text-white"
+                />
+                <button
+                  onClick={() => handleRequestToJoin(ride._id)}
+                  disabled={ride.requested}
+                  className="px-4 py-1 bg-green-600 dark:bg-green-700 text-white rounded hover:bg-green-700 dark:hover:bg-green-800 disabled:opacity-50 transition-colors"
+                >
+                  {ride.requested ? 'Request Sent' : 'Request to Join'}
+                </button>
+                <button
+                  onClick={() => setVisibleMap(visibleMap === ride._id ? null : ride._id)}
+                  className="px-4 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                >
+                  {visibleMap === ride._id ? 'Hide Route' : 'Show Route'}
+                </button>
+              </div>
+              {visibleMap === ride._id && (
+                <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                  <MapView startLocation={ride.startLocation} endLocation={ride.endLocation} />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

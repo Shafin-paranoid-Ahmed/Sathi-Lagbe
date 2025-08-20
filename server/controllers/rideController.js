@@ -24,12 +24,15 @@ exports.getAllAvailableRides = async (req, res) => {
       status: { $ne: 'completed' }
       // Temporarily removed: departureTime: { $gte: currentTime }
     })
-    .populate('riderId', 'name email')
+    .populate('riderId', 'name email avatarUrl')
     .sort({ createdAt: -1 }) // Sort by most recent first (newest to oldest)
     .lean();
     
-    console.log('Found rides:', rides.length);
-    console.log('Ride details:', rides.map(r => ({
+    // Filter out rides where the rider (user) may have been deleted
+    const validRides = rides.filter(ride => ride.riderId);
+    
+    console.log('Found rides:', rides.length, '| Valid rides after filtering:', validRides.length);
+    console.log('Ride details:', validRides.map(r => ({
       id: r._id,
       startLocation: r.startLocation,
       endLocation: r.endLocation,
@@ -39,7 +42,7 @@ exports.getAllAvailableRides = async (req, res) => {
     })));
     
     // Send the results
-    res.json(rides);
+    res.json(validRides);
   } catch (err) {
     console.error('Error getting all available rides:', err);
     res.status(500).json({ error: err.message || 'Failed to get available rides' });
@@ -80,10 +83,14 @@ exports.findRideMatches = async (req, res) => {
     
     // Query the database
     const rides = await RideMatch.find(query)
+      .populate('riderId', 'name email avatarUrl')
       .sort({ departureTime: 1 }); // Sort by earliest departure
       
+    // Filter out rides where the rider (user) may have been deleted
+    const validRides = rides.filter(ride => ride.riderId);
+      
     // Send the results
-    res.json(rides);
+    res.json(validRides);
   } catch (err) {
     console.error('Error finding ride matches:', err);
     res.status(500).json({ error: err.message || 'Failed to find rides' });
@@ -205,12 +212,12 @@ exports.requestToJoinRide = async (req, res) => {
     }
     
     // Check if already requested
-    if (ride.requestedRiders.some(r => r.toString() === effectiveUserId.toString())) {
-      return res.status(400).json({ error: "You have already requested this ride" });
+    if (ride.requestedRiders.some(r => r.user.toString() === effectiveUserId.toString())) {
+      return res.status(400).json({ error: "You have already requested to join this ride" });
     }
     
     // Check if already confirmed
-    if (ride.confirmedRiders.some(r => r.toString() === effectiveUserId.toString())) {
+    if (ride.confirmedRiders.some(r => r.user.toString() === effectiveUserId.toString())) {
       return res.status(400).json({ error: "You are already confirmed for this ride" });
     }
     
@@ -253,13 +260,13 @@ exports.confirmRideRequest = async (req, res) => {
     }
     
     // Check if already confirmed
-    const alreadyConfirmed = ride.confirmedRiders.some(r => r.toString() === userId);
+    const alreadyConfirmed = ride.confirmedRiders.some(r => r.user.toString() === userId);
     if (alreadyConfirmed) {
       return res.status(400).json({ error: "User already confirmed" });
     }
     
     // Find the request
-    const reqIndex = ride.requestedRiders.findIndex(r => r.toString() === userId);
+    const reqIndex = ride.requestedRiders.findIndex(r => r.user.toString() === userId);
     if (reqIndex === -1) {
       return res.status(404).json({ error: "Request not found" });
     }
@@ -310,7 +317,7 @@ exports.denyRideRequest = async (req, res) => {
     }
     
     // Remove from requested list
-    ride.requestedRiders = ride.requestedRiders.filter(r => r.toString() !== userId);
+    ride.requestedRiders = ride.requestedRiders.filter(r => r.user.toString() !== userId);
     
     await ride.save();
     
@@ -349,8 +356,14 @@ exports.getRideById = async (req, res) => {
     }
     
     const ride = await RideMatch.findById(rideId)
-      .populate('requestedRiders', 'name email')
-      .populate('confirmedRiders', 'name email');
+      .populate({
+        path: 'requestedRiders.user',
+        select: 'name email avatarUrl'
+      })
+      .populate({
+        path: 'confirmedRiders.user',
+        select: 'name email avatarUrl'
+      });
       
     if (!ride) {
       console.log('❌ Ride not found in database for ID:', rideId);
@@ -521,7 +534,7 @@ exports.submitRating = async (req, res) => {
     }
     
     // Check if rider was confirmed
-    const isConfirmed = ride.confirmedRiders.some(id => id.toString() === riderId);
+    const isConfirmed = ride.confirmedRiders.some(id => id.user.toString() === riderId);
     if (!isConfirmed) {
       return res.status(403).json({ error: 'Rider not confirmed in this ride' });
     }

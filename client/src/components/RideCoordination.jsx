@@ -198,21 +198,30 @@ export default function RideCoordination() {
             <div>
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Pending Requests</h3>
               <div className="space-y-2">
-                {ride.requestedRiders.map((rider) => (
-                  <div key={rider._id} className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 flex justify-between items-center">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">{rider.name || rider.email}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Seats: {rider.seatCount}</p>
+                {ride.requestedRiders.map((request) => (
+                  <div key={request.user._id} className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 flex justify-between items-center">
+                    <div className="flex items-center space-x-3">
+                      {request.user.avatarUrl ? (
+                        <img src={request.user.avatarUrl} alt={request.user.name} className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-bold">
+                          {request.user.name.charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{request.user.name || request.user.email}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Seats: {request.seatCount}</p>
+                      </div>
                     </div>
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => handleConfirm(rider._id)}
+                        onClick={() => handleConfirm(request.user._id)}
                         className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
                       >
                         Confirm
                       </button>
                       <button
-                        onClick={() => handleDeny(rider._id)}
+                        onClick={() => handleDeny(request.user._id)}
                         className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
                       >
                         Deny
