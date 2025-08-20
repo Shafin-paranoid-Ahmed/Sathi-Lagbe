@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { searchRides, getAiMatches, requestToJoinRide, getAllAvailableRides } from '../api/rides';
+import MapView from './MapView';
 
 
 export default function RideMatchResults() {
+  console.log('RideMatchResults component rendering...');
+  
   const [searchParams, setSearchParams] = useState({
     startLocation: '',
     endLocation: '',
@@ -18,13 +21,17 @@ export default function RideMatchResults() {
   const [useAI, setUseAI] = useState(false);
 
   const [isSearching, setIsSearching] = useState(false);
+  const [seatCounts, setSeatCounts] = useState({});
+  const [visibleMap, setVisibleMap] = useState(null);
 
   // Load all available rides on component mount
   useEffect(() => {
+    console.log('RideMatchResults useEffect triggered - loading all rides');
     loadAllRides();
   }, []);
 
   const loadAllRides = async () => {
+    console.log('loadAllRides function called');
     setLoading(true);
     setErrors(null);
     setSuccess('');
@@ -96,6 +103,8 @@ export default function RideMatchResults() {
       setErrors(err.response?.data?.error || 'Failed to send request');
     }
   };
+
+  console.log('RideMatchResults render state:', { loading, matches: matches.length, errors, success });
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white dark:bg-gray-800 shadow rounded-lg">
@@ -196,7 +205,14 @@ export default function RideMatchResults() {
                   : 'No rides available at the moment.')}
         </h3>
         
-        {matches.map(ride => (
+        {loading && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading rides...</p>
+          </div>
+        )}
+        
+        {!loading && matches.map(ride => (
           <div 
             key={ride._id} 
             className="border dark:border-gray-700 p-4 rounded-lg shadow-sm bg-gray-50 dark:bg-gray-700"
