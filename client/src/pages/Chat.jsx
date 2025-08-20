@@ -245,7 +245,13 @@ export default function Chat() {
       
       // Cleanup on unmount
       return () => {
-        socketService.removeAllListeners();
+        clearTimeout(typingTimeoutRef.current); // Clear any pending typing timeout
+        console.log('Cleaning up Chat.jsx socket listeners...');
+        socketService.off('new_message');
+        socketService.off('message_sent');
+        socketService.off('user_typing');
+        socketService.off('user_stopped_typing');
+        socketService.off('messages_read');
       };
     } else {
       console.error('No token found for Socket.IO connection');
