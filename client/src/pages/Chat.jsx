@@ -42,6 +42,12 @@ export default function Chat() {
   const isInitialLoad = useRef(true);
   const [replyTo, setReplyTo] = useState(null);
 
+  // Use a ref to hold the current selected chat to avoid stale closures in socket handlers
+  const selectedChatRef = useRef(selectedChat);
+  useEffect(() => {
+    selectedChatRef.current = selectedChat;
+  }, [selectedChat]);
+
   const fetchChats = useCallback(async () => {
     if (!currentUserId) {
       console.error("fetchChats: No currentUserId found. User might not be properly logged in.");
@@ -161,7 +167,7 @@ export default function Chat() {
       const updatedChat = {
         ...chatToUpdate,
         lastMessage: message,
-        unreadMessageCount: (selectedChat && selectedChat._id === chatId)
+        unreadMessageCount: (selectedChatRef.current && selectedChatRef.current._id === chatId)
           ? chatToUpdate.unreadMessageCount
           : (chatToUpdate.unreadMessageCount || 0) + 1,
       };
@@ -174,10 +180,10 @@ export default function Chat() {
     const isFromCurrentUser = message.sender && (message.sender._id === currentUserId || message.sender === currentUserId);
 
     // Add the message to the view if it's the active chat and not from the current user
-    if (selectedChat && selectedChat._id === chatId && !isFromCurrentUser) {
+    if (selectedChatRef.current && selectedChatRef.current._id === chatId && !isFromCurrentUser) {
       setMessages(prev => [...prev, message]);
     }
-  }, [fetchChats, selectedChat, currentUserId]);
+  }, [fetchChats, currentUserId]);
 
   const handleMessageSent = useCallback((data) => {
     console.log('Message sent confirmation:', data);
@@ -185,36 +191,36 @@ export default function Chat() {
 
   const handleUserTyping = useCallback((data) => {
     const { chatId, userId, userName } = data;
-    if (selectedChat && selectedChat._id === chatId && userId !== currentUserId) {
+    if (selectedChatRef.current && selectedChatRef.current._id === chatId && userId !== currentUserId) {
       setTypingUsers(prev => new Set([...prev, userName]));
     }
-  }, [selectedChat, currentUserId, setTypingUsers]);
+  }, [currentUserId]);
 
   const handleUserStoppedTyping = useCallback((data) => {
     const { chatId, userId } = data;
-    if (selectedChat && selectedChat._id === chatId && userId !== currentUserId) {
+    if (selectedChatRef.current && selectedChatRef.current._id === chatId && userId !== currentUserId) {
       setTypingUsers(() => {
         // Remove the user who stopped typing (we need to find them by userId)
         // For now, we'll clear all typing indicators
         return new Set();
       });
     }
-  }, [selectedChat, currentUserId, setTypingUsers]);
+  }, [currentUserId]);
 
   const handleMessagesRead = useCallback((data) => {
     const { chatId, messageIds, readBy } = data;
-    if (selectedChat && selectedChat._id === chatId && readBy !== currentUserId) {
+    if (selectedChatRef.current && selectedChatRef.current._id === chatId && readBy !== currentUserId) {
       setMessages(prev => 
         prev.map(msg => 
           messageIds.includes(msg._id) ? { ...msg, read: true } : msg
         )
       );
     }
-  }, [selectedChat, currentUserId, setMessages]);
+  }, [currentUserId]);
 
 
 
-  // Initialize Socket.IO connection on component mount
+  // Initialize Socket.IO connection and listeners on component mount
   useEffect(() => {
     if (token) {
       console.log('Initializing Socket.IO connection...');
@@ -235,22 +241,16 @@ export default function Chat() {
         }, 500);
       };
 
-      // Try to set up listeners immediately and also with a delay
       setupListeners();
-      const timeoutId = setTimeout(setupListeners, 2000);
       
       // Cleanup on unmount
       return () => {
-        clearTimeout(timeoutId);
         socketService.removeAllListeners();
-        if (selectedChat) {
-          socketService.leaveChat(selectedChat._id);
-        }
       };
     } else {
       console.error('No token found for Socket.IO connection');
     }
-  }, [token, handleNewMessage, handleMessageSent, handleUserTyping, handleUserStoppedTyping, handleMessagesRead, selectedChat]);
+  }, [token, handleNewMessage, handleMessageSent, handleUserTyping, handleUserStoppedTyping, handleMessagesRead]);
 
   // Fetch chats on component mount
   useEffect(() => {
@@ -276,15 +276,15 @@ export default function Chat() {
 
   // Join chat room when selected chat changes
   useEffect(() => {
-    if (!selectedChat) return;
+    if (selectedChat) {
+      console.log('Joining chat room:', selectedChat._id);
+      socketService.joinChat(selectedChat._id);
 
-    console.log('Joining chat room:', selectedChat._id);
-    socketService.joinChat(selectedChat._id);
-
-    return () => {
-      console.log('Leaving chat room:', selectedChat._id);
-      socketService.leaveChat(selectedChat._id);
-    };
+      return () => {
+        console.log('Leaving chat room:', selectedChat._id);
+        socketService.leaveChat(selectedChat._id);
+      };
+    }
   }, [selectedChat]);
 
 
