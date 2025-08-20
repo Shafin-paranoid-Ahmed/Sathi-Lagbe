@@ -7,6 +7,7 @@ const auth = require('../middleware/auth');
 // Search routes
 router.get('/search', rideController.findRideMatches);
 router.post('/ai-match', auth, rideController.getAiMatches);
+router.get('/ai-stream', auth, rideController.streamAiMatches);
 
 // Create routes
 router.post('/offer', auth, rideController.createRideOffer);

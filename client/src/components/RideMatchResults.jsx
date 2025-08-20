@@ -14,6 +14,7 @@ export default function RideMatchResults() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [useAI, setUseAI] = useState(false);
+  const [seatCounts, setSeatCounts] = useState({});
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -44,7 +45,8 @@ export default function RideMatchResults() {
 
   const handleRequestToJoin = async (rideId) => {
     try {
-      await requestToJoinRide(rideId);
+      const seatCount = seatCounts[rideId] || 1;
+      await requestToJoinRide(rideId, seatCount);
       setSuccess('Request sent successfully!');
       
       // Update the UI to show the request was sent
@@ -185,13 +187,22 @@ export default function RideMatchResults() {
               </div>
             </div>
             
-            <button
-              onClick={() => handleRequestToJoin(ride._id)}
-              disabled={ride.requested}
-              className="px-4 py-1 bg-green-600 dark:bg-green-700 text-white rounded hover:bg-green-700 dark:hover:bg-green-800 disabled:opacity-50 transition-colors"
-            >
-              {ride.requested ? 'Request Sent' : 'Request to Join'}
-            </button>
+            <div className="flex items-center space-x-2 mt-2">
+              <input
+                type="number"
+                min="1"
+                value={seatCounts[ride._id] || 1}
+                onChange={e => setSeatCounts({ ...seatCounts, [ride._id]: Number(e.target.value) })}
+                className="w-20 p-2 border rounded bg-white dark:bg-gray-700 dark:text-white"
+              />
+              <button
+                onClick={() => handleRequestToJoin(ride._id)}
+                disabled={ride.requested}
+                className="px-4 py-1 bg-green-600 dark:bg-green-700 text-white rounded hover:bg-green-700 dark:hover:bg-green-800 disabled:opacity-50 transition-colors"
+              >
+                {ride.requested ? 'Request Sent' : 'Request to Join'}
+              </button>
+            </div>
           </div>
         ))}
       </div>
