@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, X, MessageCircle, AlertTriangle, MapPin } from 'lucide-react';
+import { Bell, X, MessageCircle, AlertTriangle, MapPin, Car, Clock, CheckCircle, Flag } from 'lucide-react';
 import socketService from '../services/socketService';
 import { API } from '../api/auth';
 
@@ -95,6 +95,14 @@ const NotificationBell = () => {
       }
     }
     
+    // Handle ride notifications
+    if (['ride_invitation', 'ride_cancellation', 'eta_change', 'ride_confirmation', 'ride_completion'].includes(notification.type)) {
+      if (notification.data?.rideId) {
+        // Navigate to ride details or rides page
+        window.location.href = `/rides`;
+      }
+    }
+    
     setIsOpen(false);
   };
 
@@ -158,6 +166,21 @@ const NotificationBell = () => {
                       )}
                       {notification.type === 'sos' && (
                         <AlertTriangle className="w-5 h-5 text-red-500" />
+                      )}
+                      {notification.type === 'ride_invitation' && (
+                        <Car className="w-5 h-5 text-blue-500" />
+                      )}
+                      {notification.type === 'ride_cancellation' && (
+                        <X className="w-5 h-5 text-red-500" />
+                      )}
+                      {notification.type === 'eta_change' && (
+                        <Clock className="w-5 h-5 text-yellow-500" />
+                      )}
+                      {notification.type === 'ride_confirmation' && (
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      )}
+                      {notification.type === 'ride_completion' && (
+                        <Flag className="w-5 h-5 text-purple-500" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
