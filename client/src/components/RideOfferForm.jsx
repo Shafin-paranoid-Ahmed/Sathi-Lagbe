@@ -11,7 +11,8 @@ export default function RideOfferForm() {
     recurring: false,
     recurringDays: [],
     recurringHour: '8',
-    recurringMinute: '0'
+    recurringMinute: '0',
+    availableSeats: '1'
   });
 
   const [errors, setErrors] = useState({});
@@ -56,7 +57,8 @@ export default function RideOfferForm() {
             hour: parseInt(form.recurringHour) || 8,
             minute: parseInt(form.recurringMinute) || 0,
             frequency: 'weekly'
-          }
+          },
+          availableSeats: parseInt(form.availableSeats) || 1
         };
 
         await createRecurringRides(payload);
@@ -66,7 +68,8 @@ export default function RideOfferForm() {
           riderId: userId,
           startLocation: form.startLocation,
           endLocation: form.endLocation,
-          departureTime: form.departureTime
+          departureTime: form.departureTime,
+          availableSeats: parseInt(form.availableSeats) || 1
         };
 
         await createRideOffer(payload);
@@ -80,7 +83,8 @@ export default function RideOfferForm() {
         recurring: false,
         recurringDays: [],
         recurringHour: '8',
-        recurringMinute: '0'
+        recurringMinute: '0',
+        availableSeats: '1'
       });
     } catch (err) {
       console.error(err);
@@ -156,6 +160,19 @@ export default function RideOfferForm() {
         <label htmlFor="recurring" className="text-gray-700 dark:text-gray-300">
           Recurring Ride?
         </label>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Available Seats
+        </label>
+        <input
+          type="number"
+          min="1"
+          value={form.availableSeats}
+          onChange={e => setForm({ ...form, availableSeats: e.target.value })}
+          className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+        />
       </div>
 
       {!form.recurring ? (

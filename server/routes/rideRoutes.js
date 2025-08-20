@@ -16,7 +16,7 @@ router.get('/ai-stream', auth, rideController.streamAiMatches);
 router.post('/offer', auth, rideController.createRideOffer);
 router.post('/recurring', auth, rideController.createRecurringRides);
 
-// Request management
+// Request management - THESE MUST COME BEFORE /:rideId
 router.post('/request', auth, rideController.requestToJoinRide);
 router.post('/confirm', auth, rideController.confirmRideRequest);
 router.post('/deny', auth, rideController.denyRideRequest);
@@ -24,9 +24,9 @@ router.post('/deny', auth, rideController.denyRideRequest);
 // Rating
 router.post('/rate', auth, rideController.submitRating);
 
-// CRUD operations
-router.get('/:rideId', auth, rideController.getRideById);
-router.get('/owner/:ownerId', auth, rideController.getRidesByOwner);
+// CRUD operations - order matters
+router.get('/owner/:ownerId', auth, rideController.getRidesByOwner); // specific first
+router.get('/:rideId', auth, rideController.getRideById); // generic after
 router.put('/:rideId', auth, rideController.updateRide);
 router.delete('/:rideId', auth, rideController.deleteRide);
 
