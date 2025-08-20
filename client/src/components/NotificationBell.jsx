@@ -8,7 +8,6 @@ const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const token = sessionStorage.getItem('token');
 
   useEffect(() => {
     fetchNotifications();
@@ -75,7 +74,7 @@ const NotificationBell = () => {
     }
   };
 
-  const handleNotificationClick = (notification) => {
+  const handleNotificationClick = async (notification) => {
     if (!notification.isRead) {
       markAsRead(notification.id);
     }
@@ -96,10 +95,78 @@ const NotificationBell = () => {
     }
     
     // Handle ride notifications
-    if (['ride_invitation', 'ride_cancellation', 'eta_change', 'ride_confirmation', 'ride_completion'].includes(notification.type)) {
+    if (['ride_invitation', 'ride_cancellation', 'eta_change', 'ride_confirmation', 'ride_completion', 'ride_request'].includes(notification.type)) {
       if (notification.data?.rideId) {
-        // Navigate to ride details or rides page
-        window.location.href = `/rides`;
+        console.log('=== RIDE NOTIFICATION CLICK DEBUG ===');
+        console.log('Notification type:', notification.type);
+        console.log('Notification data:', notification.data);
+        console.log('Ride ID from notification:', notification.data.rideId);
+        console.log('Ride ID type:', typeof notification.data.rideId);
+        
+        // For ride requests, validate the ride exists before navigating
+        if (notification.type === 'ride_request') {
+          try {
+            // Ensure we have a valid rideId string
+            const rideId = notification.data.rideId.toString();
+            console.log('Validated ride ID:', rideId);
+            
+            // Check if the ride still exists before navigating
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/rides/${rideId}`, {
+              headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+              }
+            });
+            
+            console.log('Ride validation response status:', response.status);
+            
+            if (response.ok) {
+              console.log('Ride exists, navigating to:', `/rides/${rideId}/manage`);
+              window.location.href = `/rides/${rideId}/manage`;
+            } else {
+              console.warn('Ride no longer exists, removing notification');
+              
+              // Show user-friendly message
+              const userChoice = confirm(
+                'This ride no longer exists. Would you like to:\n\n' +
+                '• Remove this notification (recommended)\n' +
+                '• Go to your rides page instead\n\n' +
+                'Click OK to remove the notification, Cancel to go to rides page.'
+              );
+              
+              if (userChoice) {
+                // Remove the notification since the ride doesn't exist
+                setNotifications(prev => prev.filter(n => n.id !== notification.id));
+                setUnreadCount(prev => Math.max(0, prev - 1));
+              } else {
+                // Navigate to rides page instead
+                window.location.href = '/rides';
+              }
+            }
+          } catch (error) {
+            console.error('Error validating ride:', error);
+            
+            const userChoice = confirm(
+              'Unable to verify if this ride still exists. Would you like to:\n\n' +
+              '• Try to go to the ride anyway\n' +
+              '• Go to your rides page instead\n\n' +
+              'Click OK to try the ride, Cancel to go to rides page.'
+            );
+            
+            if (userChoice) {
+              // Try to navigate to the ride anyway
+              const rideId = notification.data.rideId.toString();
+              window.location.href = `/rides/${rideId}/manage`;
+            } else {
+              // Navigate to rides page instead
+              window.location.href = '/rides';
+            }
+          }
+        } else {
+          // Navigate to ride details or rides page
+          window.location.href = `/rides`;
+        }
+      } else {
+        console.warn('Notification missing rideId:', notification);
       }
     }
     
@@ -169,6 +236,9 @@ const NotificationBell = () => {
                       )}
                       {notification.type === 'ride_invitation' && (
                         <Car className="w-5 h-5 text-blue-500" />
+                      )}
+                      {notification.type === 'ride_request' && (
+                        <Car className="w-5 h-5 text-orange-500" />
                       )}
                       {notification.type === 'ride_cancellation' && (
                         <X className="w-5 h-5 text-red-500" />

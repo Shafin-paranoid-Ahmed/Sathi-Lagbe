@@ -249,6 +249,156 @@ class RideNotificationService {
     }
   }
 
+  // Send ride request notification to ride owner
+  async sendRideRequestNotification(rideId, requesterId, rideOwnerId) {
+    try {
+      console.log('=== RIDE REQUEST NOTIFICATION DEBUG ===');
+      console.log('Ride ID:', rideId);
+      console.log('Ride ID type:', typeof rideId);
+      console.log('Requester ID:', requesterId);
+      console.log('Ride Owner ID:', rideOwnerId);
+
+      const ride = await RideMatch.findById(rideId).populate('riderId', 'name email');
+      const requester = await User.findById(requesterId);
+      
+      if (!ride) {
+        throw new Error('Ride not found');
+      }
+      
+      if (!requester) {
+        throw new Error('Requester not found');
+      }
+
+      // Ensure rideId is a string for consistent storage
+      const rideIdString = rideId.toString();
+      console.log('Storing rideId as string:', rideIdString);
+
+      // Create notification for the ride owner
+      const notification = new Notification({
+        recipient: rideOwnerId,
+        sender: requesterId,
+        type: 'ride_request',
+        title: `New Ride Request`,
+        message: `${requester.name} wants to join your ride from ${ride.startLocation} to ${ride.endLocation}`,
+        data: {
+          rideId: rideIdString,
+          requesterId: requesterId.toString(),
+          requesterName: requester.name,
+          requesterEmail: requester.email,
+          startLocation: ride.startLocation,
+          endLocation: ride.endLocation,
+          departureTime: ride.departureTime,
+          timestamp: new Date()
+        }
+      });
+
+      console.log('Created notification with data:', notification.data);
+      const savedNotification = await notification.save();
+      console.log('Saved notification ID:', savedNotification._id);
+      
+      this.sendRealtimeNotifications([savedNotification]);
+
+      return savedNotification;
+    } catch (error) {
+      console.error('Error sending ride request notification:', error);
+      throw error;
+    }
+  }
+
+  // Send ride request accepted notification to requester
+  async sendRideRequestAccepted(rideId, requesterId, rideOwnerId) {
+    try {
+      console.log('=== RIDE REQUEST ACCEPTED NOTIFICATION DEBUG ===');
+      console.log('Ride ID:', rideId);
+      console.log('Requester ID:', requesterId);
+      console.log('Ride Owner ID:', rideOwnerId);
+
+      const ride = await RideMatch.findById(rideId).populate('riderId', 'name email');
+      const requester = await User.findById(requesterId);
+      
+      if (!ride) {
+        throw new Error('Ride not found');
+      }
+      
+      if (!requester) {
+        throw new Error('Requester not found');
+      }
+
+      // Create notification for the requester
+      const notification = new Notification({
+        recipient: requesterId,
+        sender: rideOwnerId,
+        type: 'ride_confirmation',
+        title: `Ride Request Accepted!`,
+        message: `${ride.riderId.name} accepted your request to join their ride from ${ride.startLocation} to ${ride.endLocation}`,
+        data: {
+          rideId: rideId,
+          rideOwnerId: rideOwnerId,
+          rideOwnerName: ride.riderId.name,
+          startLocation: ride.startLocation,
+          endLocation: ride.endLocation,
+          departureTime: ride.departureTime,
+          timestamp: new Date()
+        }
+      });
+
+      const savedNotification = await notification.save();
+      this.sendRealtimeNotifications([savedNotification]);
+
+      return savedNotification;
+    } catch (error) {
+      console.error('Error sending ride request accepted notification:', error);
+      throw error;
+    }
+  }
+
+  // Send ride request denied notification to requester
+  async sendRideRequestDenied(rideId, requesterId, rideOwnerId) {
+    try {
+      console.log('=== RIDE REQUEST DENIED NOTIFICATION DEBUG ===');
+      console.log('Ride ID:', rideId);
+      console.log('Requester ID:', requesterId);
+      console.log('Ride Owner ID:', rideOwnerId);
+
+      const ride = await RideMatch.findById(rideId).populate('riderId', 'name email');
+      const requester = await User.findById(requesterId);
+      
+      if (!ride) {
+        throw new Error('Ride not found');
+      }
+      
+      if (!requester) {
+        throw new Error('Requester not found');
+      }
+
+      // Create notification for the requester
+      const notification = new Notification({
+        recipient: requesterId,
+        sender: rideOwnerId,
+        type: 'ride_cancellation',
+        title: `Ride Request Denied`,
+        message: `${ride.riderId.name} denied your request to join their ride from ${ride.startLocation} to ${ride.endLocation}`,
+        data: {
+          rideId: rideId,
+          rideOwnerId: rideOwnerId,
+          rideOwnerName: ride.riderId.name,
+          startLocation: ride.startLocation,
+          endLocation: ride.endLocation,
+          departureTime: ride.departureTime,
+          timestamp: new Date()
+        }
+      });
+
+      const savedNotification = await notification.save();
+      this.sendRealtimeNotifications([savedNotification]);
+
+      return savedNotification;
+    } catch (error) {
+      console.error('Error sending ride request denied notification:', error);
+      throw error;
+    }
+  }
+
   // Send real-time notifications via socket
   sendRealtimeNotifications(notifications) {
     try {
@@ -301,6 +451,39 @@ class RideNotificationService {
       return notifications;
     } catch (error) {
       console.error('Error getting ride notifications:', error);
+      throw error;
+    }
+  }
+
+  // Clean up orphaned notifications for deleted rides
+  async cleanupOrphanedNotifications() {
+    try {
+      console.log('🧹 Starting cleanup of orphaned notifications...');
+      
+      // Find all ride-related notifications
+      const rideNotifications = await Notification.find({
+        type: { $in: ['ride_invitation', 'ride_cancellation', 'eta_change', 'ride_confirmation', 'ride_completion', 'ride_request'] }
+      });
+      
+      let deletedCount = 0;
+      
+      for (const notification of rideNotifications) {
+        if (notification.data?.rideId) {
+          // Check if the ride still exists
+          const ride = await RideMatch.findById(notification.data.rideId);
+          if (!ride) {
+            // Ride doesn't exist, delete the notification
+            await Notification.findByIdAndDelete(notification._id);
+            deletedCount++;
+            console.log(`🗑️ Deleted orphaned notification for deleted ride: ${notification.data.rideId}`);
+          }
+        }
+      }
+      
+      console.log(`✅ Cleanup complete. Deleted ${deletedCount} orphaned notifications.`);
+      return deletedCount;
+    } catch (error) {
+      console.error('❌ Error during notification cleanup:', error);
       throw error;
     }
   }

@@ -28,7 +28,7 @@ const StatusUpdate = () => {
       if (!userId) return;
 
       const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/users/status/${userId}`,
+        `${import.meta.env.VITE_API_URL}/api/users/status/${userId}`,
         { headers: { "Authorization": `Bearer ${token}` } }
       );
       
@@ -46,7 +46,7 @@ const StatusUpdate = () => {
     try {
       setLoading(true);
       const response = await axios.patch(
-        `${import.meta.env.VITE_API_URL}/users/status`,
+        `${import.meta.env.VITE_API_URL}/api/users/status`,
         {
           status,
           location,

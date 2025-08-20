@@ -181,3 +181,21 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Socket.IO server initialized`);
 });
+
+// Scheduled cleanup of orphaned notifications (runs every hour)
+const cleanupInterval = 60 * 60 * 1000; // 1 hour in milliseconds
+
+setInterval(async () => {
+  try {
+    console.log('🕐 Running scheduled notification cleanup...');
+    const rideNotificationService = require('./services/rideNotificationService');
+    const deletedCount = await rideNotificationService.cleanupOrphanedNotifications();
+    if (deletedCount > 0) {
+      console.log(`🧹 Scheduled cleanup completed. Deleted ${deletedCount} orphaned notifications.`);
+    }
+  } catch (error) {
+    console.error('❌ Error during scheduled notification cleanup:', error);
+  }
+}, cleanupInterval);
+
+console.log(`🕐 Scheduled notification cleanup set to run every ${cleanupInterval / (60 * 1000)} minutes`);

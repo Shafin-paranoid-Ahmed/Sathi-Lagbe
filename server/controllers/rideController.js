@@ -3,6 +3,7 @@ const RideMatch = require('../models/RideMatch');
 const { aiMatch } = require('../services/aiMatcher');
 const { validateRideOffer, validateRecurringRide } = require('../utils/validate');
 const rideNotificationService = require('../services/rideNotificationService');
+const mongoose = require('mongoose'); // Added for mongoose.Types.ObjectId
 
 /**
  * Get all available rides (no search parameters required)
@@ -218,7 +219,7 @@ exports.requestToJoinRide = async (req, res) => {
     
     // Send notification to ride owner about the request
     try {
-      await rideNotificationService.sendRideInvitation(rideId, ride.riderId, [effectiveUserId]);
+      await rideNotificationService.sendRideRequestNotification(rideId, effectiveUserId, ride.riderId);
     } catch (notificationError) {
       console.error('Error sending ride request notification:', notificationError);
     }
@@ -275,7 +276,7 @@ exports.confirmRideRequest = async (req, res) => {
     
     // Send confirmation notification to the confirmed user
     try {
-      await rideNotificationService.sendRideConfirmation(rideId, userId, requesterId);
+      await rideNotificationService.sendRideRequestAccepted(rideId, userId, requesterId);
     } catch (notificationError) {
       console.error('Error sending ride confirmation notification:', notificationError);
     }
@@ -313,6 +314,13 @@ exports.denyRideRequest = async (req, res) => {
     
     await ride.save();
     
+    // Send denial notification to the requester
+    try {
+      await rideNotificationService.sendRideRequestDenied(rideId, userId, requesterId);
+    } catch (notificationError) {
+      console.error('Error sending ride denial notification:', notificationError);
+    }
+    
     res.json({
       message: "Request denied",
       ride
@@ -328,17 +336,46 @@ exports.denyRideRequest = async (req, res) => {
  */
 exports.getRideById = async (req, res) => {
   try {
-    const ride = await RideMatch.findById(req.params.rideId)
+    const { rideId } = req.params;
+    console.log('🔍 getRideById called with rideId:', rideId);
+    console.log('🔍 Request user ID:', req.user.id || req.user.userId);
+    console.log('🔍 RideId type:', typeof rideId);
+    console.log('🔍 Request headers:', req.headers);
+    
+    // Validate rideId format
+    if (!rideId || !/^[0-9a-fA-F]{24}$/.test(rideId)) {
+      console.log('❌ Invalid rideId format:', rideId);
+      return res.status(400).json({ error: 'Invalid ride ID format' });
+    }
+    
+    const ride = await RideMatch.findById(rideId)
       .populate('requestedRiders', 'name email')
       .populate('confirmedRiders', 'name email');
       
     if (!ride) {
+      console.log('❌ Ride not found in database for ID:', rideId);
+      console.log('❌ Checking if ride exists with different formats...');
+      
+      // Try to find the ride with different ID formats for debugging
+      const rideAsString = await RideMatch.findById(rideId.toString());
+      const rideAsObjectId = await RideMatch.findById(new mongoose.Types.ObjectId(rideId));
+      
+      console.log('❌ Ride as string search result:', rideAsString ? 'Found' : 'Not found');
+      console.log('❌ Ride as ObjectId search result:', rideAsObjectId ? 'Found' : 'Not found');
+      
       return res.status(404).json({ error: 'Ride not found' });
     }
     
+    console.log('✅ Ride found:', {
+      id: ride._id,
+      startLocation: ride.startLocation,
+      endLocation: ride.endLocation,
+      riderId: ride.riderId
+    });
+    
     res.json(ride);
   } catch (err) {
-    console.error('Error getting ride:', err);
+    console.error('❌ Error getting ride:', err);
     res.status(500).json({ error: err.message || 'Failed to get ride' });
   }
 };
@@ -426,6 +463,7 @@ exports.updateRide = async (req, res) => {
 exports.deleteRide = async (req, res) => {
   try {
     const { rideId } = req.params;
+    console.log('🗑️ deleteRide called with rideId:', rideId);
     
     // Find the ride
     const ride = await RideMatch.findById(rideId);
@@ -441,10 +479,21 @@ exports.deleteRide = async (req, res) => {
     
     // Delete the ride
     await RideMatch.findByIdAndDelete(rideId);
+    console.log('✅ Ride deleted successfully');
+    
+    // Clean up orphaned notifications for this ride
+    try {
+      const rideNotificationService = require('../services/rideNotificationService');
+      await rideNotificationService.cleanupOrphanedNotifications();
+      console.log('✅ Notifications cleaned up after ride deletion');
+    } catch (cleanupError) {
+      console.error('⚠️ Warning: Failed to cleanup notifications:', cleanupError);
+      // Don't fail the ride deletion if notification cleanup fails
+    }
     
     res.json({ message: 'Ride deleted' });
   } catch (err) {
-    console.error('Error deleting ride:', err);
+    console.error('❌ Error deleting ride:', err);
     res.status(500).json({ error: err.message || 'Failed to delete ride' });
   }
 };
