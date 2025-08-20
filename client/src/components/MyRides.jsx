@@ -106,6 +106,12 @@ export default function MyRides() {
               )}
               <div className="flex flex-wrap gap-2 mt-2">
                 <Link
+                  to={`/rides/${r._id}/manage`}
+                  className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                >
+                  Manage Ride
+                </Link>
+                <Link
                   to={`/rides/${r._id}/edit`}
                   className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors"
                 >
