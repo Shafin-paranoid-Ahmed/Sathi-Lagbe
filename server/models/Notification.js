@@ -5,7 +5,7 @@ const NotificationSchema = new mongoose.Schema({
   sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   type: { 
     type: String, 
-    enum: ['status_change', 'friend_request', 'ride_request', 'message', 'sos'], 
+    enum: ['status_change', 'friend_request', 'ride_request', 'message', 'sos', 'ride_invitation', 'ride_cancellation', 'eta_change', 'ride_confirmation', 'ride_completion'], 
     required: true 
   },
   title: { type: String, required: true },
