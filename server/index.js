@@ -11,6 +11,7 @@ const { initSocket } = require('./utils/socket');
 const fs = require('fs');
 const path = require('path');
 
+
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const chatRoutes = require('./routes/chatRoutes');
@@ -23,11 +24,15 @@ const feedbackRoutes = require('./routes/feedbackRoutes');
 const freeRoutes = require('./routes/freeRoutes');
 const userRoutes = require('./routes/userRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const ratingRoutes = require('./routes/ratingRoutes');
 
 const app = express();
 
 // Middleware - ORDER IS IMPORTANT
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:5173'],
+  credentials: true
+}));
 // Make sure body-parser middleware is before routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -55,6 +60,7 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/free', freeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/ratings', ratingRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
@@ -175,4 +181,3 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Socket.IO server initialized`);
 });
-
