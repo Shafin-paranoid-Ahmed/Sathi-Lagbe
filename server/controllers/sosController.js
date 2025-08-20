@@ -10,34 +10,59 @@ exports.getContacts = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
     
+    console.log('=== SOS CONTACTS DEBUG ===');
+    console.log('Fetching contacts for user:', userId);
+    
     // Try both models for compatibility
     let contacts = [];
     
     // Try SosContact model first (ONLYGWUB style)
     try {
+      console.log('=== FETCHING FROM SOSCONTACT MODEL ===');
       const contactEntry = await SosContact.findOne({ user: userId });
-      if (contactEntry) {
+      console.log('SosContact query result:', contactEntry);
+      
+      if (contactEntry && contactEntry.contacts && contactEntry.contacts.length > 0) {
+        const filteredContacts = contactEntry.contacts.filter(c => c.name && c.name.trim() !== '');
+        console.log('Found contacts in SosContact model:', filteredContacts.length);
+        console.log('Filtered contacts:', JSON.stringify(filteredContacts, null, 2));
         return res.json({
           success: true,
-          data: contactEntry
+          data: {
+            contacts: filteredContacts
+          }
         });
+      } else {
+        console.log('No contacts found in SosContact model');
       }
     } catch (err) {
-      console.log('SosContact model not found, trying Emergency model');
+      console.log('SosContact model error:', err.message);
+      console.log('Trying Emergency model...');
     }
     
     // Try Emergency model (Sathi_Lagbe style)
     try {
       const emergency = await Emergency.findOne({ userId }).sort('-triggeredAt');
-      if (emergency) {
-        return res.json(emergency.contacts || []);
+      if (emergency && emergency.contacts && emergency.contacts.length > 0) {
+        const filteredContacts = emergency.contacts.filter(c => c.name && c.name.trim() !== '');
+        console.log('Found contacts in Emergency model:', filteredContacts.length);
+        return res.json({
+          success: true,
+          data: {
+            contacts: filteredContacts
+          }
+        });
       }
     } catch (err) {
       console.log('Emergency model not found');
     }
     
+    console.log('No contacts found for user:', userId);
     // Return empty array if nothing found
-    return res.json([]);
+    return res.json({
+      success: true,
+      data: { contacts: [] }
+    });
   } catch (err) {
     console.error('Error fetching SOS contacts:', err);
     res.status(500).json({ error: err.message || 'Failed to fetch contacts' });
@@ -56,16 +81,60 @@ exports.saveContacts = async (req, res) => {
       return res.status(400).json({ error: 'Contacts must be an array' });
     }
     
+    // Filter out empty contacts and validate ownership
+    const validContacts = contacts.filter(c => 
+      c && 
+      c.name && 
+      c.name.trim() !== '' && 
+      (c.phone || c.userId) && // Must have either phone or userId
+      (c.addedBy === userId || !c.addedBy) // Must be added by current user OR legacy contacts without addedBy
+    );
+    
+    // Allow empty arrays (user clearing all contacts) but require at least one contact if they're adding contacts
+    console.log('=== VALIDATION DEBUG ===');
+    console.log('Contacts array length:', contacts.length);
+    console.log('Valid contacts length:', validContacts.length);
+    console.log('Raw contacts:', JSON.stringify(contacts, null, 2));
+    
+    // If contacts array is empty, allow it (user clearing all contacts)
+    if (contacts.length === 0) {
+      console.log('Empty contacts array - allowing save (user clearing all contacts)');
+    }
+    // If contacts array has items but none are valid, reject
+    else if (validContacts.length === 0) {
+      console.log('Validation failed: contacts array has items but none are valid');
+      return res.status(400).json({ error: 'At least one valid contact is required' });
+    }
+    
+    console.log('Validation passed: allowing save');
+    
     // Try SosContact model first (ONLYGWUB style)
     try {
+      console.log('=== SAVING TO SOSCONTACT MODEL ===');
+      console.log('User ID:', userId);
+      console.log('Valid contacts:', JSON.stringify(validContacts, null, 2));
+      
       let contactEntry = await SosContact.findOne({ user: userId });
       
       if (contactEntry) {
-        contactEntry.contacts = contacts;
+        contactEntry.contacts = validContacts;
         await contactEntry.save();
+        console.log('Updated existing SosContact entry');
+      } else if (validContacts.length > 0) {
+        // Only create new entry if there are valid contacts
+        contactEntry = await SosContact.create({ user: userId, contacts: validContacts });
+        console.log('Created new SosContact entry');
       } else {
-        contactEntry = await SosContact.create({ user: userId, contacts });
+        // If no valid contacts, just return success (user cleared all contacts)
+        console.log('No valid contacts - user cleared all contacts');
+        return res.json({ 
+          success: true, 
+          message: "All contacts cleared successfully.",
+          data: { contacts: [] }
+        });
       }
+      
+      console.log('Final contact entry:', JSON.stringify(contactEntry, null, 2));
       
       return res.json({ 
         success: true, 
@@ -73,15 +142,22 @@ exports.saveContacts = async (req, res) => {
         data: contactEntry
       });
     } catch (err) {
-      console.log('SosContact model failed, trying Emergency model');
+      console.log('SosContact model failed:', err.message);
+      console.log('Trying Emergency model...');
     }
     
     // Try Emergency model as fallback (Sathi_Lagbe style)
     try {
+      // First, remove any existing contact-only entries for this user
+      await Emergency.deleteMany({ 
+        userId, 
+        triggeredAt: { $exists: false } // Only contact storage entries
+      });
+      
       // Store as newest emergency with contacts but no trigger
       const emergency = new Emergency({
         userId,
-        contacts,
+        contacts: validContacts,
         // Don't set triggeredAt to indicate it's just contacts storage
       });
       

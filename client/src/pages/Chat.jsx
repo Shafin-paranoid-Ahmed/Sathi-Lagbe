@@ -6,10 +6,11 @@ import {
   sendNewMessage,
   clearUnreadMessages
 } from '../api/chat';
+import { getUserById } from '../api/users';
 import socketService from '../services/socketService';
 import { debugSocketConnection } from '../utils/debugSocket';
 import FriendList from '../components/FriendList';
-import { MessageSquareIcon, SendIcon, ArrowLeftIcon, CheckIcon, PlusIcon } from 'lucide-react';
+import { MessageSquareIcon, SendIcon, ArrowLeftIcon, CheckIcon, PlusIcon, UserIcon } from 'lucide-react';
 
 export default function Chat() {
   const [activeTab, setActiveTab] = useState('chats'); // 'chats' or 'friends'
@@ -33,12 +34,19 @@ export default function Chat() {
   const [error, setError] = useState(''); // General component error
   const [typingUsers, setTypingUsers] = useState(new Set());
   const [isTyping, setIsTyping] = useState(false);
+  const [userProfiles, setUserProfiles] = useState({}); // Store user profile pictures
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const currentUserId = sessionStorage.getItem('userId');
   const token = sessionStorage.getItem('token');
   const isInitialLoad = useRef(true);
   const [replyTo, setReplyTo] = useState(null);
+
+  // Use a ref to hold the current selected chat to avoid stale closures in socket handlers
+  const selectedChatRef = useRef(selectedChat);
+  useEffect(() => {
+    selectedChatRef.current = selectedChat;
+  }, [selectedChat]);
 
   const fetchChats = useCallback(async () => {
     if (!currentUserId) {
@@ -58,6 +66,9 @@ export default function Chat() {
         setChats(res.data.data);
         // Save to localStorage for persistence, per user
         localStorage.setItem(`chatList_${currentUserId}`, JSON.stringify(res.data.data));
+        
+        // Load profile pictures for all chat members
+        await loadUserProfiles(res.data.data);
       } else {
         console.warn("fetchChats: Response was not in the expected format or contained no data.", res.data);
         setChats([]);
@@ -73,6 +84,50 @@ export default function Chat() {
       isInitialLoad.current = false;
     }
   }, [currentUserId, setChats, setLoading, setError]);
+
+  // Load profile pictures for all users in chats
+  const loadUserProfiles = async (chatsList) => {
+    try {
+      const userIds = new Set();
+      
+      // Collect all unique user IDs from chat members
+      chatsList.forEach(chat => {
+        if (chat.members && Array.isArray(chat.members)) {
+          chat.members.forEach(member => {
+            if (member && typeof member === 'object' && member._id && member._id !== currentUserId) {
+              userIds.add(member._id);
+            }
+          });
+        }
+      });
+      
+      // Also add current user ID to load their profile picture
+      if (currentUserId) {
+        userIds.add(currentUserId);
+      }
+      
+      // Fetch profiles for all users
+      const profiles = {};
+      for (const userId of userIds) {
+        try {
+          console.log(`Fetching profile for user ${userId}...`);
+          const userRes = await getUserById(userId);
+          console.log(`API response for user ${userId}:`, userRes);
+          if (userRes.data) {
+            profiles[userId] = userRes.data;
+            console.log(`Stored profile for user ${userId}:`, userRes.data);
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch profile for user ${userId}:`, err);
+        }
+      }
+      
+      console.log('Loaded user profiles:', profiles);
+      setUserProfiles(prev => ({ ...prev, ...profiles }));
+    } catch (err) {
+      console.error('Failed to load user profiles:', err);
+    }
+  };
 
   const loadChatMessages = useCallback(async (chatId) => {
     setChatLoading(true);
@@ -112,7 +167,7 @@ export default function Chat() {
       const updatedChat = {
         ...chatToUpdate,
         lastMessage: message,
-        unreadMessageCount: (selectedChat && selectedChat._id === chatId)
+        unreadMessageCount: (selectedChatRef.current && selectedChatRef.current._id === chatId)
           ? chatToUpdate.unreadMessageCount
           : (chatToUpdate.unreadMessageCount || 0) + 1,
       };
@@ -125,10 +180,10 @@ export default function Chat() {
     const isFromCurrentUser = message.sender && (message.sender._id === currentUserId || message.sender === currentUserId);
 
     // Add the message to the view if it's the active chat and not from the current user
-    if (selectedChat && selectedChat._id === chatId && !isFromCurrentUser) {
+    if (selectedChatRef.current && selectedChatRef.current._id === chatId && !isFromCurrentUser) {
       setMessages(prev => [...prev, message]);
     }
-  }, [fetchChats, selectedChat, currentUserId]);
+  }, [fetchChats, currentUserId]);
 
   const handleMessageSent = useCallback((data) => {
     console.log('Message sent confirmation:', data);
@@ -136,36 +191,36 @@ export default function Chat() {
 
   const handleUserTyping = useCallback((data) => {
     const { chatId, userId, userName } = data;
-    if (selectedChat && selectedChat._id === chatId && userId !== currentUserId) {
+    if (selectedChatRef.current && selectedChatRef.current._id === chatId && userId !== currentUserId) {
       setTypingUsers(prev => new Set([...prev, userName]));
     }
-  }, [selectedChat, currentUserId, setTypingUsers]);
+  }, [currentUserId]);
 
   const handleUserStoppedTyping = useCallback((data) => {
     const { chatId, userId } = data;
-    if (selectedChat && selectedChat._id === chatId && userId !== currentUserId) {
+    if (selectedChatRef.current && selectedChatRef.current._id === chatId && userId !== currentUserId) {
       setTypingUsers(() => {
         // Remove the user who stopped typing (we need to find them by userId)
         // For now, we'll clear all typing indicators
         return new Set();
       });
     }
-  }, [selectedChat, currentUserId, setTypingUsers]);
+  }, [currentUserId]);
 
   const handleMessagesRead = useCallback((data) => {
     const { chatId, messageIds, readBy } = data;
-    if (selectedChat && selectedChat._id === chatId && readBy !== currentUserId) {
+    if (selectedChatRef.current && selectedChatRef.current._id === chatId && readBy !== currentUserId) {
       setMessages(prev => 
         prev.map(msg => 
           messageIds.includes(msg._id) ? { ...msg, read: true } : msg
         )
       );
     }
-  }, [selectedChat, currentUserId, setMessages]);
+  }, [currentUserId]);
 
 
 
-  // Initialize Socket.IO connection on component mount
+  // Initialize Socket.IO connection and listeners on component mount
   useEffect(() => {
     if (token) {
       console.log('Initializing Socket.IO connection...');
@@ -186,22 +241,22 @@ export default function Chat() {
         }, 500);
       };
 
-      // Try to set up listeners immediately and also with a delay
       setupListeners();
-      const timeoutId = setTimeout(setupListeners, 2000);
       
       // Cleanup on unmount
       return () => {
-        clearTimeout(timeoutId);
-        socketService.removeAllListeners();
-        if (selectedChat) {
-          socketService.leaveChat(selectedChat._id);
-        }
+        clearTimeout(typingTimeoutRef.current); // Clear any pending typing timeout
+        console.log('Cleaning up Chat.jsx socket listeners...');
+        socketService.off('new_message');
+        socketService.off('message_sent');
+        socketService.off('user_typing');
+        socketService.off('user_stopped_typing');
+        socketService.off('messages_read');
       };
     } else {
       console.error('No token found for Socket.IO connection');
     }
-  }, [token, handleNewMessage, handleMessageSent, handleUserTyping, handleUserStoppedTyping, handleMessagesRead, selectedChat]);
+  }, [token, handleNewMessage, handleMessageSent, handleUserTyping, handleUserStoppedTyping, handleMessagesRead]);
 
   // Fetch chats on component mount
   useEffect(() => {
@@ -210,10 +265,8 @@ export default function Chat() {
 
   // When chats state changes, update localStorage (for cases like new chat added)
   useEffect(() => {
-    try {
-      if (!currentUserId) return;
-      localStorage.setItem(`chatList_${currentUserId}`, JSON.stringify(chats));
-    } catch {}
+    if (!currentUserId) return;
+    localStorage.setItem(`chatList_${currentUserId}`, JSON.stringify(chats));
   }, [chats, currentUserId]);
 
   // When messages load or change, instantly scroll to the bottom.
@@ -229,15 +282,15 @@ export default function Chat() {
 
   // Join chat room when selected chat changes
   useEffect(() => {
-    if (!selectedChat) return;
+    if (selectedChat) {
+      console.log('Joining chat room:', selectedChat._id);
+      socketService.joinChat(selectedChat._id);
 
-    console.log('Joining chat room:', selectedChat._id);
-    socketService.joinChat(selectedChat._id);
-
-    return () => {
-      console.log('Leaving chat room:', selectedChat._id);
-      socketService.leaveChat(selectedChat._id);
-    };
+      return () => {
+        console.log('Leaving chat room:', selectedChat._id);
+        socketService.leaveChat(selectedChat._id);
+      };
+    }
   }, [selectedChat]);
 
 
@@ -357,6 +410,27 @@ export default function Chat() {
     // Add new chat to the list if it's not already there
     if (!chats.find(c => c._id === chat._id)) {
       setChats(prev => [chat, ...prev]);
+      
+      // Load profile pictures for new chat members
+      if (chat.members && Array.isArray(chat.members)) {
+        const newUserIds = chat.members
+          .filter(m => m && typeof m === 'object' && m._id && m._id !== currentUserId)
+          .map(m => m._id);
+        
+        // Load profiles for new users
+        newUserIds.forEach(async (userId) => {
+          if (!userProfiles[userId]) {
+            try {
+              const userRes = await getUserById(userId);
+              if (userRes.data && userRes.data.avatarUrl) {
+                setUserProfiles(prev => ({ ...prev, [userId]: userRes.data }));
+              }
+            } catch (err) {
+              console.warn(`Failed to fetch profile for user ${userId}:`, err);
+            }
+          }
+        });
+      }
     }
     
     setSelectedChat(chat);
@@ -402,8 +476,73 @@ export default function Chat() {
     return sender.name || 'Unknown User';
   };
 
+  // Get user avatar URL
+  const getUserAvatar = (userId) => {
+    console.log(`getUserAvatar called for userId: ${userId}`);
+    console.log(`Current userProfiles state:`, userProfiles);
+    if (!userId || !userProfiles[userId]) {
+      console.log(`No profile found for user ${userId}:`, { userId, userProfiles: userProfiles[userId] });
+      return null;
+    }
+    console.log(`Avatar for user ${userId}:`, userProfiles[userId].avatarUrl);
+    return userProfiles[userId].avatarUrl;
+  };
+
+
+
+  // Render avatar component
+  const renderAvatar = (userId, name, size = 'w-10 h-10', preferredUrl = null) => {
+    // Support multiple possible field names just in case (avatarUrl, avatar, profilePic)
+    let normalizedPreferred = preferredUrl;
+    if (preferredUrl && typeof preferredUrl === 'object') {
+      normalizedPreferred = preferredUrl.avatarUrl || preferredUrl.avatar || preferredUrl.profilePic || null;
+    }
+    let avatarUrl = normalizedPreferred || getUserAvatar(userId);
+    // Prefer current user's stored avatar early
+    if (userId === currentUserId && !avatarUrl) {
+      avatarUrl = sessionStorage.getItem(`userAvatarUrl_${userId}`);
+    }
+    // Try cached profiles
+    if (!avatarUrl && userProfiles[userId]) {
+      avatarUrl = userProfiles[userId].avatarUrl || userProfiles[userId].avatar || userProfiles[userId].profilePic || null;
+    }
+    // Visual fallback
+    if (!avatarUrl && name) {
+      avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&bold=true&size=128`;
+    }
+    
+    if (avatarUrl) {
+      return (
+        <div className="relative">
+          <img 
+            src={avatarUrl} 
+            alt={name || 'User'} 
+            className={`${size} rounded-full object-cover shadow-md`}
+            onError={(e) => {
+              // Fallback to initials if image fails to load
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+          {/* Fallback initials - hidden by default, shown on image error */}
+          <div className={`${size} rounded-full bg-bracu-blue flex items-center justify-center text-white font-medium shadow-md absolute inset-0 hidden`}>
+            {(name || 'U').charAt(0).toUpperCase()}
+          </div>
+        </div>
+      );
+    }
+    
+    // Fallback to initials when no avatar URL
+    return (
+      <div className={`${size} rounded-full bg-bracu-blue flex items-center justify-center text-white font-medium shadow-md`}>
+        {(name || 'U').charAt(0).toUpperCase()}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 animate-fade-in">
+
       {/* Show general error at the top if there is one */}
       {error && (
         <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-4 text-center animate-slide-in">
@@ -469,7 +608,7 @@ export default function Chat() {
                     </button>
                   </div>
                 ) : (
-                  chats.map((chat, index) => (
+                  chats.map((chat) => (
                     <div
                       key={chat._id}
                       onClick={() => setSelectedChat(chat)}
@@ -479,10 +618,21 @@ export default function Chat() {
                           : 'hover:bg-gray-100 dark:hover:bg-gray-700 hover:shadow'
                       }`}
                     >
-                      <div className="w-10 h-10 rounded-full bg-bracu-blue flex items-center justify-center text-white font-medium mr-3">
-                        {getChatName(chat).charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
+                      {(() => {
+                        const otherMember = chat.members?.find(m => 
+                          m && (typeof m === 'string' ? m !== currentUserId : m._id !== currentUserId)
+                        );
+                        return otherMember && typeof otherMember === 'object' ? (
+                          <div className="relative">
+                            {renderAvatar(otherMember._id, otherMember.name, 'w-10 h-10', otherMember)}
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-bracu-blue flex items-center justify-center text-white font-medium">
+                            {getChatName(chat).charAt(0).toUpperCase()}
+                          </div>
+                        );
+                      })()}
+                      <div className="flex-1 min-w-0 ml-3">
                         <p className="font-medium text-gray-800 dark:text-gray-200 truncate">
                           {getChatName(chat)}
                         </p>
@@ -517,9 +667,20 @@ export default function Chat() {
                 >
                   <ArrowLeftIcon size={20} />
                 </button>
-                <div className="w-12 h-12 rounded-full bg-bracu-blue flex items-center justify-center text-white font-medium mr-4 shadow-md">
-                  {getChatName(selectedChat).charAt(0).toUpperCase()}
-                </div>
+                {(() => {
+                  const otherMember = selectedChat.members?.find(m => 
+                    m && (typeof m === 'string' ? m !== currentUserId : m._id !== currentUserId)
+                  );
+                  return otherMember && typeof otherMember === 'object' ? (
+                    <div className="relative mr-4">
+                      {renderAvatar(otherMember._id, otherMember.name, 'w-12 h-12', otherMember)}
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-bracu-blue flex items-center justify-center text-white font-medium mr-4 shadow-md">
+                      {getChatName(selectedChat).charAt(0).toUpperCase()}
+                    </div>
+                  );
+                })()}
                 <div>
                   <p className="font-medium text-gray-800 dark:text-gray-200 text-lg">
                     {getChatName(selectedChat)}
@@ -556,69 +717,96 @@ export default function Chat() {
                     <p className="text-sm">Send a message to start the conversation</p>
                   </div>
                 ) : (
-                  messages.map((msg, index) => (
+                  messages.map((msg) => (
                     <div
                       key={msg._id}
                       className={`flex ${
                         isSenderCurrentUser(msg.sender) ? 'justify-end' : 'justify-start'
                       } mb-4`}
                     >
-                      <div className="flex flex-col max-w-xs md:max-w-md lg:max-w-lg">
-                        {/* Show sender name if not current user */}
-                        {!isSenderCurrentUser(msg.sender) && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 mb-1 ml-2">
-                            {getSenderName(msg.sender)}
-                          </span>
-                        )}
-                        {/* Reply preview in bubble */}
-                        {msg.replyTo && (
-                          <div className="mb-1 p-2 rounded bg-blue-100 dark:bg-blue-900 text-xs text-blue-700 dark:text-blue-200">
-                            Replying to {getSenderName(msg.replyTo.sender)}: {msg.replyTo.text}
-                          </div>
-                        )}
-                        <div
-                          className={`px-4 py-3 rounded-lg shadow-sm ${
-                            isSenderCurrentUser(msg.sender)
-                              ? 'bg-bracu-blue text-white rounded-tr-none'
-                              : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
-                          } ${msg.pending ? 'opacity-70' : ''}`}
-                        >
-                          {msg.text}
-                          <div className="text-xs mt-1 flex justify-between items-center">
-                            <span>
-                              {msg.pending ? (
-                                <span className="opacity-70">Sending...</span>
-                              ) : msg.failed ? (
-                                <span className="text-red-300">Failed</span>
-                              ) : (
-                                <span className="opacity-70">
-                                  {new Date(msg.createdAt).toLocaleTimeString([], {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                  {msg.read && (
-                                    <CheckIcon size={12} className="inline ml-1" />
-                                  )}
-                                </span>
-                              )}
-                            </span>
-                            <button
-                              className="ml-2 text-xs text-blue-500 hover:underline focus:outline-none"
-                              onClick={() => setReplyTo(msg)}
-                              title="Reply"
-                            >
-                              Reply
-                            </button>
-                          </div>
-                        </div>
-                        
-                        {/* Show "You" label for your messages */}
-                        {isSenderCurrentUser(msg.sender) && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 mr-2 text-right">
-                            You
-                          </span>
-                        )}
-                      </div>
+                                             <div className={`flex ${isSenderCurrentUser(msg.sender) ? 'flex-row-reverse' : 'flex-row'} items-end max-w-xs md:max-w-md lg:max-w-lg`}>
+                         {/* Avatar for other users' messages (left side) */}
+                         {!isSenderCurrentUser(msg.sender) && (
+                           <div className="flex-shrink-0 mr-2">
+                             {console.log('Rendering avatar for message sender:', msg.sender)}
+                             {renderAvatar(
+                               typeof msg.sender === 'object' ? msg.sender._id : msg.sender,
+                               getSenderName(msg.sender),
+                               'w-8 h-8',
+                               typeof msg.sender === 'object' ? msg.sender : null
+                             )}
+                           </div>
+                         )}
+                         
+                         {/* Message content */}
+                         <div className="flex flex-col">
+                           {/* Show sender name if not current user */}
+                           {!isSenderCurrentUser(msg.sender) && (
+                             <span className="text-xs text-gray-500 dark:text-gray-400 mb-1 ml-2">
+                               {getSenderName(msg.sender)}
+                             </span>
+                           )}
+                           {/* Reply preview in bubble */}
+                           {msg.replyTo && (
+                             <div className="mb-1 p-2 rounded bg-blue-100 dark:bg-blue-900 text-xs text-blue-700 dark:text-blue-200">
+                               Replying to {getSenderName(msg.replyTo.sender)}: {msg.replyTo.text}
+                             </div>
+                           )}
+                           <div
+                             className={`px-4 py-3 rounded-lg shadow-sm ${
+                               isSenderCurrentUser(msg.sender)
+                                 ? 'bg-bracu-blue text-white rounded-tr-none'
+                                 : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
+                             } ${msg.pending ? 'opacity-70' : ''}`}
+                           >
+                             {msg.text}
+                             <div className="text-xs mt-1 flex justify-between items-center">
+                               <span>
+                                 {msg.pending ? (
+                                   <span className="opacity-70">Sending...</span>
+                                 ) : msg.failed ? (
+                                   <span className="text-red-300">Failed</span>
+                                 ) : (
+                                   <span className="opacity-70">
+                                     {new Date(msg.createdAt).toLocaleTimeString([], {
+                                       hour: '2-digit',
+                                       minute: '2-digit'
+                                     })}
+                                     {msg.read && (
+                                       <CheckIcon size={12} className="inline ml-1" />
+                                     )}
+                                   </span>
+                                 )}
+                               </span>
+                               <button
+                                 className="ml-2 text-xs text-blue-500 hover:underline focus:outline-none"
+                                 onClick={() => setReplyTo(msg)}
+                                 title="Reply"
+                               >
+                                 Reply
+                               </button>
+                             </div>
+                           </div>
+                           
+                           {/* Show "You" label for your messages */}
+                           {isSenderCurrentUser(msg.sender) && (
+                             <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 mr-2 text-right">
+                               You
+                             </span>
+                           )}
+                         </div>
+                         
+                         {/* Avatar for current user's messages (right side) */}
+                         {isSenderCurrentUser(msg.sender) && (
+                           <div className="flex-shrink-0 ml-2">
+                             {renderAvatar(
+                               currentUserId,
+                               'You',
+                               'w-8 h-8'
+                             )}
+                           </div>
+                         )}
+                       </div>
                     </div>
                   ))
                 )}

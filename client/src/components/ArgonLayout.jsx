@@ -26,8 +26,9 @@ import socketService from '../services/socketService';
 const ArgonLayout = ({ children, setIsAuthenticated }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
-    // Check if dark mode preference is stored
-    const saved = localStorage.getItem('darkMode');
+    // Check if dark mode preference is stored for current user
+    const currentUserId = sessionStorage.getItem('userId');
+    const saved = currentUserId ? localStorage.getItem(`darkMode_${currentUserId}`) : localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
   });
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -58,8 +59,12 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
 
   // Load basic user info and refresh from server
   useEffect(() => {
+    const currentUserId = sessionStorage.getItem('userId');
     const name = sessionStorage.getItem('userName') || 'User';
-    const avatar = sessionStorage.getItem('userAvatarUrl') || '';
+    
+    // Use user-specific avatar storage
+    const avatar = currentUserId ? sessionStorage.getItem(`userAvatarUrl_${currentUserId}`) || '' : '';
+    
     setUserName(name);
     setAvatarUrl(avatar);
 
@@ -69,11 +74,13 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
         const res = await verifyToken();
         const n = res.data?.user?.name || name;
         const av = res.data?.user?.avatarUrl || '';
+        const userId = res.data?.user?._id || currentUserId;
+        
         setUserName(n);
         if (n) sessionStorage.setItem('userName', n);
-        if (av) {
+        if (av && userId) {
           setAvatarUrl(av);
-          sessionStorage.setItem('userAvatarUrl', av);
+          sessionStorage.setItem(`userAvatarUrl_${userId}`, av);
         }
       } catch (error) {
         console.error('Error refreshing user data:', error);
@@ -149,7 +156,14 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+    
+    // Store dark mode preference for current user
+    const currentUserId = sessionStorage.getItem('userId');
+    if (currentUserId) {
+      localStorage.setItem(`darkMode_${currentUserId}`, JSON.stringify(darkMode));
+    } else {
+      localStorage.setItem('darkMode', JSON.stringify(darkMode));
+    }
   }, [darkMode]);
 
   const toggleDarkMode = () => {
