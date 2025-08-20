@@ -1,6 +1,7 @@
 // client/src/components/RideMatchResults.jsx
 import { useState } from 'react';
 import { searchRides, getAiMatches, requestToJoinRide } from '../api/rides';
+import MapView from './MapView';
 
 export default function RideMatchResults() {
   const [searchParams, setSearchParams] = useState({
@@ -15,6 +16,7 @@ export default function RideMatchResults() {
   const [success, setSuccess] = useState('');
   const [useAI, setUseAI] = useState(false);
   const [seatCounts, setSeatCounts] = useState({});
+  const [visibleMap, setVisibleMap] = useState(null);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -202,7 +204,18 @@ export default function RideMatchResults() {
               >
                 {ride.requested ? 'Request Sent' : 'Request to Join'}
               </button>
+              <button
+                onClick={() => setVisibleMap(visibleMap === ride._id ? null : ride._id)}
+                className="px-4 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+              >
+                {visibleMap === ride._id ? 'Hide Route' : 'Show Route'}
+              </button>
             </div>
+            {visibleMap === ride._id && (
+              <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                <MapView startLocation={ride.startLocation} endLocation={ride.endLocation} />
+              </div>
+            )}
           </div>
         ))}
       </div>

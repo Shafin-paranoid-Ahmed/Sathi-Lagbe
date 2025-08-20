@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import MapView from './MapView';
 
 export default function RideCoordination() {
   const { rideId } = useParams();
@@ -126,6 +127,15 @@ export default function RideCoordination() {
               <strong>Available Seats:</strong> {ride.availableSeats}
             </p>
           </div>
+
+          {ride.startLocation && ride.endLocation && (
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Route Map</h3>
+              <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                <MapView startLocation={ride.startLocation} endLocation={ride.endLocation} />
+              </div>
+            </div>
+          )}
 
           {ride.requestedRiders && ride.requestedRiders.length > 0 && (
             <div>
