@@ -22,9 +22,9 @@ export function getAiMatches(criteria) {
 }
 
 // Request to join a ride
-export function requestToJoinRide(rideId) {
+export function requestToJoinRide(rideId, seatCount = 1) {
   const userId = sessionStorage.getItem('userId');
-  return API.post('/rides/request', { rideId, userId });
+  return API.post('/rides/request', { rideId, userId, seatCount });
 }
 
 // Confirm a rider's request
