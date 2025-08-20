@@ -1,8 +1,11 @@
 // client/src/components/RideMatchResults.jsx
 import { useState, useEffect } from 'react';
 import { searchRides, getAiMatches, requestToJoinRide, getAllAvailableRides } from '../api/rides';
+import MapView from './MapView';
 
 export default function RideMatchResults() {
+  console.log('RideMatchResults component rendering...');
+  
   const [searchParams, setSearchParams] = useState({
     startLocation: '',
     endLocation: '',
@@ -15,13 +18,17 @@ export default function RideMatchResults() {
   const [success, setSuccess] = useState('');
   const [useAI, setUseAI] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [seatCounts, setSeatCounts] = useState({});
+  const [visibleMap, setVisibleMap] = useState(null);
 
   // Load all available rides on component mount
   useEffect(() => {
+    console.log('RideMatchResults useEffect triggered - loading all rides');
     loadAllRides();
   }, []);
 
   const loadAllRides = async () => {
+    console.log('loadAllRides function called');
     setLoading(true);
     setErrors(null);
     setSuccess('');
@@ -76,7 +83,8 @@ export default function RideMatchResults() {
 
   const handleRequestToJoin = async (rideId) => {
     try {
-      await requestToJoinRide(rideId);
+      const seatCount = seatCounts[rideId] || 1;
+      await requestToJoinRide(rideId, seatCount);
       setSuccess('Request sent successfully!');
       
       // Update the UI to show the request was sent
@@ -91,6 +99,8 @@ export default function RideMatchResults() {
       setErrors(err.response?.data?.error || 'Failed to send request');
     }
   };
+
+  console.log('RideMatchResults render state:', { loading, matches: matches.length, errors, success });
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white dark:bg-gray-800 shadow rounded-lg">
@@ -191,7 +201,14 @@ export default function RideMatchResults() {
                   : 'No rides available at the moment.')}
         </h3>
         
-        {matches.map(ride => (
+        {loading && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading rides...</p>
+          </div>
+        )}
+        
+        {!loading && matches.map(ride => (
           <div 
             key={ride._id} 
             className="border dark:border-gray-700 p-4 rounded-lg shadow-sm bg-gray-50 dark:bg-gray-700"
@@ -227,13 +244,33 @@ export default function RideMatchResults() {
               </div>
             </div>
             
-            <button
-              onClick={() => handleRequestToJoin(ride._id)}
-              disabled={ride.requested}
-              className="px-4 py-1 bg-green-600 dark:bg-green-700 text-white rounded hover:bg-green-700 dark:hover:bg-green-800 disabled:opacity-50 transition-colors"
-            >
-              {ride.requested ? 'Request Sent' : 'Request to Join'}
-            </button>
+            <div className="flex items-center space-x-2 mt-2">
+              <input
+                type="number"
+                min="1"
+                value={seatCounts[ride._id] || 1}
+                onChange={e => setSeatCounts({ ...seatCounts, [ride._id]: Number(e.target.value) })}
+                className="w-20 p-2 border rounded bg-white dark:bg-gray-700 dark:text-white"
+              />
+              <button
+                onClick={() => handleRequestToJoin(ride._id)}
+                disabled={ride.requested}
+                className="px-4 py-1 bg-green-600 dark:bg-green-700 text-white rounded hover:bg-green-700 dark:hover:bg-green-800 disabled:opacity-50 transition-colors"
+              >
+                {ride.requested ? 'Request Sent' : 'Request to Join'}
+              </button>
+              <button
+                onClick={() => setVisibleMap(visibleMap === ride._id ? null : ride._id)}
+                className="px-4 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+              >
+                {visibleMap === ride._id ? 'Hide Route' : 'Show Route'}
+              </button>
+            </div>
+            {visibleMap === ride._id && (
+              <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                <MapView startLocation={ride.startLocation} endLocation={ride.endLocation} />
+              </div>
+            )}
           </div>
         ))}
       </div>
