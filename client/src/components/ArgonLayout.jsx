@@ -18,7 +18,8 @@ import {
   ClockIcon,
   BookOpenIcon,
   CheckCircleIcon,
-  WifiIcon
+  WifiIcon,
+  StarIcon
 } from '@heroicons/react/24/outline';
 import NotificationBell from './NotificationBell';
 import socketService from '../services/socketService';
@@ -47,6 +48,7 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     { name: 'SOS', href: '/sos', icon: ExclamationTriangleIcon },
     { name: 'Classrooms', href: '/classrooms', icon: AcademicCapIcon },
     { name: 'Routine', href: '/routine', icon: AcademicCapIcon },
+    { name: 'Ratings', href: '/ratings', icon: StarIcon },
   ];
 
   const statusOptions = [
