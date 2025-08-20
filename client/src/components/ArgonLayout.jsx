@@ -39,11 +39,28 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const getInitialDropdown = () => {
+    const ridesPaths = ['/rides', '/offer', '/search'];
+    if (ridesPaths.some(p => location.pathname.startsWith(p))) {
+      return 'Rides';
+    }
+    return '';
+  };
+  const [openDropdown, setOpenDropdown] = useState(getInitialDropdown);
+
   const navigation = [
     { name: 'Home', href: '/home', icon: HomeIcon },
     { name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon },
     { name: 'Friends', href: '/friends', icon: UserGroupIcon },
-    { name: 'Rides', href: '/rides', icon: TruckIcon },
+    {
+      name: 'Rides',
+      icon: TruckIcon,
+      children: [
+        { name: 'My Rides', href: '/rides' },
+        { name: 'Offer a Ride', href: '/offer' },
+        { name: 'Find a Ride', href: '/search' },
+      ],
+    },
     { name: 'SOS', href: '/sos', icon: ExclamationTriangleIcon },
     { name: 'Classrooms', href: '/classrooms', icon: AcademicCapIcon },
     { name: 'Routine', href: '/routine', icon: AcademicCapIcon },
@@ -318,6 +335,52 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
           <nav className="flex-1 px-3 pt-6 overflow-y-auto">
             <div className="space-y-1">
               {navigation.map((item) => {
+                if (item.children) {
+                  const isParentActive = item.children.some(child => location.pathname === child.href);
+                  const isOpen = openDropdown === item.name;
+
+                  return (
+                    <div key={item.name}>
+                      <button
+                        onClick={() => setOpenDropdown(isOpen ? '' : item.name)}
+                        className={`group flex items-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                          isParentActive && !isOpen
+                            ? 'bg-primary-500 text-white shadow-soft-xl'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        <item.icon className="mr-3 h-5 w-5" />
+                        <span>{item.name}</span>
+                        <ChevronDownIcon
+                          className={`ml-auto h-5 w-5 transform transition-transform duration-200 ${
+                            isOpen ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                      {isOpen && (
+                        <div className="mt-1 pl-6 space-y-1">
+                          {item.children.map((child) => {
+                            const isChildActive = location.pathname === child.href;
+                            return (
+                              <Link
+                                key={child.name}
+                                to={child.href}
+                                className={`group flex items-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                                  isChildActive
+                                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                }`}
+                                onClick={() => setSidebarOpen(false)}
+                              >
+                                {child.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
                 const isActive = location.pathname === item.href;
                 return (
                   <Link
