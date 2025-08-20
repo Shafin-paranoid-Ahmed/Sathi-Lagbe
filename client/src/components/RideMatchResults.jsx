@@ -255,6 +255,9 @@ export default function RideMatchResults() {
                   <p className="text-gray-700 dark:text-gray-300">
                     <strong className="text-gray-900 dark:text-gray-100">To:</strong> {ride.endLocation}
                   </p>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong className="text-gray-900 dark:text-gray-100">Seats:</strong> {ride.availableSeats ?? '—'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-gray-700 dark:text-gray-300">
@@ -270,6 +273,12 @@ export default function RideMatchResults() {
                 </div>
               </div>
               
+              {typeof ride.averageRating !== 'undefined' && ride.averageRating !== null && (
+                <div className="mb-2 text-sm text-gray-700 dark:text-gray-300">
+                  <strong className="text-gray-900 dark:text-gray-100">Owner Rating:</strong> {ride.averageRating} ⭐ ({ride.totalRatings || 0})
+                </div>
+              )}
+              
               <div className="flex items-center space-x-2 mt-2">
                 <input
                   type="number"
@@ -280,10 +289,10 @@ export default function RideMatchResults() {
                 />
                 <button
                   onClick={() => handleRequestToJoin(ride._id)}
-                  disabled={ride.requested}
+                  disabled={ride.requested || (ride.availableSeats !== undefined && ride.availableSeats <= 0)}
                   className="px-4 py-1 bg-green-600 dark:bg-green-700 text-white rounded hover:bg-green-700 dark:hover:bg-green-800 disabled:opacity-50 transition-colors"
                 >
-                  {ride.requested ? 'Request Sent' : 'Request to Join'}
+                  {ride.requested ? 'Request Sent' : (ride.availableSeats !== undefined && ride.availableSeats <= 0 ? 'Full' : 'Request to Join')}
                 </button>
                 <button
                   onClick={() => setVisibleMap(visibleMap === ride._id ? null : ride._id)}

@@ -55,41 +55,51 @@ export default function RideCoordination() {
     }
   }, [rideId, token, navigate]);
 
-  const handleConfirm = async (userId) => {
+  const handleConfirm = async (userId, requestId) => {
+    console.log('🔍 handleConfirm called with userId:', userId);
+    console.log('🔍 requestId:', requestId);
+    console.log('🔍 rideId:', rideId);
+    console.log('🔍 Current ride data:', ride);
+    console.log('🔍 requestedRiders:', ride?.requestedRiders);
+    
     setActionsDisabled(prev => ({ ...prev, [userId]: true }));
     try {
-      await axios.post(
+      const payload = { rideId, userId };
+      if (requestId) payload.requestId = requestId;
+      const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/rides/confirm`,
-        { rideId, userId },
+        payload,
         { headers: { "Authorization": `Bearer ${token}` } }
       );
-      const confirmedUser = ride.requestedRiders.find(u => u._id === userId);
-      if (!confirmedUser) return;
-      setRide(prev => ({
-        ...prev,
-        requestedRiders: prev.requestedRiders.filter(u => u._id !== userId),
-        confirmedRiders: [...prev.confirmedRiders, confirmedUser]
-      }));
+      console.log('✅ Confirmation successful:', res.data);
+      // Update state with the fresh data from the server response
+      setRide(res.data.ride);
     } catch (e) {
+      console.error('❌ Confirmation failed:', e.response?.data || e);
       alert(e.response?.data?.error || 'Could not confirm');
+    } finally {
       setActionsDisabled(prev => ({ ...prev, [userId]: false }));
     }
   };
 
   const handleDeny = async (userId) => {
+    console.log('🔍 handleDeny called with userId:', userId);
+    console.log('🔍 rideId:', rideId);
+    
     setActionsDisabled(prev => ({ ...prev, [userId]: true }));
     try {
-      await axios.post(
+      const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/rides/deny`,
         { rideId, userId },
         { headers: { "Authorization": `Bearer ${token}` } }
       );
-      setRide(prev => ({
-        ...prev,
-        requestedRiders: prev.requestedRiders.filter(u => u._id !== userId)
-      }));
+      console.log('✅ Denial successful:', res.data);
+      // Update state with the fresh data from the server response
+      setRide(res.data.ride);
     } catch (e) {
+      console.error('❌ Denial failed:', e.response?.data || e);
       alert(e.response?.data?.error || 'Could not deny');
+    } finally {
       setActionsDisabled(prev => ({ ...prev, [userId]: false }));
     }
   };
@@ -99,6 +109,7 @@ export default function RideCoordination() {
       ...prev,
       [userId]: { ...prev[userId], [field]: value }
     }));
+    // Clear any previous status when user starts a new rating
     setRatingStatus(prev => ({ ...prev, [userId]: '' }));
   };
 
@@ -118,6 +129,10 @@ export default function RideCoordination() {
       );
       setRatingStatus(prev => ({ ...prev, [userId]: 'Rating submitted!' }));
       setRatingInputs(prev => ({ ...prev, [userId]: {} }));
+      // Clear the rating status after a delay to show success message
+      setTimeout(() => {
+        setRatingStatus(prev => ({ ...prev, [userId]: '' }));
+      }, 3000);
     } catch (e) {
       setRatingStatus(prev => ({ ...prev, [userId]: e.response?.data?.error || 'Failed to submit rating' }));
     } finally {
@@ -199,13 +214,13 @@ export default function RideCoordination() {
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Pending Requests</h3>
               <div className="space-y-2">
                 {ride.requestedRiders.map((request) => (
-                  <div key={request.user._id} className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 flex justify-between items-center">
+                  <div key={request._id} className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 flex justify-between items-center">
                     <div className="flex items-center space-x-3">
                       {request.user.avatarUrl ? (
                         <img src={request.user.avatarUrl} alt={request.user.name} className="h-10 w-10 rounded-full object-cover" />
                       ) : (
                         <div className="h-10 w-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-bold">
-                          {request.user.name.charAt(0)}
+                          {request.user.name ? request.user.name.charAt(0) : '?'}
                         </div>
                       )}
                       <div>
@@ -215,16 +230,18 @@ export default function RideCoordination() {
                     </div>
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => handleConfirm(request.user._id)}
-                        className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                        onClick={() => handleConfirm(request.user._id, request._id)}
+                        disabled={actionsDisabled[request.user._id]}
+                        className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Confirm
+                        {actionsDisabled[request.user._id] ? 'Confirming...' : 'Confirm'}
                       </button>
                       <button
                         onClick={() => handleDeny(request.user._id)}
-                        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                        disabled={actionsDisabled[request.user._id]}
+                        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Deny
+                        {actionsDisabled[request.user._id] ? 'Denying...' : 'Deny'}
                       </button>
                     </div>
                   </div>
@@ -237,18 +254,27 @@ export default function RideCoordination() {
             <div>
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Confirmed Riders</h3>
               <div className="space-y-2">
-                {ride.confirmedRiders.map((rider) => (
-                  <div key={rider._id} className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
+                {ride.confirmedRiders.map((request) => (
+                  <div key={request._id} className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
                     <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{rider.name || rider.email}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Seats: {rider.seatCount}</p>
+                      <div className="flex items-center space-x-3">
+                        {request.user.avatarUrl ? (
+                          <img src={request.user.avatarUrl} alt={request.user.name} className="h-10 w-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-10 w-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-bold">
+                            {request.user.name ? request.user.name.charAt(0) : '?'}
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">{request.user.name || request.user.email}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Seats: {request.seatCount}</p>
+                        </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Rating:</span>
                         <select
-                          value={ratingInputs[rider._id]?.score || ''}
-                          onChange={(e) => handleRatingChange(rider._id, 'score', e.target.value)}
+                          value={ratingInputs[request.user._id]?.score || ''}
+                          onChange={(e) => handleRatingChange(request.user._id, 'score', e.target.value)}
                           className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         >
                           <option value="">Select</option>
@@ -257,13 +283,25 @@ export default function RideCoordination() {
                           ))}
                         </select>
                         <button
-                          onClick={() => submitRating(rider._id)}
-                          disabled={!ratingInputs[rider._id]?.score}
+                          onClick={() => submitRating(request.user._id)}
+                          disabled={!ratingInputs[request.user._id]?.score || actionsDisabled[request.user._id]}
                           className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
                         >
-                          Rate
+                          {actionsDisabled[request.user._id] ? 'Rating...' : 'Rate'}
                         </button>
                       </div>
+                      {/* Display rating status */}
+                      {ratingStatus[request.user._id] && (
+                        <div className={`mt-2 text-sm ${
+                          ratingStatus[request.user._id].includes('submitted') 
+                            ? 'text-green-600 dark:text-green-400' 
+                            : ratingStatus[request.user._id].includes('Please select') 
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-blue-600 dark:text-blue-400'
+                        }`}>
+                          {ratingStatus[request.user._id]}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

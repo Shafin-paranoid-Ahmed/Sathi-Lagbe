@@ -12,37 +12,50 @@ exports.getAllAvailableRides = async (req, res) => {
   try {
     console.log('=== getAllAvailableRides called ===');
     
-    // First, let's see how many total rides exist
     const totalRides = await RideMatch.countDocuments();
     console.log('Total rides in database:', totalRides);
     
-    // Get all rides that are not completed (remove departureTime filter temporarily)
     const currentTime = new Date();
     console.log('Current time:', currentTime);
     
     const rides = await RideMatch.find({
       status: { $ne: 'completed' }
-      // Temporarily removed: departureTime: { $gte: currentTime }
     })
     .populate('riderId', 'name email avatarUrl')
-    .sort({ createdAt: -1 }) // Sort by most recent first (newest to oldest)
+    .sort({ createdAt: -1 })
     .lean();
-    
-    // Filter out rides where the rider (user) may have been deleted
+
     const validRides = rides.filter(ride => ride.riderId);
-    
-    console.log('Found rides:', rides.length, '| Valid rides after filtering:', validRides.length);
-    console.log('Ride details:', validRides.map(r => ({
-      id: r._id,
-      startLocation: r.startLocation,
-      endLocation: r.endLocation,
-      departureTime: r.departureTime,
-      status: r.status,
-      createdAt: r.createdAt
-    })));
-    
-    // Send the results
-    res.json(validRides);
+
+    // Compute simple average rating per ride owner from ride.ratings across their rides (cheap approach)
+    // Note: For performance, a separate ratings collection would be better. Here we approximate using RideMatch.ratings.
+    const ownerIds = [...new Set(validRides.map(r => r.riderId && r.riderId._id && r.riderId._id.toString()))].filter(Boolean);
+    const ownerRatingsMap = new Map();
+    if (ownerIds.length > 0) {
+      const ownerRides = await RideMatch.find({ riderId: { $in: ownerIds } }).select('riderId ratings').lean();
+      ownerIds.forEach(ownerId => {
+        const ridesForOwner = ownerRides.filter(or => (or.riderId && or.riderId.toString()) === ownerId);
+        const allRatings = ridesForOwner.flatMap(or => or.ratings || []);
+        if (allRatings.length > 0) {
+          const avg = (allRatings.reduce((sum, rr) => sum + (rr.score || 0), 0) / allRatings.length).toFixed(1);
+          ownerRatingsMap.set(ownerId, { averageRating: Number(avg), totalRatings: allRatings.length });
+        }
+      });
+    }
+
+    const withOwnerRatings = validRides.map(r => {
+      const key = r.riderId && r.riderId._id ? r.riderId._id.toString() : null;
+      const meta = key ? ownerRatingsMap.get(key) : null;
+      const seatsTaken = (r.confirmedRiders || []).reduce((sum, cr) => sum + (cr.seatCount || 1), 0);
+      const seatsRemaining = (r.availableSeats || 1) - seatsTaken;
+      return {
+        ...r,
+        ...(meta ? { averageRating: meta.averageRating, totalRatings: meta.totalRatings } : {}),
+        seatsRemaining: Math.max(0, seatsRemaining)
+      };
+    });
+
+    res.json(withOwnerRatings);
   } catch (err) {
     console.error('Error getting all available rides:', err);
     res.status(500).json({ error: err.message || 'Failed to get available rides' });
@@ -54,43 +67,60 @@ exports.getAllAvailableRides = async (req, res) => {
  */
 exports.findRideMatches = async (req, res) => {
   try {
-    // Get query parameters
     const { departureTime, startLocation, endLocation } = req.query;
     
-    // Check required fields
     if (!departureTime || !startLocation) {
       return res.status(400).json({ error: 'Missing departureTime or startLocation' });
     }
     
-    // Convert departureTime string to a Date object
     const targetTime = new Date(departureTime);
+    const startTime = new Date(targetTime.getTime() - 30 * 60000);
+    const endTime = new Date(targetTime.getTime() + 30 * 60000);
     
-    // Define a time window (±30 minutes)
-    const startTime = new Date(targetTime.getTime() - 30 * 60000); // 30 mins before
-    const endTime = new Date(targetTime.getTime() + 30 * 60000); // 30 mins after
-    
-    // Build query
     const query = {
       departureTime: { $gte: startTime, $lte: endTime },
       startLocation: startLocation,
-      status: { $ne: 'completed' } // Exclude completed rides
+      status: { $ne: 'completed' }
     };
     
-    // Add endLocation if provided
     if (endLocation) {
       query.endLocation = endLocation;
     }
     
-    // Query the database
     const rides = await RideMatch.find(query)
       .populate('riderId', 'name email avatarUrl')
-      .sort({ departureTime: 1 }); // Sort by earliest departure
-      
-    // Filter out rides where the rider (user) may have been deleted
+      .sort({ departureTime: 1 })
+      .lean();
+
     const validRides = rides.filter(ride => ride.riderId);
-      
-    // Send the results
-    res.json(validRides);
+
+    const ownerIds = [...new Set(validRides.map(r => r.riderId && r.riderId._id && r.riderId._id.toString()))].filter(Boolean);
+    const ownerRatingsMap = new Map();
+    if (ownerIds.length > 0) {
+      const ownerRides = await RideMatch.find({ riderId: { $in: ownerIds } }).select('riderId ratings').lean();
+      ownerIds.forEach(ownerId => {
+        const ridesForOwner = ownerRides.filter(or => (or.riderId && or.riderId.toString()) === ownerId);
+        const allRatings = ridesForOwner.flatMap(or => or.ratings || []);
+        if (allRatings.length > 0) {
+          const avg = (allRatings.reduce((sum, rr) => sum + (rr.score || 0), 0) / allRatings.length).toFixed(1);
+          ownerRatingsMap.set(ownerId, { averageRating: Number(avg), totalRatings: allRatings.length });
+        }
+      });
+    }
+
+    const withOwnerRatings = validRides.map(r => {
+      const key = r.riderId && r.riderId._id ? r.riderId._id.toString() : null;
+      const meta = key ? ownerRatingsMap.get(key) : null;
+      const seatsTaken = (r.confirmedRiders || []).reduce((sum, cr) => sum + (cr.seatCount || 1), 0);
+      const seatsRemaining = (r.availableSeats || 1) - seatsTaken;
+      return {
+        ...r,
+        ...(meta ? { averageRating: meta.averageRating, totalRatings: meta.totalRatings } : {}),
+        seatsRemaining: Math.max(0, seatsRemaining)
+      };
+    });
+
+    res.json(withOwnerRatings);
   } catch (err) {
     console.error('Error finding ride matches:', err);
     res.status(500).json({ error: err.message || 'Failed to find rides' });
@@ -107,7 +137,7 @@ exports.createRideOffer = async (req, res) => {
       return res.status(400).json({ error: validationError });
     }
     
-    const { riderId, departureTime, startLocation, endLocation, recurring } = req.body;
+    const { riderId, departureTime, startLocation, endLocation, recurring, availableSeats = 1 } = req.body;
     
     // Replace riderId with authenticated user if not provided
     const effectiveRiderId = riderId || req.user.id || req.user.userId;
@@ -120,6 +150,7 @@ exports.createRideOffer = async (req, res) => {
       endLocation,
       recurring: recurring || null,
       status: 'pending',
+      availableSeats: Number(availableSeats) || 1,
       requestedRiders: [],
       confirmedRiders: []
     });
@@ -131,6 +162,12 @@ exports.createRideOffer = async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to create ride offer' });
   }
 };
+
+// Utility to compute seats already taken (confirmed)
+function getSeatsTaken(ride) {
+  const seats = (ride.confirmedRiders || []).reduce((sum, r) => sum + (r.seatCount || 1), 0);
+  return seats;
+}
 
 /**
  * Create recurring rides
@@ -206,22 +243,36 @@ exports.requestToJoinRide = async (req, res) => {
       return res.status(404).json({ error: "Ride not found" });
     }
     
+    // Check capacity
+    const seatsRequested = Number(seatCount) || 1;
+    const seatsTaken = getSeatsTaken(ride);
+    const seatsRemaining = (ride.availableSeats || 1) - seatsTaken;
+    if (seatsRequested > seatsRemaining) {
+      return res.status(400).json({ error: `Not enough seats. Remaining: ${Math.max(0, seatsRemaining)}` });
+    }
+    
     // Check if user is the ride creator
     if (ride.riderId.toString() === effectiveUserId.toString()) {
       return res.status(400).json({ error: "You can't join your own ride" });
     }
     
     // Check if already requested
-    if (ride.requestedRiders.some(r => r.user.toString() === effectiveUserId.toString())) {
+    if (ride.requestedRiders.some(r => {
+      const userIdToCheck = r.user._id ? r.user._id.toString() : r.user.toString();
+      return userIdToCheck === effectiveUserId.toString();
+    })) {
       return res.status(400).json({ error: "You have already requested to join this ride" });
     }
     
     // Check if already confirmed
-    if (ride.confirmedRiders.some(r => r.user.toString() === effectiveUserId.toString())) {
+    if (ride.confirmedRiders.some(r => {
+      const userIdToCheck = r.user._id ? r.user._id.toString() : r.user.toString();
+      return userIdToCheck === effectiveUserId.toString();
+    })) {
       return res.status(400).json({ error: "You are already confirmed for this ride" });
     }
     
-    ride.requestedRiders.push({ user: effectiveUserId, seatCount });
+    ride.requestedRiders.push({ user: effectiveUserId, seatCount: seatsRequested });
     await ride.save();
     
     // Send notification to ride owner about the request
@@ -246,28 +297,63 @@ exports.requestToJoinRide = async (req, res) => {
  */
 exports.confirmRideRequest = async (req, res) => {
   try {
-    const { rideId, userId } = req.body;
+    const { rideId, userId, requestId } = req.body;
+    console.log('✅ confirmRideRequest: Received request with rideId:', rideId, 'userId:', userId, 'requestId:', requestId);
+    console.log('✅ userId type:', typeof userId);
+
     const ride = await RideMatch.findById(rideId);
     
     if (!ride) {
+      console.log('❌ confirmRideRequest: Ride not found for rideId:', rideId);
       return res.status(404).json({ error: "Ride not found" });
     }
     
+    console.log('Ride found. Requested riders:', JSON.stringify(ride.requestedRiders, null, 2));
+
     // Check if the requester is authorized (ride owner)
     const requesterId = req.user.id || req.user.userId;
     if (ride.riderId.toString() !== requesterId.toString()) {
+      console.log('❌ confirmRideRequest: Unauthorized. Ride owner is', ride.riderId, 'but requester is', requesterId);
       return res.status(403).json({ error: "Only the ride creator can confirm requests" });
     }
-    
+
+    // Capacity check before confirming
+    const seatsTaken = getSeatsTaken(ride);
+    const seatsRemaining = (ride.availableSeats || 1) - seatsTaken;
+    const pending = ride.requestedRiders || [];
+    const match = pending.find(r => (requestId && r._id && r._id.toString() === requestId) || (userId && ((r.user._id ? r.user._id.toString() : r.user.toString()) === userId)));
+    const seatsRequested = match ? (match.seatCount || 1) : 1;
+    if (seatsRequested > seatsRemaining) {
+      return res.status(400).json({ error: `Cannot confirm. Only ${Math.max(0, seatsRemaining)} seats remaining.` });
+    }
+
     // Check if already confirmed
-    const alreadyConfirmed = ride.confirmedRiders.some(r => r.user.toString() === userId);
+    const alreadyConfirmed = ride.confirmedRiders.some(r => {
+      const uid = r.user && r.user._id ? r.user._id.toString() : r.user.toString();
+      return userId && uid === userId.toString();
+    });
     if (alreadyConfirmed) {
+      console.log('❌ confirmRideRequest: User', userId, 'is already confirmed for this ride.');
       return res.status(400).json({ error: "User already confirmed" });
     }
     
-    // Find the request
-    const reqIndex = ride.requestedRiders.findIndex(r => r.user.toString() === userId);
+    // Find the request by requestId or userId
+    const targetUserId = userId ? userId.toString() : null;
+    const targetRequestId = requestId ? requestId.toString() : null;
+
+    const reqIndex = ride.requestedRiders.findIndex(r => {
+      const rId = r._id ? r._id.toString() : null;
+      const rUserId = r.user && r.user._id ? r.user._id.toString() : r.user.toString();
+      return (targetRequestId && rId === targetRequestId) || (targetUserId && rUserId === targetUserId);
+    });
+
     if (reqIndex === -1) {
+      console.log('❌ confirmRideRequest: Request not found for user', targetUserId, 'or requestId', targetRequestId, 'in requestedRiders.');
+      console.log('❌ Available requestedRiders:', ride.requestedRiders.map(r => ({
+        requestId: r._id ? r._id.toString() : null,
+        user: r.user && r.user._id ? r.user._id.toString() : r.user.toString(),
+        seatCount: r.seatCount
+      })));
       return res.status(404).json({ error: "Request not found" });
     }
 
@@ -281,16 +367,22 @@ exports.confirmRideRequest = async (req, res) => {
     
     await ride.save();
     
+    // Re-fetch with population so frontend gets user details
+    const populatedRide = await RideMatch.findById(ride._id)
+      .populate({ path: 'requestedRiders.user', select: 'name email avatarUrl' })
+      .populate({ path: 'confirmedRiders.user', select: 'name email avatarUrl' });
+    
     // Send confirmation notification to the confirmed user
     try {
-      await rideNotificationService.sendRideRequestAccepted(rideId, userId, requesterId);
+      const confirmedUserId = riderReq.user && riderReq.user._id ? riderReq.user._id.toString() : riderReq.user.toString();
+      await rideNotificationService.sendRideRequestAccepted(rideId, confirmedUserId, requesterId);
     } catch (notificationError) {
       console.error('Error sending ride confirmation notification:', notificationError);
     }
     
     res.json({
       message: "Rider confirmed",
-      ride
+      ride: populatedRide
     });
   } catch (err) {
     console.error('Error confirming rider:', err);
@@ -317,9 +409,18 @@ exports.denyRideRequest = async (req, res) => {
     }
     
     // Remove from requested list
-    ride.requestedRiders = ride.requestedRiders.filter(r => r.user.toString() !== userId);
+    ride.requestedRiders = ride.requestedRiders.filter(r => {
+      // Handle both populated user objects and ObjectId references
+      const userIdToCheck = r.user._id ? r.user._id.toString() : r.user.toString();
+      return userIdToCheck !== userId;
+    });
     
     await ride.save();
+    
+    // Re-fetch with population so frontend gets user details
+    const populatedRide = await RideMatch.findById(ride._id)
+      .populate({ path: 'requestedRiders.user', select: 'name email avatarUrl' })
+      .populate({ path: 'confirmedRiders.user', select: 'name email avatarUrl' });
     
     // Send denial notification to the requester
     try {
@@ -330,7 +431,7 @@ exports.denyRideRequest = async (req, res) => {
     
     res.json({
       message: "Request denied",
-      ride
+      ride: populatedRide
     });
   } catch (err) {
     console.error('Error denying request:', err);
@@ -408,7 +509,10 @@ exports.getRidesByOwner = async (req, res) => {
       : ownerId;
     
     const rides = await RideMatch.find({ riderId: effectiveOwnerId })
-      .populate('confirmedRiders', 'name email')
+      .populate({
+        path: 'confirmedRiders.user',
+        select: 'name email avatarUrl'
+      })
       .lean();
     
     // Add average rating calculation
@@ -704,7 +808,10 @@ exports.cancelRide = async (req, res) => {
 
     // Check if user is the ride owner or a confirmed passenger
     const isOwner = ride.riderId.toString() === userId;
-    const isPassenger = ride.confirmedRiders.some(r => r.user.toString() === userId);
+    const isPassenger = ride.confirmedRiders.some(r => {
+      const userIdToCheck = r.user._id ? r.user._id.toString() : r.user.toString();
+      return userIdToCheck === userId;
+    });
     
     if (!isOwner && !isPassenger) {
       return res.status(403).json({ error: 'You can only cancel rides you are part of' });
@@ -752,7 +859,10 @@ exports.completeRide = async (req, res) => {
 
     // Check if user is the ride owner or a confirmed passenger
     const isOwner = ride.riderId.toString() === userId;
-    const isPassenger = ride.confirmedRiders.some(r => r.user.toString() === userId);
+    const isPassenger = ride.confirmedRiders.some(r => {
+      const userIdToCheck = r.user._id ? r.user._id.toString() : r.user.toString();
+      return userIdToCheck === userId;
+    });
     
     if (!isOwner && !isPassenger) {
       return res.status(403).json({ error: 'You can only complete rides you are part of' });
