@@ -4,6 +4,9 @@ const router = express.Router();
 const rideController = require('../controllers/rideController');
 const auth = require('../middleware/auth');
 
+// Get all available rides (no search parameters)
+router.get('/available', auth, rideController.getAllAvailableRides);
+
 // Search routes
 router.get('/search', rideController.findRideMatches);
 router.post('/ai-match', auth, rideController.getAiMatches);

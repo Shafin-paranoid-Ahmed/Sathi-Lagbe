@@ -21,6 +21,11 @@ export function getAiMatches(criteria) {
   return API.post('/rides/ai-match', criteria);
 }
 
+// Get all available rides (without search parameters)
+export function getAllAvailableRides() {
+  return API.get('/rides/available');
+}
+
 // Request to join a ride
 export function requestToJoinRide(rideId) {
   const userId = sessionStorage.getItem('userId');
