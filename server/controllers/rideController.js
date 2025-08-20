@@ -4,6 +4,47 @@ const { aiMatch } = require('../services/aiMatcher');
 const { validateRideOffer, validateRecurringRide } = require('../utils/validate');
 
 /**
+ * Get all available rides (no search parameters required)
+ */
+exports.getAllAvailableRides = async (req, res) => {
+  try {
+    console.log('=== getAllAvailableRides called ===');
+    
+    // First, let's see how many total rides exist
+    const totalRides = await RideMatch.countDocuments();
+    console.log('Total rides in database:', totalRides);
+    
+    // Get all rides that are not completed (remove departureTime filter temporarily)
+    const currentTime = new Date();
+    console.log('Current time:', currentTime);
+    
+    const rides = await RideMatch.find({
+      status: { $ne: 'completed' }
+      // Temporarily removed: departureTime: { $gte: currentTime }
+    })
+    .populate('riderId', 'name email')
+    .sort({ createdAt: -1 }) // Sort by most recent first (newest to oldest)
+    .lean();
+    
+    console.log('Found rides:', rides.length);
+    console.log('Ride details:', rides.map(r => ({
+      id: r._id,
+      startLocation: r.startLocation,
+      endLocation: r.endLocation,
+      departureTime: r.departureTime,
+      status: r.status,
+      createdAt: r.createdAt
+    })));
+    
+    // Send the results
+    res.json(rides);
+  } catch (err) {
+    console.error('Error getting all available rides:', err);
+    res.status(500).json({ error: err.message || 'Failed to get available rides' });
+  }
+};
+
+/**
  * Search for ride matches
  */
 exports.findRideMatches = async (req, res) => {
