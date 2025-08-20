@@ -187,7 +187,7 @@ exports.createRecurringRides = async (req, res) => {
  */
 exports.requestToJoinRide = async (req, res) => {
   try {
-    const { rideId, userId } = req.body;
+    const { rideId, userId, seatCount = 1 } = req.body;
     
     // Replace userId with authenticated user if not provided
     const effectiveUserId = userId || req.user.id || req.user.userId;
@@ -203,16 +203,16 @@ exports.requestToJoinRide = async (req, res) => {
     }
     
     // Check if already requested
-    if (ride.requestedRiders.includes(effectiveUserId)) {
+    if (ride.requestedRiders.some(r => r.toString() === effectiveUserId.toString())) {
       return res.status(400).json({ error: "You have already requested this ride" });
     }
     
     // Check if already confirmed
-    if (ride.confirmedRiders.includes(effectiveUserId)) {
+    if (ride.confirmedRiders.some(r => r.toString() === effectiveUserId.toString())) {
       return res.status(400).json({ error: "You are already confirmed for this ride" });
     }
     
-    ride.requestedRiders.push(effectiveUserId);
+    ride.requestedRiders.push({ user: effectiveUserId, seatCount });
     await ride.save();
     
     res.json({
@@ -244,14 +244,19 @@ exports.confirmRideRequest = async (req, res) => {
     }
     
     // Check if already confirmed
-    const alreadyConfirmed = ride.confirmedRiders.includes(userId);
+    const alreadyConfirmed = ride.confirmedRiders.some(r => r.toString() === userId);
     if (alreadyConfirmed) {
       return res.status(400).json({ error: "User already confirmed" });
     }
     
-    // Remove from requested list if exists
-    ride.requestedRiders = ride.requestedRiders.filter(id => id.toString() !== userId);
-    ride.confirmedRiders.push(userId);
+    // Find the request
+    const reqIndex = ride.requestedRiders.findIndex(r => r.toString() === userId);
+    if (reqIndex === -1) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    const [riderReq] = ride.requestedRiders.splice(reqIndex, 1);
+    ride.confirmedRiders.push(riderReq);
     
     // Mark ride as "confirmed" if 1st person joins
     if (ride.confirmedRiders.length === 1) {
@@ -289,7 +294,7 @@ exports.denyRideRequest = async (req, res) => {
     }
     
     // Remove from requested list
-    ride.requestedRiders = ride.requestedRiders.filter(id => id.toString() !== userId);
+    ride.requestedRiders = ride.requestedRiders.filter(r => r.toString() !== userId);
     
     await ride.save();
     
@@ -507,5 +512,52 @@ exports.getAiMatches = async (req, res) => {
   } catch (err) {
     console.error('AI match error:', err);
     res.status(500).json({ error: err.message || 'Failed to generate AI matches' });
+  }
+  };
+/**
+ * Stream AI-based ride matches and update on new data
+ * Utilizes Server-Sent Events to push re-scored matches whenever the
+ * RideMatch collection changes.
+ */
+exports.streamAiMatches = async (req, res) => {
+  try {
+    const { startLocation, endLocation, departureTime } = req.query;
+
+    if (!startLocation || !departureTime) {
+      return res.status(400).json({ error: 'Missing match parameters' });
+    }
+
+    // Set up SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    if (res.flushHeaders) res.flushHeaders();
+
+    const sendMatches = async () => {
+      const matches = await aiMatch({
+        startLocation,
+        endLocation: endLocation || '',
+        departureTime
+      });
+      res.write(`data: ${JSON.stringify(matches)}\n\n`);
+    };
+
+    // Send initial set of matches
+    await sendMatches();
+
+    // Watch for changes in RideMatch collection
+    const changeStream = RideMatch.watch();
+    changeStream.on('change', async () => {
+      await sendMatches();
+    });
+
+    // Cleanup on client disconnect
+    req.on('close', () => {
+      changeStream.close();
+      res.end();
+    });
+  } catch (err) {
+    console.error('AI match stream error:', err);
+    res.status(500).end();
   }
 };

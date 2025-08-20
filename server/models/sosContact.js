@@ -11,8 +11,9 @@ const sosContactSchema = new mongoose.Schema(
     contacts: [
       {
         name: String,
-      phone: String,
-      userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        phone: String,
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        addedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Track who added this contact
       },
     ],
   },

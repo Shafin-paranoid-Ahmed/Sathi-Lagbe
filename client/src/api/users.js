@@ -20,3 +20,13 @@ export function getFriends() {
 export function searchUsers(query) {
   return API.get(`/users/search?q=${encodeURIComponent(query)}`);
 }
+
+// Get user details by ID (including profile picture)
+export function getUserById(userId) {
+  return API.get(`/users/${userId}`);
+}
+
+// Get multiple users by IDs (for batch profile picture loading)
+export function getUsersByIds(userIds) {
+  return API.post('/users/batch', { userIds });
+}

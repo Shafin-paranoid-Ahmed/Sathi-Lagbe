@@ -15,7 +15,7 @@ exports.getMessages = async (req, res) => {
     
     const messages = await Message.find({ chatId })
       .sort('createdAt')
-      .populate('sender', 'name email');
+      .populate('sender', 'name email avatarUrl');
       
     res.json(messages);
   } catch (err) {
@@ -95,7 +95,7 @@ exports.createChat = async (req, res) => {
     if (sortedMemberIds.length === 2) {
       const existingChat = await Chat.findOne({
         members: { $all: sortedMemberIds, $size: sortedMemberIds.length }
-      }).populate('members', 'name email');
+      }).populate('members', 'name email avatarUrl');
       
       if (existingChat) {
         return res.status(200).json({
@@ -114,7 +114,7 @@ exports.createChat = async (req, res) => {
     });
     
     await chat.save();
-    await chat.populate('members', 'name email');
+    await chat.populate('members', 'name email avatarUrl');
     
     res.status(201).json({
       message: 'Chat created successfully',
@@ -142,7 +142,7 @@ exports.getAllChats = async (req, res) => {
     
     // First, get chats without populating lastMessage to avoid potential errors
     const chats = await Chat.find({ members: { $in: [userId] } })
-      .populate('members', 'name email')
+      .populate('members', 'name email avatarUrl')
       .sort({ updatedAt: -1 })
       .lean(); // Use lean() for better performance
     
@@ -154,7 +154,7 @@ exports.getAllChats = async (req, res) => {
         if (chat.lastMessage) {
           console.log(`Populating lastMessage ${chat.lastMessage} for chat ${chat._id}`);
           const lastMessage = await Message.findById(chat.lastMessage)
-            .populate('sender', 'name email')
+            .populate('sender', 'name email avatarUrl')
             .lean();
           if (lastMessage) {
             chat.lastMessage = lastMessage;
@@ -182,7 +182,9 @@ exports.getAllChats = async (req, res) => {
     console.error('Error fetching chats:', err);
     console.error('Error stack:', err.stack);
     res.status(500).json({ 
-      error: err.message || 'Failed to fetch chats',
+      message: 'Failed to fetch chats',
+      success: false,
+      error: err.message || 'Internal server error',
       stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
@@ -208,7 +210,7 @@ exports.clearUnreadMessages = async (req, res) => {
       { unreadMessageCount: 0 },
       { new: true }
     )
-      .populate('members', 'name email')
+      .populate('members', 'name email avatarUrl')
       .populate('lastMessage');
       
     // Mark all unread messages as read
@@ -224,6 +226,10 @@ exports.clearUnreadMessages = async (req, res) => {
     });
   } catch (err) {
     console.error('Error clearing unread messages:', err);
-    res.status(500).json({ error: err.message || 'Failed to clear unread messages' });
+    res.status(500).json({ 
+      message: 'Failed to clear unread messages',
+      success: false,
+      error: err.message || 'Internal server error'
+    });
   }
 };

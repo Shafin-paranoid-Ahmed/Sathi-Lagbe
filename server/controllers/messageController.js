@@ -62,7 +62,7 @@ exports.sendNewMessage = async (req, res) => {
     );
     
     // Populate sender info for API response
-    await newMessage.populate('sender', 'name email');
+    await newMessage.populate('sender', 'name email avatarUrl');
     
     // Emit Socket.IO event to all users in the chat room
     const io = getIO();
@@ -107,7 +107,7 @@ exports.getAllMessages = async (req, res) => {
     
     // Get all messages for the chat with sender information
     const messages = await Message.find({ chatId })
-      .populate('sender', 'name email')
+      .populate('sender', 'name email avatarUrl')
       .sort({ createdAt: 1 });
     
     res.json({

@@ -4,9 +4,6 @@ const router = express.Router();
 const chatController = require('../controllers/chatController');
 const auth = require('../middleware/auth');
 
-// Get messages for a chat
-router.get('/:chatId', auth, chatController.getMessages);
-
 // Send a message
 router.post('/', auth, chatController.sendMessage);
 
@@ -19,5 +16,8 @@ router.get('/get-all-chats', auth, chatController.getAllChats); // Compatibility
 
 // Clear unread messages
 router.post('/clear-unread-message', auth, chatController.clearUnreadMessages);
+
+// Get messages for a chat - This must be after other specific GET routes to avoid conflicts
+router.get('/:chatId', auth, chatController.getMessages);
 
 module.exports = router;

@@ -43,6 +43,8 @@ export default function Profile() {
       const response = await verifyToken();
       
       if (response.data.user) {
+        const currentUserId = response.data.user._id;
+        
         setProfile({
           name: response.data.user.name || '',
           email: response.data.user.email || '',
@@ -52,7 +54,15 @@ export default function Profile() {
           bracuId: response.data.user.bracuId || '',
           preferences: response.data.user.preferences || { darkMode: false }
         });
-        setAvatarPreview(response.data.user.avatarUrl || '');
+        
+        // Use user-specific avatar storage
+        const userAvatarUrl = sessionStorage.getItem(`userAvatarUrl_${currentUserId}`) || response.data.user.avatarUrl || '';
+        setAvatarPreview(userAvatarUrl);
+        
+        // Update session storage with user-specific key
+        if (response.data.user.avatarUrl) {
+          sessionStorage.setItem(`userAvatarUrl_${currentUserId}`, response.data.user.avatarUrl);
+        }
       }
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -125,6 +135,14 @@ export default function Profile() {
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    // Get current user ID for validation
+    const currentUserId = sessionStorage.getItem('userId');
+    if (!currentUserId) {
+      setError('User session not found. Please login again.');
+      return;
+    }
+    
     setError('');
     setSuccess('');
     setAvatarUploading(true);
@@ -133,11 +151,24 @@ export default function Profile() {
     try {
       const formData = new FormData();
       formData.append('avatar', file);
+      formData.append('userId', currentUserId); // Add user ID for server validation
+      
       const res = await API.post('/users/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const updatedUrl = res.data?.user?.avatarUrl;
-      if (updatedUrl) setAvatarPreview(updatedUrl);
+      if (updatedUrl) {
+        setAvatarPreview(updatedUrl);
+        
+        // Update session storage with user-specific key
+        sessionStorage.setItem(`userAvatarUrl_${currentUserId}`, updatedUrl);
+        
+        // Update profile state
+        setProfile(prev => ({
+          ...prev,
+          avatarUrl: updatedUrl
+        }));
+      }
       setSuccess('Profile picture updated');
     } catch (err) {
       console.error('Avatar upload error:', err);

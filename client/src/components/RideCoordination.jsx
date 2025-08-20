@@ -1,8 +1,7 @@
 
-import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { InboxIcon, UserCheckIcon, TrashIcon, EditIcon } from 'lucide-react';
 import MapView from './MapView';
 
 export default function RideCoordination() {
@@ -129,6 +128,15 @@ export default function RideCoordination() {
             </p>
           </div>
 
+          {ride.startLocation && ride.endLocation && (
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Route Map</h3>
+              <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                <MapView startLocation={ride.startLocation} endLocation={ride.endLocation} />
+              </div>
+            </div>
+          )}
+
           {ride.requestedRiders && ride.requestedRiders.length > 0 && (
             <div>
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Pending Requests</h3>
@@ -137,7 +145,7 @@ export default function RideCoordination() {
                   <div key={rider._id} className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 flex justify-between items-center">
                     <div>
                       <p className="font-medium text-gray-900 dark:text-white">{rider.name || rider.email}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Requested to join</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Seats: {rider.seatCount}</p>
                     </div>
                     <div className="flex space-x-2">
                       <button
@@ -168,7 +176,7 @@ export default function RideCoordination() {
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">{rider.name || rider.email}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Confirmed</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Seats: {rider.seatCount}</p>
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Rating:</span>
