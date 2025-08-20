@@ -39,7 +39,11 @@ const UserSchema = new mongoose.Schema({
     location: { type: String, default: '' },
     lastUpdated: { type: Date, default: Date.now },
     isAutoUpdate: { type: Boolean, default: false }
-  }
+  },
+  
+  // Rating fields
+  averageRating: { type: Number, default: 0, min: 0, max: 5 },
+  totalRatings: { type: Number, default: 0, min: 0 }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema); 

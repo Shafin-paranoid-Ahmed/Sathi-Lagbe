@@ -30,4 +30,9 @@ router.get('/owner/:ownerId', auth, rideController.getRidesByOwner);
 router.put('/:rideId', auth, rideController.updateRide);
 router.delete('/:rideId', auth, rideController.deleteRide);
 
+// Notification-related operations
+router.patch('/:rideId/eta', auth, rideController.updateEta);
+router.patch('/:rideId/cancel', auth, rideController.cancelRide);
+router.patch('/:rideId/complete', auth, rideController.completeRide);
+
 module.exports = router;

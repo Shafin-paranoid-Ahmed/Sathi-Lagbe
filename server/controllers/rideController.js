@@ -2,6 +2,7 @@
 const RideMatch = require('../models/RideMatch');
 const { aiMatch } = require('../services/aiMatcher');
 const { validateRideOffer, validateRecurringRide } = require('../utils/validate');
+const rideNotificationService = require('../services/rideNotificationService');
 
 /**
  * Get all available rides (no search parameters required)
@@ -215,6 +216,13 @@ exports.requestToJoinRide = async (req, res) => {
     ride.requestedRiders.push({ user: effectiveUserId, seatCount });
     await ride.save();
     
+    // Send notification to ride owner about the request
+    try {
+      await rideNotificationService.sendRideInvitation(rideId, ride.riderId, [effectiveUserId]);
+    } catch (notificationError) {
+      console.error('Error sending ride request notification:', notificationError);
+    }
+    
     res.json({
       message: "Ride request sent",
       ride
@@ -264,6 +272,13 @@ exports.confirmRideRequest = async (req, res) => {
     }
     
     await ride.save();
+    
+    // Send confirmation notification to the confirmed user
+    try {
+      await rideNotificationService.sendRideConfirmation(rideId, userId, requesterId);
+    } catch (notificationError) {
+      console.error('Error sending ride confirmation notification:', notificationError);
+    }
     
     res.json({
       message: "Rider confirmed",
@@ -559,5 +574,151 @@ exports.streamAiMatches = async (req, res) => {
   } catch (err) {
     console.error('AI match stream error:', err);
     res.status(500).end();
+  }
+};
+
+/**
+ * Update ETA for a ride
+ */
+exports.updateEta = async (req, res) => {
+  try {
+    const { rideId } = req.params;
+    const { newEta } = req.body;
+    const userId = req.user.id || req.user.userId;
+
+    if (!newEta) {
+      return res.status(400).json({ error: 'New ETA is required' });
+    }
+
+    const ride = await RideMatch.findById(rideId);
+    if (!ride) {
+      return res.status(404).json({ error: 'Ride not found' });
+    }
+
+    // Check if user is the ride owner or a confirmed passenger
+    const isOwner = ride.riderId.toString() === userId;
+    const isPassenger = ride.confirmedRiders.some(r => r.user.toString() === userId);
+    
+    if (!isOwner && !isPassenger) {
+      return res.status(403).json({ error: 'You can only update ETA for rides you are part of' });
+    }
+
+    // Get all participants (rider + confirmed passengers)
+    const participantIds = [
+      ride.riderId.toString(),
+      ...ride.confirmedRiders.map(r => r.user.toString())
+    ];
+
+    // Send ETA change notification to all participants
+    try {
+      await rideNotificationService.sendEtaChange(rideId, userId, newEta, participantIds);
+    } catch (notificationError) {
+      console.error('Error sending ETA change notification:', notificationError);
+    }
+
+    res.json({
+      message: 'ETA updated successfully',
+      newEta: newEta
+    });
+  } catch (err) {
+    console.error('Error updating ETA:', err);
+    res.status(500).json({ error: err.message || 'Failed to update ETA' });
+  }
+};
+
+/**
+ * Cancel a ride
+ */
+exports.cancelRide = async (req, res) => {
+  try {
+    const { rideId } = req.params;
+    const { reason } = req.body;
+    const userId = req.user.id || req.user.userId;
+
+    const ride = await RideMatch.findById(rideId);
+    if (!ride) {
+      return res.status(404).json({ error: 'Ride not found' });
+    }
+
+    // Check if user is the ride owner or a confirmed passenger
+    const isOwner = ride.riderId.toString() === userId;
+    const isPassenger = ride.confirmedRiders.some(r => r.user.toString() === userId);
+    
+    if (!isOwner && !isPassenger) {
+      return res.status(403).json({ error: 'You can only cancel rides you are part of' });
+    }
+
+    // Get all participants (rider + confirmed passengers)
+    const participantIds = [
+      ride.riderId.toString(),
+      ...ride.confirmedRiders.map(r => r.user.toString())
+    ];
+
+    // Update ride status
+    ride.status = 'cancelled';
+    await ride.save();
+
+    // Send cancellation notification to all participants
+    try {
+      await rideNotificationService.sendRideCancellation(rideId, userId, participantIds, reason);
+    } catch (notificationError) {
+      console.error('Error sending ride cancellation notification:', notificationError);
+    }
+
+    res.json({
+      message: 'Ride cancelled successfully',
+      ride: ride
+    });
+  } catch (err) {
+    console.error('Error cancelling ride:', err);
+    res.status(500).json({ error: err.message || 'Failed to cancel ride' });
+  }
+};
+
+/**
+ * Mark ride as completed
+ */
+exports.completeRide = async (req, res) => {
+  try {
+    const { rideId } = req.params;
+    const userId = req.user.id || req.user.userId;
+
+    const ride = await RideMatch.findById(rideId);
+    if (!ride) {
+      return res.status(404).json({ error: 'Ride not found' });
+    }
+
+    // Check if user is the ride owner or a confirmed passenger
+    const isOwner = ride.riderId.toString() === userId;
+    const isPassenger = ride.confirmedRiders.some(r => r.user.toString() === userId);
+    
+    if (!isOwner && !isPassenger) {
+      return res.status(403).json({ error: 'You can only complete rides you are part of' });
+    }
+
+    // Get all participants (rider + confirmed passengers)
+    const participantIds = [
+      ride.riderId.toString(),
+      ...ride.confirmedRiders.map(r => r.user.toString())
+    ];
+
+    // Update ride status
+    ride.status = 'completed';
+    await ride.save();
+
+    // Send completion notification to all participants
+    try {
+      await rideNotificationService.sendRideCompletion(rideId, userId, participantIds);
+    } catch (notificationError) {
+      console.error('Error sending ride completion notification:', notificationError);
+    }
+
+    res.json({
+      message: 'Ride marked as completed',
+      ride: ride
+    });
+  } catch (err) {
+    console.error('Error completing ride:', err);
+    res.status(500).json({ error: err.message || 'Failed to complete ride' });
   }
 };

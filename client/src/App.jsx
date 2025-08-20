@@ -16,6 +16,7 @@ import Friends from './pages/Friends';
 import Classroom from './pages/Classroom';
 import Routine from './pages/Routine'; // Import Routine page
 import Profile from './pages/Profile'; // Import Profile page
+import Ratings from './pages/Ratings'; // Import Ratings page
 
 // Ride sharing components
 import RideOfferForm from './components/RideOfferForm';
@@ -266,6 +267,18 @@ export default function App() {
             isAuthenticated ? (
               <ArgonLayout setIsAuthenticated={setIsAuthenticated}>
                 <FreeRooms />
+              </ArgonLayout>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } 
+        />
+        <Route 
+          path="/ratings" 
+          element={
+            isAuthenticated ? (
+              <ArgonLayout setIsAuthenticated={setIsAuthenticated}>
+                <Ratings />
               </ArgonLayout>
             ) : (
               <Navigate to="/login" replace />
