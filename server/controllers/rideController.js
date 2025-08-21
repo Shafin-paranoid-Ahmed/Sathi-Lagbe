@@ -457,6 +457,7 @@ exports.getRideById = async (req, res) => {
     }
     
     const ride = await RideMatch.findById(rideId)
+      .populate('riderId', 'name email avatarUrl')
       .populate({
         path: 'requestedRiders.user',
         select: 'name email avatarUrl'
@@ -621,51 +622,51 @@ exports.deleteRide = async (req, res) => {
 exports.submitRating = async (req, res) => {
   try {
     const { rideId, riderId, score, comment } = req.body;
+    const authUserId = (req.user && (req.user.id || req.user.userId)) || null;
     
     if (!rideId || !riderId || !score) {
       return res.status(400).json({ error: 'Missing rating data' });
     }
-    
-    // Validate score
     if (score < 1 || score > 5) {
       return res.status(400).json({ error: 'Score must be between 1 and 5' });
     }
-    
-    // Find the ride
+
     const ride = await RideMatch.findById(rideId);
     if (!ride) {
       return res.status(404).json({ error: 'Ride not found' });
     }
-    
-    // Check if rider was confirmed
-    const isConfirmed = ride.confirmedRiders.some(id => id.user.toString() === riderId);
-    if (!isConfirmed) {
-      return res.status(403).json({ error: 'Rider not confirmed in this ride' });
+
+    const ownerId = ride.riderId.toString();
+    const isOwner = ownerId === authUserId;
+    const confirmedIds = (ride.confirmedRiders || []).map(cr => (cr.user._id ? cr.user._id.toString() : cr.user.toString()));
+    const isConfirmedPassenger = confirmedIds.includes(authUserId);
+
+    // Direction rules
+    if (isOwner) {
+      // Owner can rate confirmed riders only
+      if (!confirmedIds.includes(riderId)) {
+        return res.status(403).json({ error: 'Owner can rate confirmed riders only' });
+      }
+    } else if (isConfirmedPassenger) {
+      // Passenger can rate owner only
+      if (riderId !== ownerId) {
+        return res.status(403).json({ error: 'Passengers can only rate the ride owner' });
+      }
+    } else {
+      return res.status(403).json({ error: 'Only ride participants can rate' });
     }
-    
-    // Check for duplicate rating
-    const alreadyRated = ride.ratings && ride.ratings.some(r => r.riderId.toString() === riderId);
+
+    // Prevent duplicate from same rater about same target
+    const alreadyRated = (ride.ratings || []).some(r => r.riderId.toString() === riderId && r.raterId && r.raterId.toString() === authUserId);
     if (alreadyRated) {
-      return res.status(400).json({ error: 'You have already rated this rider' });
+      return res.status(400).json({ error: 'You have already rated this user for this ride' });
     }
-    
-    // Add the rating
-    if (!ride.ratings) {
-      ride.ratings = [];
-    }
-    
-    ride.ratings.push({
-      riderId,
-      score: Number(score),
-      comment: comment || ''
-    });
-    
+
+    if (!ride.ratings) ride.ratings = [];
+    ride.ratings.push({ riderId, raterId: authUserId, score: Number(score), comment: comment || '' });
     await ride.save();
-    
-    res.json({
-      message: 'Rating submitted',
-      ratings: ride.ratings
-    });
+
+    return res.json({ message: 'Rating submitted', ratings: ride.ratings });
   } catch (err) {
     console.error('Error submitting rating:', err);
     res.status(500).json({ error: err.message || 'Failed to submit rating' });
@@ -892,5 +893,34 @@ exports.completeRide = async (req, res) => {
   } catch (err) {
     console.error('Error completing ride:', err);
     res.status(500).json({ error: err.message || 'Failed to complete ride' });
+  }
+};
+
+exports.getMyRidesCombined = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Offered rides (user is owner)
+    const offered = await RideMatch.find({ riderId: userId })
+      .populate({ path: 'confirmedRiders.user', select: 'name email avatarUrl' })
+      .lean();
+
+    // Joined rides (user is confirmed passenger)
+    const joined = await RideMatch.find({ 'confirmedRiders.user': userId })
+      .populate({ path: 'riderId', select: 'name email avatarUrl' })
+      .lean();
+
+    // Requested rides (user requested but not confirmed)
+    const requested = await RideMatch.find({ 'requestedRiders.user': userId })
+      .populate({ path: 'riderId', select: 'name email avatarUrl' })
+      .lean();
+
+    res.json({ offered, joined, requested });
+  } catch (err) {
+    console.error('Error fetching my rides combined:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch rides' });
   }
 };
