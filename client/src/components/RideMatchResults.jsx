@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { searchRides, getAiMatches, requestToJoinRide, getAllAvailableRides } from '../api/rides';
 import MapView from './MapView';
 import LocationAutocomplete from './LocationAutocomplete';
-
+import CustomDateTimePicker from './CustomDateTimePicker';
 
 export default function RideMatchResults() {
   console.log('RideMatchResults component rendering...');
@@ -16,14 +16,20 @@ export default function RideMatchResults() {
   });
 
   const [matches, setMatches] = useState([]);
-  const [errors, setErrors] = useState(null);
+  const [filteredMatches, setFilteredMatches] = useState([]);
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState('');
   const [useAI, setUseAI] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [genderFilter, setGenderFilter] = useState('all');
 
   const [isSearching, setIsSearching] = useState(false);
   const [seatCounts, setSeatCounts] = useState({});
   const [visibleMap, setVisibleMap] = useState(null);
+
+  // Feature flag for custom picker - set to false to revert to native picker
+  const USE_CUSTOM_PICKER = true;
 
   // Load all available rides on component mount
   useEffect(() => {
@@ -31,10 +37,20 @@ export default function RideMatchResults() {
     loadAllRides();
   }, []);
 
+  // Filter matches based on gender filter
+  useEffect(() => {
+    if (genderFilter === 'all') {
+      setFilteredMatches(matches);
+    } else {
+      // Directly filter using the consistent riderGender field
+      setFilteredMatches(matches.filter(ride => ride.riderGender === genderFilter));
+    }
+  }, [matches, genderFilter]);
+
   const loadAllRides = async () => {
     console.log('loadAllRides function called');
     setLoading(true);
-    setErrors(null);
+    setErrors({});
     setSuccess('');
     setIsSearching(false);
     
@@ -51,16 +67,28 @@ export default function RideMatchResults() {
       }
     } catch (err) {
       console.error('=== Frontend: Error fetching rides ===', err);
-      setErrors(err.response?.data?.error || 'Error fetching rides');
+      setErrors({ api: err.response?.data?.error || 'Error fetching rides' });
     } finally {
       setLoading(false);
     }
   };
 
+  // Set departure time to current time + 5 minutes (ASAP)
+  const setAsapTime = () => {
+    const now = new Date();
+    const asapTime = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
+    setSearchParams(prev => ({ ...prev, departureTime: asapTime.toISOString() }));
+    
+    // Clear departure time error when user sets ASAP time
+    if (errors.departureTime) {
+      setErrors(prev => ({ ...prev, departureTime: undefined }));
+    }
+  };
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    setErrors(null);
+    setHasSubmitted(true); // Mark that form has been submitted
+    setErrors({});
     setSuccess('');
     setMatches([]);
     setLoading(true);
@@ -80,7 +108,7 @@ export default function RideMatchResults() {
         setSuccess('No rides found matching your criteria.');
       }
     } catch (err) {
-      setErrors(err.response?.data?.error || 'Error fetching rides');
+      setErrors({ api: err.response?.data?.error || 'Error fetching rides' });
     } finally {
       setLoading(false);
     }
@@ -101,17 +129,43 @@ export default function RideMatchResults() {
         )
       );
     } catch (err) {
-      setErrors(err.response?.data?.error || 'Failed to send request');
+      setErrors({ api: err.response?.data?.error || 'Failed to send request' });
     }
   };
 
+  const getGenderIcon = (gender) => {
+    // Remove emoji function - no longer needed
+    return '';
+  };
+
   console.log('RideMatchResults render state:', { loading, matches: matches.length, errors, success });
+  
+  // Debug: Log the first ride to see what data we're getting
+  if (matches.length > 0) {
+    console.log('First ride data:', matches[0]);
+    console.log('First ride riderId:', matches[0].riderId);
+    console.log('First ride riderId type:', typeof matches[0].riderId);
+    console.log('First ride riderId gender:', matches[0].riderId?.gender);
+    console.log('First ride riderId gender type:', typeof matches[0].riderId?.gender);
+  }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-white dark:bg-gray-800 shadow rounded-lg">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">Find a Ride</h2>
+    <div className="max-w-3xl mx-auto p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg space-y-6 border border-gray-200 dark:border-gray-700">
+      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Find a Ride</h2>
       
-      <form onSubmit={handleSearch} className="space-y-4 mb-6">
+      {success && (
+        <div className="p-3 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded">
+          {success}
+        </div>
+      )}
+
+      {hasSubmitted && errors.api && (
+        <div className="p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded">
+          {errors.api}
+        </div>
+      )}
+      
+      <form onSubmit={handleSearch} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -142,31 +196,71 @@ export default function RideMatchResults() {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Departure Time (optional)
           </label>
-          <input
-            type="datetime-local"
-            value={searchParams.departureTime}
-            onChange={e => setSearchParams({ ...searchParams, departureTime: e.target.value })}
-            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
-          />
+          <div className="flex space-x-2">
+            {USE_CUSTOM_PICKER ? (
+              <div className="flex-1">
+                <CustomDateTimePicker
+                  value={searchParams.departureTime}
+                  onChange={(value) => setSearchParams({ ...searchParams, departureTime: value })}
+                  placeholder="Select departure time (optional)"
+                  disabled={loading}
+                />
+              </div>
+            ) : (
+              <input
+                type="datetime-local"
+                value={searchParams.departureTime}
+                onChange={e => setSearchParams({ ...searchParams, departureTime: e.target.value })}
+                min={new Date().toISOString().slice(0, 16)} // Prevent past dates
+                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+              />
+            )}
+            <button
+              type="button"
+              onClick={setAsapTime}
+              disabled={loading}
+              className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 transition-colors font-medium"
+            >
+              🚀 ASAP
+            </button>
+          </div>
         </div>
         
-        <div className="flex items-center space-x-2">
-          <label className="flex items-center space-x-2 text-gray-700 dark:text-gray-300">
-            <input
-              type="checkbox"
-              checked={useAI}
-              onChange={() => setUseAI(!useAI)}
-              className="rounded"
-            />
-            <span>Use AI matching (finds better matches)</span>
-          </label>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <label className="flex items-center space-x-2 text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={useAI}
+                onChange={() => setUseAI(!useAI)}
+                className="rounded"
+              />
+              <span>Use AI matching (finds better matches)</span>
+            </label>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Gender Filter:
+            </label>
+            <select
+              value={genderFilter}
+              onChange={(e) => setGenderFilter(e.target.value)}
+              className="p-2 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+            >
+              <option value="all">All Genders</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
         </div>
         
         <div className="flex space-x-2">
           <button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors disabled:opacity-50 font-medium"
           >
             {loading ? 'Searching...' : 'Search Rides'}
           </button>
@@ -174,35 +268,30 @@ export default function RideMatchResults() {
             type="button"
             onClick={loadAllRides}
             disabled={loading}
-            className="px-4 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded hover:bg-gray-700 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded hover:bg-gray-700 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 font-medium"
           >
             Show All Rides
           </button>
         </div>
       </form>
 
-      {errors && (
-        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded">
-          {errors}
-        </div>
-      )}
-      
-      {success && (
-        <div className="mb-4 p-3 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded">
-          {success}
-        </div>
-      )}
-
       <div className="space-y-4 mt-6">
-        <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
-          {isSearching 
-            ? (matches.length > 0 ? 'Search Results' : 'No rides found matching your criteria.')
-            : (matches.length > 0 
-                ? 'Available Rides' 
-                : loading 
-                  ? 'Loading rides...' 
-                  : 'No rides available at the moment.')}
-        </h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+            {isSearching 
+              ? (filteredMatches.length > 0 ? 'Search Results' : 'No rides found matching your criteria.')
+              : (filteredMatches.length > 0 
+                  ? 'Available Rides' 
+                  : loading 
+                    ? 'Loading rides...' 
+                    : 'No rides available at the moment.')}
+          </h3>
+          {genderFilter !== 'all' && (
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Showing {filteredMatches.length} of {matches.length} rides
+            </span>
+          )}
+        </div>
         
         {loading && (
           <div className="text-center py-8">
@@ -211,10 +300,10 @@ export default function RideMatchResults() {
           </div>
         )}
         
-        {!loading && matches.map(ride => (
+        {!loading && filteredMatches.map(ride => (
           <div 
             key={ride._id} 
-            className="border dark:border-gray-700 p-4 rounded-lg shadow-sm bg-gray-50 dark:bg-gray-700"
+            className="border border-gray-200 dark:border-gray-600 p-4 rounded-lg shadow-sm bg-gray-50 dark:bg-gray-700"
           >
             {useAI && isSearching && (
               <div className="mb-2">
@@ -223,6 +312,30 @@ export default function RideMatchResults() {
                 </span>
               </div>
             )}
+            
+            {/* User Information */}
+            <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+              <div className="flex items-center space-x-2">
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {ride.riderName || ride.riderId?.name || 'Anonymous User'}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {(() => {
+                      // Try to get gender from the direct field first, then fall back to populated field
+                      const gender = ride.riderGender; // Directly use the consistent field
+        
+                      if (gender && typeof gender === 'string' && gender.trim() !== '') {
+                        // Capitalize the first letter for display
+                        return gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+                      }
+                      
+                      return 'Gender not specified';
+                    })()}
+                  </p>
+                </div>
+              </div>
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
               <div>
