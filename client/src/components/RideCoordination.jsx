@@ -14,6 +14,12 @@ export default function RideCoordination() {
   const [ratingStatus, setRatingStatus] = useState({});
   const [actionsDisabled, setActionsDisabled] = useState({}); // track disabled per userId
   const token = sessionStorage.getItem('token');
+  const currentUserId = sessionStorage.getItem('userId');
+
+  const isOwner = !!(ride && currentUserId && (
+    (typeof ride.riderId === 'string' ? ride.riderId : (ride.riderId?._id || ride.riderId)) === currentUserId
+  ));
+  const isConfirmedPassenger = !!(ride && currentUserId && ride.confirmedRiders && ride.confirmedRiders.some(cr => (cr.user?._id || cr.user) === currentUserId));
 
   useEffect(() => {
     console.log('🔄 RideCoordination: Fetching ride with ID:', rideId);
@@ -209,7 +215,7 @@ export default function RideCoordination() {
             </div>
           )}
 
-          {ride.requestedRiders && ride.requestedRiders.length > 0 && (
+          {isOwner && ride.requestedRiders && ride.requestedRiders.length > 0 && (
             <div>
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Pending Requests</h3>
               <div className="space-y-2">
@@ -270,42 +276,91 @@ export default function RideCoordination() {
                           <p className="text-sm text-gray-600 dark:text-gray-400">Seats: {request.seatCount}</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Rating:</span>
-                        <select
-                          value={ratingInputs[request.user._id]?.score || ''}
-                          onChange={(e) => handleRatingChange(request.user._id, 'score', e.target.value)}
-                          className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        >
-                          <option value="">Select</option>
-                          {[1, 2, 3, 4, 5].map(num => (
-                            <option key={num} value={num}>{num}</option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => submitRating(request.user._id)}
-                          disabled={!ratingInputs[request.user._id]?.score || actionsDisabled[request.user._id]}
-                          className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
-                        >
-                          {actionsDisabled[request.user._id] ? 'Rating...' : 'Rate'}
-                        </button>
-                      </div>
-                      {/* Display rating status */}
-                      {ratingStatus[request.user._id] && (
-                        <div className={`mt-2 text-sm ${
-                          ratingStatus[request.user._id].includes('submitted') 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : ratingStatus[request.user._id].includes('Please select') 
-                              ? 'text-red-600 dark:text-red-400'
-                              : 'text-blue-600 dark:text-blue-400'
-                        }`}>
-                          {ratingStatus[request.user._id]}
+                      {isOwner && (
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Rating:</span>
+                            <select
+                              value={ratingInputs[request.user._id]?.score || ''}
+                              onChange={(e) => handleRatingChange(request.user._id, 'score', e.target.value)}
+                              className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            >
+                              <option value="">Select</option>
+                              {[1, 2, 3, 4, 5].map(num => (
+                                <option key={num} value={num}>{num}</option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => submitRating(request.user._id)}
+                              disabled={!ratingInputs[request.user._id]?.score || actionsDisabled[request.user._id]}
+                              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                            >
+                              {actionsDisabled[request.user._id] ? 'Rating...' : 'Submit Rating'}
+                            </button>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Feedback:</span>
+                            <input
+                              type="text"
+                              placeholder="Add feedback about this rider (optional)"
+                              value={ratingInputs[request.user._id]?.comment || ''}
+                              onChange={(e) => handleRatingChange(request.user._id, 'comment', e.target.value)}
+                              className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white flex-1 min-w-0"
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
+                    {isOwner && ratingStatus[request.user._id] && (
+                      <div className={`mt-2 text-sm ${
+                        ratingStatus[request.user._id].includes('submitted')
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {ratingStatus[request.user._id]}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Passengers can rate the owner only when confirmed */}
+          {!isOwner && isConfirmedPassenger && (
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Rate Ride Owner</h3>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Rating:</span>
+                <select
+                  value={ratingInputs[ride.riderId]?.score || ''}
+                  onChange={(e) => handleRatingChange(ride.riderId, 'score', e.target.value)}
+                  className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Select</option>
+                  {[1, 2, 3, 4, 5].map(num => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => submitRating(ride.riderId)}
+                  disabled={!ratingInputs[ride.riderId]?.score || actionsDisabled[ride.riderId]}
+                  className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                >
+                  {actionsDisabled[ride.riderId] ? 'Rating...' : 'Rate Owner'}
+                </button>
+              </div>
+              {ratingStatus[ride.riderId] && (
+                <div className={`mt-2 text-sm ${
+                  ratingStatus[ride.riderId].includes('submitted') 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : ratingStatus[ride.riderId].includes('Please select') 
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-blue-600 dark:text-blue-400'
+                }`}>
+                  {ratingStatus[ride.riderId]}
+                </div>
+              )}
             </div>
           )}
 

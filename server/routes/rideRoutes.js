@@ -26,6 +26,7 @@ router.post('/rate', auth, rideController.submitRating);
 
 // CRUD operations - order matters
 router.get('/owner/:ownerId', auth, rideController.getRidesByOwner); // specific first
+router.get('/mine/combined', auth, rideController.getMyRidesCombined);
 router.get('/:rideId', auth, rideController.getRideById); // generic after
 router.put('/:rideId', auth, rideController.updateRide);
 router.delete('/:rideId', auth, rideController.deleteRide);

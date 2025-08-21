@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { searchRides, getAiMatches, requestToJoinRide, getAllAvailableRides } from '../api/rides';
 import MapView from './MapView';
 import LocationAutocomplete from './LocationAutocomplete';
+import axios from 'axios';
 
 
 export default function RideMatchResults() {
@@ -24,6 +25,9 @@ export default function RideMatchResults() {
   const [isSearching, setIsSearching] = useState(false);
   const [seatCounts, setSeatCounts] = useState({});
   const [visibleMap, setVisibleMap] = useState(null);
+  const [feedbackOpenFor, setFeedbackOpenFor] = useState(null);
+  const [feedbackData, setFeedbackData] = useState(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   // Load all available rides on component mount
   useEffect(() => {
@@ -103,6 +107,28 @@ export default function RideMatchResults() {
     } catch (err) {
       setErrors(err.response?.data?.error || 'Failed to send request');
     }
+  };
+
+  const openFeedback = async (rideId) => {
+    try {
+      setFeedbackOpenFor(rideId);
+      setFeedbackLoading(true);
+      setFeedbackData(null);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/feedback/ride/${rideId}/breakdown`, {
+        headers: { 'Authorization': `Bearer ${sessionStorage.getItem('token')}` }
+      });
+      setFeedbackData(res.data);
+    } catch (e) {
+      console.error('Failed to load feedback', e);
+      setFeedbackData({ error: e.response?.data?.error || 'Failed to load feedback' });
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const closeFeedback = () => {
+    setFeedbackOpenFor(null);
+    setFeedbackData(null);
   };
 
   console.log('RideMatchResults render state:', { loading, matches: matches.length, errors, success });
@@ -295,6 +321,12 @@ export default function RideMatchResults() {
                   {ride.requested ? 'Request Sent' : (ride.availableSeats !== undefined && ride.availableSeats <= 0 ? 'Full' : 'Request to Join')}
                 </button>
                 <button
+                  onClick={() => openFeedback(ride._id)}
+                  className="px-4 py-1 bg-purple-600 dark:bg-purple-700 text-white rounded hover:bg-purple-700 dark:hover:bg-purple-800 transition-colors"
+                >
+                  See Feedback
+                </button>
+                <button
                   onClick={() => setVisibleMap(visibleMap === ride._id ? null : ride._id)}
                   className="px-4 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
                 >
@@ -310,6 +342,46 @@ export default function RideMatchResults() {
           );
         })}
       </div>
+      {feedbackOpenFor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ride Feedback</h3>
+              <button onClick={closeFeedback} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+            {feedbackLoading ? (
+              <div className="text-center py-6 text-gray-500 dark:text-gray-400">Loading...</div>
+            ) : feedbackData?.error ? (
+              <div className="text-center py-6 text-red-600 dark:text-red-400">{feedbackData.error}</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border rounded p-3 border-gray-200 dark:border-gray-700">
+                  <h4 className="font-medium mb-2 text-gray-900 dark:text-white">Passengers about Owner</h4>
+                  {(!feedbackData?.riderFeedback || feedbackData.riderFeedback.length === 0) ? (
+                    <p className="text-sm text-gray-500">No feedback yet.</p>
+                  ) : feedbackData.riderFeedback.map((f, i) => (
+                    <div key={i} className="mb-2">
+                      <p className="text-sm text-gray-800 dark:text-gray-200"><strong>{f.userId?.name || 'User'}:</strong> {f.overallScore}⭐</p>
+                      {f.comments && <p className="text-xs text-gray-500">"{f.comments}"</p>}
+                    </div>
+                  ))}
+                </div>
+                <div className="border rounded p-3 border-gray-200 dark:border-gray-700">
+                  <h4 className="font-medium mb-2 text-gray-900 dark:text-white">Owner about Riders</h4>
+                  {(!feedbackData?.ownerAboutRiders || feedbackData.ownerAboutRiders.length === 0) ? (
+                    <p className="text-sm text-gray-500">No feedback yet.</p>
+                  ) : feedbackData.ownerAboutRiders.map((o, i) => (
+                    <div key={i} className="mb-2">
+                      <p className="text-sm text-gray-800 dark:text-gray-200"><strong>{o.rider?.name || 'Rider'}:</strong> {o.score}⭐</p>
+                      {o.comment && <p className="text-xs text-gray-500">"{o.comment}"</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

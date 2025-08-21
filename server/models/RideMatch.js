@@ -59,6 +59,7 @@ const rideMatchSchema = new mongoose.Schema({
     ratings: [
     {
       riderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      raterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       score: { type: Number, min: 1, max: 5 },
       comment: { type: String }
     }

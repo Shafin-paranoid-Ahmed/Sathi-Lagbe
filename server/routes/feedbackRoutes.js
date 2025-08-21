@@ -10,6 +10,9 @@ router.post('/', auth, feedbackController.submitFeedback);
 // Get feedback for a ride
 router.get('/ride/:rideId', auth, feedbackController.getRideFeedback);
 
+// Get feedback breakdown for a ride (passenger feedback and owner's feedback about riders)
+router.get('/ride/:rideId/breakdown', auth, feedbackController.getRideFeedbackBreakdown);
+
 // Get feedback submitted by current user
 router.get('/user', auth, feedbackController.getUserFeedback);
 
