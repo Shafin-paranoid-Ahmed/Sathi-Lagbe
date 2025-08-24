@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, MapPin, Clock, BookOpen, Coffee, Wifi } from 'lucide-react';
-import axios from 'axios';
+import { API } from '../api/auth';
 
 const StatusUpdate = () => {
   const [status, setStatus] = useState('available');
@@ -27,10 +27,7 @@ const StatusUpdate = () => {
       const userId = JSON.parse(sessionStorage.getItem('user'))?.id;
       if (!userId) return;
 
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/users/status/${userId}`,
-        { headers: { "Authorization": `Bearer ${token}` } }
-      );
+      const response = await API.get(`/users/status/${userId}`);
       
       const userStatus = response.data.status;
       setCurrentStatus(userStatus);
@@ -45,15 +42,11 @@ const StatusUpdate = () => {
   const handleStatusUpdate = async () => {
     try {
       setLoading(true);
-      const response = await axios.patch(
-        `${import.meta.env.VITE_API_URL}/api/users/status`,
-        {
-          status,
-          location,
-          isAutoUpdate
-        },
-        { headers: { "Authorization": `Bearer ${token}` } }
-      );
+      const response = await API.patch('/users/status', {
+        status,
+        location,
+        isAutoUpdate
+      });
       
       setCurrentStatus(response.data.status);
       alert('Status updated successfully!');

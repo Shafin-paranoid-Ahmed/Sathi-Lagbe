@@ -114,9 +114,7 @@ export default function RideMatchResults() {
       setFeedbackOpenFor(rideId);
       setFeedbackLoading(true);
       setFeedbackData(null);
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/feedback/ride/${rideId}/breakdown`, {
-        headers: { 'Authorization': `Bearer ${sessionStorage.getItem('token')}` }
-      });
+      const res = await API.get(`/feedback/ride/${rideId}/breakdown`);
       setFeedbackData(res.data);
     } catch (e) {
       console.error('Failed to load feedback', e);

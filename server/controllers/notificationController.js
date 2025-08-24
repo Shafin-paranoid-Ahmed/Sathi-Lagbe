@@ -104,6 +104,46 @@ exports.markAllAsRead = async (req, res) => {
   }
 };
 
+// GET /api/notifications/stream
+exports.getNotificationStream = async (req, res) => {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+    
+    // Set headers for Server-Sent Events
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
+    });
+    
+    // Send initial connection message
+    res.write(`data: ${JSON.stringify({ type: 'connected', userId })}\n\n`);
+    
+    // Keep connection alive
+    const keepAlive = setInterval(() => {
+      res.write(`data: ${JSON.stringify({ type: 'ping', timestamp: Date.now() })}\n\n`);
+    }, 30000); // Send ping every 30 seconds
+    
+    // Handle client disconnect
+    req.on('close', () => {
+      clearInterval(keepAlive);
+      console.log(`Notification stream closed for user ${userId}`);
+    });
+    
+    // Handle client disconnect
+    req.on('end', () => {
+      clearInterval(keepAlive);
+      console.log(`Notification stream ended for user ${userId}`);
+    });
+    
+  } catch (error) {
+    console.error('Error setting up notification stream:', error);
+    res.status(500).json({ error: 'Failed to set up notification stream' });
+  }
+};
+
 // DELETE /api/notifications/:notificationId
 exports.deleteNotification = async (req, res) => {
   try {

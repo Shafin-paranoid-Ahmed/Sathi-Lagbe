@@ -1,8 +1,8 @@
 
-import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import MapView from './MapView';
+import { API } from '../api/auth';
 
 export default function RideCoordination() {
   const { rideId } = useParams();
@@ -13,7 +13,6 @@ export default function RideCoordination() {
   const [ratingInputs, setRatingInputs] = useState({});
   const [ratingStatus, setRatingStatus] = useState({});
   const [actionsDisabled, setActionsDisabled] = useState({}); // track disabled per userId
-  const token = sessionStorage.getItem('token');
   const currentUserId = sessionStorage.getItem('userId');
 
   const isOwner = !!(ride && currentUserId && (
@@ -29,10 +28,7 @@ export default function RideCoordination() {
         setLoading(true);
         setError('');
         
-        const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/rides/${rideId}`,
-          { headers: { "Authorization": `Bearer ${token}` } }
-        );
+        const res = await API.get(`/rides/${rideId}`);
         
         console.log('✅ Ride fetched successfully:', res.data);
         setRide(res.data);
@@ -72,11 +68,7 @@ export default function RideCoordination() {
     try {
       const payload = { rideId, userId };
       if (requestId) payload.requestId = requestId;
-      const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/rides/confirm`,
-        payload,
-        { headers: { "Authorization": `Bearer ${token}` } }
-      );
+      const res = await API.post('/rides/confirm', payload);
       console.log('✅ Confirmation successful:', res.data);
       // Update state with the fresh data from the server response
       setRide(res.data.ride);
@@ -94,11 +86,7 @@ export default function RideCoordination() {
     
     setActionsDisabled(prev => ({ ...prev, [userId]: true }));
     try {
-      const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/rides/deny`,
-        { rideId, userId },
-        { headers: { "Authorization": `Bearer ${token}` } }
-      );
+      const res = await API.post('/rides/deny', { rideId, userId });
       console.log('✅ Denial successful:', res.data);
       // Update state with the fresh data from the server response
       setRide(res.data.ride);

@@ -23,9 +23,7 @@ export default function RideNotificationCenter() {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/notifications/categories`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await API.get('/notifications/categories');
       setCategories(response.data.categories);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -34,9 +32,7 @@ export default function RideNotificationCenter() {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/notifications/stats`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await API.get('/notifications/stats');
       setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
