@@ -24,6 +24,9 @@ router.get('/unread-count', auth, notificationController.getUnreadCount);
 // Mark all notifications as read (with optional category filter)
 router.patch('/mark-all-read', auth, notificationController.markAllAsRead);
 
+// Get notification stream (for real-time updates)
+router.get('/stream', auth, notificationController.getNotificationStream);
+
 // Send test notification (for development/testing)
 router.post('/test', auth, notificationController.sendTestNotification);
 

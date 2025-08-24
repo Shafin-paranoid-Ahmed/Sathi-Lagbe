@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BellIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import { API } from '../api/auth';
 
 export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -9,14 +9,12 @@ export default function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
   const [categories, setCategories] = useState([]);
-  const token = sessionStorage.getItem('token');
-
   useEffect(() => {
     fetchUnreadCount();
     fetchCategories();
     
     // Set up real-time notifications
-    const eventSource = new EventSource(`${import.meta.env.VITE_API_URL}/api/notifications/stream`);
+    const eventSource = new EventSource(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/stream`);
     eventSource.onmessage = (event) => {
       const notification = JSON.parse(event.data);
       setUnreadCount(prev => prev + 1);
@@ -28,9 +26,7 @@ export default function NotificationBell() {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/notifications/unread-count`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await API.get('/notifications/unread-count');
       setUnreadCount(response.data.count);
     } catch (error) {
       console.error('Error fetching unread count:', error);
@@ -39,9 +35,7 @@ export default function NotificationBell() {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/notifications/categories`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await API.get('/notifications/categories');
       setCategories(response.data.categories);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -56,10 +50,7 @@ export default function NotificationBell() {
         params.category = category;
       }
       
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      const response = await API.get('/notifications', { params });
       setNotifications(response.data);
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -70,9 +61,7 @@ export default function NotificationBell() {
 
   const markAsRead = async (notificationId) => {
     try {
-      await axios.patch(`${import.meta.env.VITE_API_URL}/api/notifications/${notificationId}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await API.patch(`/notifications/${notificationId}/read`);
       
       setNotifications(prev => 
         prev.map(notif => 
@@ -92,10 +81,7 @@ export default function NotificationBell() {
         params.category = activeCategory;
       }
       
-      await axios.patch(`${import.meta.env.VITE_API_URL}/api/notifications/mark-all-read`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      await API.patch('/notifications/mark-all-read', {}, { params });
       
       setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
       setUnreadCount(0);
@@ -106,9 +92,7 @@ export default function NotificationBell() {
 
   const deleteNotification = async (notificationId) => {
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/notifications/${notificationId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await API.delete(`/notifications/${notificationId}`);
       
       setNotifications(prev => prev.filter(notif => notif._id !== notificationId));
       setUnreadCount(prev => Math.max(0, prev - 1));

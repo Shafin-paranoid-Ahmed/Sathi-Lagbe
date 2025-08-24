@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { submitFeedback } from '../api/rides';
-import axios from 'axios';
+import { API } from '../api/auth';
 
 export default function FeedbackForm() {
   const { rideId } = useParams();
@@ -17,11 +17,7 @@ export default function FeedbackForm() {
     const fetchRideDetails = async () => {
       try {
         setLoading(true);
-        const token = sessionStorage.getItem('token');
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/rides/${rideId}`,
-          { headers: { "Authorization": `Bearer ${token}` } }
-        );
+        const response = await API.get(`/rides/${rideId}`);
         setRide(response.data);
       } catch (err) {
         setError('Failed to load ride details');

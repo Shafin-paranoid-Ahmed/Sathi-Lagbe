@@ -7,7 +7,7 @@ const auth = require('../middleware/auth');
 router.post('/', auth, ratingController.submitRating);
 
 // Get all ratings for a specific user
-router.get('/user/:userId', ratingController.getUserRatings);
+router.get('/user/:userId', auth, ratingController.getUserRatings);
 
 // Get average rating for a user
 router.get('/user/:userId/average', ratingController.getAverageRating);
