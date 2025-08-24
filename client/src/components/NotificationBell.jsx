@@ -1,45 +1,66 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, X, MessageCircle, AlertTriangle, MapPin, Car, Clock, CheckCircle, Flag } from 'lucide-react';
-import socketService from '../services/socketService';
-import { API } from '../api/auth';
+import { BellIcon } from '@heroicons/react/24/outline';
+import axios from 'axios';
 
-const NotificationBell = () => {
-  const [notifications, setNotifications] = useState([]);
+export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isOpen, setIsOpen] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [categories, setCategories] = useState([]);
+  const token = sessionStorage.getItem('token');
 
   useEffect(() => {
-    fetchNotifications();
     fetchUnreadCount();
+    fetchCategories();
     
-    // Listen for new notifications
-    socketService.onNewNotification((notification) => {
-      console.log('=== CLIENT RECEIVED NOTIFICATION ===');
-      console.log('Notification:', notification);
-      setNotifications(prev => [notification, ...prev]);
+    // Set up real-time notifications
+    const eventSource = new EventSource(`${import.meta.env.VITE_API_URL}/api/notifications/stream`);
+    eventSource.onmessage = (event) => {
+      const notification = JSON.parse(event.data);
       setUnreadCount(prev => prev + 1);
-    });
-
-    return () => {
-      socketService.off('new_notification');
+      setNotifications(prev => [notification, ...prev]);
     };
+
+    return () => eventSource.close();
   }, []);
 
-  const fetchNotifications = async () => {
+  const fetchUnreadCount = async () => {
     try {
-      setLoading(true);
-      const response = await API.get('/notifications');
-      const list = (response.data || []).map(n => ({
-        id: n.id || n._id,
-        type: n.type,
-        title: n.title,
-        message: n.message,
-        data: n.data,
-        isRead: n.isRead,
-        createdAt: n.createdAt
-      }));
-      setNotifications(list);
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/notifications/unread-count`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUnreadCount(response.data.count);
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/notifications/categories`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setCategories(response.data.categories);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const fetchNotifications = async (category = 'all') => {
+    setLoading(true);
+    try {
+      const params = { limit: 20 };
+      if (category !== 'all') {
+        params.category = category;
+      }
+      
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params
+      });
+      setNotifications(response.data);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
@@ -47,130 +68,111 @@ const NotificationBell = () => {
     }
   };
 
-  const fetchUnreadCount = async () => {
-    try {
-      const response = await API.get('/notifications/unread-count');
-      setUnreadCount(response.data.count);
-    } catch (error) {
-      console.error('Error fetching unread count:', error);
-    }
-  };
-
   const markAsRead = async (notificationId) => {
     try {
-      await API.patch(`/notifications/${notificationId}/read`);
+      await axios.patch(`${import.meta.env.VITE_API_URL}/api/notifications/${notificationId}/read`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       
       setNotifications(prev => 
         prev.map(notif => 
-          notif.id === notificationId 
-            ? { ...notif, isRead: true }
-            : notif
+          notif._id === notificationId ? { ...notif, isRead: true } : notif
         )
       );
-      
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
   };
 
-  const handleNotificationClick = async (notification) => {
-    if (!notification.isRead) {
-      markAsRead(notification.id);
-    }
-    
-    // If it's a status change notification, open chat with the user
-    if (notification.type === 'status_change' && notification.data?.userId) {
-      // Navigate to chat with the user
-      window.location.href = `/chat/${notification.data.userId}`;
-    }
-    
-    // If it's an SOS notification, and it has coordinates, open Google Maps
-    if (notification.type === 'sos') {
-      const coords = notification.data?.coordinates;
-      if (coords?.latitude && coords?.longitude) {
-        const url = `https://www.google.com/maps?q=${coords.latitude},${coords.longitude}`;
-        window.open(url, '_blank');
+  const markAllAsRead = async () => {
+    try {
+      const params = {};
+      if (activeCategory !== 'all') {
+        params.category = activeCategory;
       }
+      
+      await axios.patch(`${import.meta.env.VITE_API_URL}/api/notifications/mark-all-read`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+        params
+      });
+      
+      setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
     }
-    
-    // Handle ride notifications
-    if (['ride_invitation', 'ride_cancellation', 'eta_change', 'ride_confirmation', 'ride_completion', 'ride_request'].includes(notification.type)) {
-      if (notification.data?.rideId) {
-        console.log('=== RIDE NOTIFICATION CLICK DEBUG ===');
-        console.log('Notification type:', notification.type);
-        console.log('Notification data:', notification.data);
-        console.log('Ride ID from notification:', notification.data.rideId);
-        console.log('Ride ID type:', typeof notification.data.rideId);
-        
-        // For ride requests, validate the ride exists before navigating
-        if (notification.type === 'ride_request') {
-          try {
-            // Ensure we have a valid rideId string
-            const rideId = notification.data.rideId.toString();
-            console.log('Validated ride ID:', rideId);
-            
-            // Check if the ride still exists before navigating
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/rides/${rideId}`, {
-              headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-              }
-            });
-            
-            console.log('Ride validation response status:', response.status);
-            
-            if (response.ok) {
-              console.log('Ride exists, navigating to:', `/rides/${rideId}/manage`);
-              window.location.href = `/rides/${rideId}/manage`;
-            } else {
-              console.warn('Ride no longer exists, removing notification');
-              
-              // Show user-friendly message
-              const userChoice = confirm(
-                'This ride no longer exists. Would you like to:\n\n' +
-                '• Remove this notification (recommended)\n' +
-                '• Go to your rides page instead\n\n' +
-                'Click OK to remove the notification, Cancel to go to rides page.'
-              );
-              
-              if (userChoice) {
-                // Remove the notification since the ride doesn't exist
-                setNotifications(prev => prev.filter(n => n.id !== notification.id));
-                setUnreadCount(prev => Math.max(0, prev - 1));
-              } else {
-                // Navigate to rides page instead
-                window.location.href = '/rides';
-              }
-            }
-          } catch (error) {
-            console.error('Error validating ride:', error);
-            
-            const userChoice = confirm(
-              'Unable to verify if this ride still exists. Would you like to:\n\n' +
-              '• Try to go to the ride anyway\n' +
-              '• Go to your rides page instead\n\n' +
-              'Click OK to try the ride, Cancel to go to rides page.'
-            );
-            
-            if (userChoice) {
-              // Try to navigate to the ride anyway
-              const rideId = notification.data.rideId.toString();
-              window.location.href = `/rides/${rideId}/manage`;
-            } else {
-              // Navigate to rides page instead
-              window.location.href = '/rides';
-            }
-          }
-        } else {
-          // Navigate to ride details or rides page
-          window.location.href = `/rides`;
-        }
-      } else {
-        console.warn('Notification missing rideId:', notification);
-      }
+  };
+
+  const deleteNotification = async (notificationId) => {
+    try {
+      await axios.delete(`${import.meta.env.VITE_API_URL}/api/notifications/${notificationId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setNotifications(prev => prev.filter(notif => notif._id !== notificationId));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error deleting notification:', error);
     }
-    
-    setIsOpen(false);
+  };
+
+  const handleCategoryChange = (category) => {
+    setActiveCategory(category);
+    fetchNotifications(category);
+  };
+
+  const getNotificationIcon = (type) => {
+    const iconClasses = "w-5 h-5";
+    switch (type) {
+      case 'ride_request':
+      case 'ride_invitation':
+      case 'ride_confirmation':
+      case 'ride_cancellation':
+      case 'ride_completion':
+      case 'eta_change':
+      case 'route_change':
+      case 'capacity_alert':
+        return <span className={`${iconClasses} text-blue-500`}>🚗</span>;
+      case 'friend_request':
+      case 'friend_activity':
+      case 'group_ride_suggestion':
+      case 'safety_checkin':
+        return <span className={`${iconClasses} text-green-500`}>👥</span>;
+      case 'better_match_found':
+      case 'recurring_ride_alert':
+      case 'location_suggestion':
+      case 'schedule_conflict':
+        return <span className={`${iconClasses} text-purple-500`}>🎯</span>;
+      case 'campus_event':
+      case 'emergency_alert':
+      case 'service_update':
+        return <span className={`${iconClasses} text-orange-500`}>📢</span>;
+      case 'ride_insights':
+      case 'cost_savings':
+      case 'environmental_impact':
+      case 'achievement_badge':
+        return <span className={`${iconClasses} text-yellow-500`}>🏆</span>;
+      case 'sos':
+        return <span className={`${iconClasses} text-red-500`}>🚨</span>;
+      default:
+        return <span className={`${iconClasses} text-gray-500`}>📋</span>;
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'urgent':
+        return 'border-l-red-500 bg-red-50 dark:bg-red-900/20';
+      case 'high':
+        return 'border-l-orange-500 bg-orange-50 dark:bg-orange-900/20';
+      case 'medium':
+        return 'border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/20';
+      case 'low':
+        return 'border-l-green-500 bg-green-50 dark:bg-green-900/20';
+      default:
+        return 'border-l-gray-300 bg-gray-50 dark:bg-gray-800';
+    }
   };
 
   const formatTime = (timestamp) => {
@@ -186,12 +188,16 @@ const NotificationBell = () => {
 
   return (
     <div className="relative">
-      {/* Notification Bell */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-800 transition-colors"
+        onClick={() => {
+          setShowDropdown(!showDropdown);
+          if (!showDropdown) {
+            fetchNotifications(activeCategory);
+          }
+        }}
+        className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
       >
-        <Bell className="w-6 h-6" />
+        <BellIcon className="h-6 w-6" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -199,102 +205,129 @@ const NotificationBell = () => {
         )}
       </button>
 
-      {/* Notification Dropdown */}
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-96 overflow-y-auto">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Notifications</h3>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      {showDropdown && (
+        <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+          {/* Header */}
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Notifications
+              </h3>
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="p-2">
+          {/* Category Tabs */}
+          <div className="flex border-b border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => handleCategoryChange('all')}
+              className={`flex-1 px-3 py-2 text-sm font-medium ${
+                activeCategory === 'all'
+                  ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              All
+            </button>
+            {categories.map(category => (
+              <button
+                key={category.name}
+                onClick={() => handleCategoryChange(category.name)}
+                className={`flex-1 px-3 py-2 text-sm font-medium relative ${
+                  activeCategory === category.name
+                    ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+              >
+                {category.displayName}
+                {category.unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                    {category.unreadCount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Notifications List */}
+          <div className="max-h-96 overflow-y-auto">
             {loading ? (
-              <div className="text-center py-4 text-gray-500 dark:text-gray-400">Loading...</div>
+              <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                Loading notifications...
+              </div>
             ) : notifications.length === 0 ? (
-              <div className="text-center py-4 text-gray-500 dark:text-gray-400">No notifications</div>
+              <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                No notifications
+              </div>
             ) : (
-              notifications.map((notification) => (
+              notifications.map(notification => (
                 <div
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={`p-3 border-b border-gray-100 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                  key={notification._id}
+                  className={`p-4 border-l-4 ${getPriorityColor(notification.priority)} ${
                     !notification.isRead ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                  }`}
+                  } hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors`}
                 >
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0">
-                      {notification.type === 'status_change' && (
-                        <MessageCircle className="w-5 h-5 text-blue-500" />
-                      )}
-                      {notification.type === 'sos' && (
-                        <AlertTriangle className="w-5 h-5 text-red-500" />
-                      )}
-                      {notification.type === 'ride_invitation' && (
-                        <Car className="w-5 h-5 text-blue-500" />
-                      )}
-                      {notification.type === 'ride_request' && (
-                        <Car className="w-5 h-5 text-orange-500" />
-                      )}
-                      {notification.type === 'ride_cancellation' && (
-                        <X className="w-5 h-5 text-red-500" />
-                      )}
-                      {notification.type === 'eta_change' && (
-                        <Clock className="w-5 h-5 text-yellow-500" />
-                      )}
-                      {notification.type === 'ride_confirmation' && (
-                        <CheckCircle className="w-5 h-5 text-green-500" />
-                      )}
-                      {notification.type === 'ride_completion' && (
-                        <Flag className="w-5 h-5 text-purple-500" />
-                      )}
+                      {getNotificationIcon(notification.type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {notification.title}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className={`text-sm font-medium ${
+                          !notification.isRead 
+                            ? 'text-gray-900 dark:text-white' 
+                            : 'text-gray-700 dark:text-gray-300'
+                        }`}>
+                          {notification.title}
+                        </p>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {formatTime(notification.createdAt)}
+                          </span>
+                          <button
+                            onClick={() => deleteNotification(notification._id)}
+                            className="text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                         {notification.message}
                       </p>
-                      {notification.type === 'sos' && notification.data?.coordinates && (
-                        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
-                          <MapPin className="w-3 h-3" />
-                          <span>
-                            {notification.data.coordinates.latitude}, {notification.data.coordinates.longitude}
-                          </span>
-                          <a
-                            href={`https://www.google.com/maps?q=${notification.data.coordinates.latitude},${notification.data.coordinates.longitude}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-600 dark:text-blue-400 underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            View map
-                          </a>
-                        </div>
+                      {!notification.isRead && (
+                        <button
+                          onClick={() => markAsRead(notification._id)}
+                          className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mt-2"
+                        >
+                          Mark as read
+                        </button>
                       )}
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        {formatTime(notification.createdAt)}
-                      </p>
                     </div>
-                    {!notification.isRead && (
-                      <div className="flex-shrink-0">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))
             )}
           </div>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => window.location.href = '/notifications'}
+              className="w-full text-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              View all notifications
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
-};
-
-export default NotificationBell;
+}
