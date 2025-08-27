@@ -152,6 +152,18 @@ export default function App() {
           } 
         />
         <Route 
+          path="/classroom" 
+          element={
+            isAuthenticated ? (
+              <ArgonLayout setIsAuthenticated={setIsAuthenticated}>
+                <Classroom />
+              </ArgonLayout>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } 
+        />
+        <Route 
           path="/routine" 
           element={
             isAuthenticated ? (
