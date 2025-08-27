@@ -203,6 +203,10 @@ io.on('connection', (socket) => {
     try {
       const { recipientIds = [] } = payload || {};
       if (!Array.isArray(recipientIds)) return;
+
+      // If we're a recipient and sharing stopped, clear all shares
+      // This logic needs to be coordinated across all recipients
+      // For now, we'll just broadcast the stop to all recipients
       recipientIds.forEach((recipientId) => {
         const room = `user_${recipientId}`;
         io.to(room).emit('sos_stop_sharing', {

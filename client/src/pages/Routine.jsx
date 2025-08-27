@@ -20,7 +20,7 @@ export default function Routine() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [newEntry, setNewEntry] = useState({ timeSlot: timeSlots[0], day: 'Monday', course: '' });
+    const [newEntry, setNewEntry] = useState({ timeSlot: timeSlots[0], day: 'Sunday+Tuesday', course: '' });
     const [submitting, setSubmitting] = useState(false);
     const [deleting, setDeleting] = useState({});
     const [groupToggle, setGroupToggle] = useState(true); // Default to grouped view
@@ -37,6 +37,15 @@ export default function Routine() {
         }
         return days.map(d => ({ value: d, label: d, days: [d] }));
     };
+
+    // When toggle changes, reset the selected day to the first option of the new mode
+    useEffect(() => {
+        setNewEntry(prev => ({
+            ...prev,
+            day: getDropdownDays()[0].value,
+            course: '' // Also clear course input
+        }));
+    }, [groupToggle]);
 
     // Fetch user's routine on component mount
     useEffect(() => {
@@ -80,6 +89,7 @@ export default function Routine() {
                 if (existingEntries.length > 0) {
                     const existingDays = existingEntries.map(e => e.day).join(', ');
                     setError(`Entries already exist for ${existingDays} at ${timeSlot}. Please choose a different time or day.`);
+                    setSubmitting(false);
                     return;
                 }
                 
@@ -112,6 +122,7 @@ export default function Routine() {
                 );
                 if (existingEntry) {
                     setError(`An entry already exists for ${day} at ${timeSlot}. Please choose a different time or day.`);
+                    setSubmitting(false);
                     return;
                 }
                 const response = await addRoutineEntry({ timeSlot, day, course: course.trim() });
