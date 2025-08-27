@@ -1,4 +1,4 @@
-// client/src/api/auth.js - Fixed version
+// client/src/api/auth.js - Original authentication API
 import axios from 'axios';
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
