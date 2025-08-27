@@ -1,8 +1,7 @@
 // client/src/pages/Sos.jsx
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getContacts, saveContacts, sendSosAlert } from '../api/sos';
 import { API } from '../api/auth';
-import socketService from '../services/socketService';
 import { UserPlusIcon, PhoneIcon, TrashIcon, UserCircleIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 
 
@@ -21,8 +20,6 @@ export default function Sos() {
   const [isAppUser, setIsAppUser] = useState(false);
   const [friends, setFriends] = useState([]);
   const [selectedFriendId, setSelectedFriendId] = useState('');
-  const [isLiveSharing, setIsLiveSharing] = useState(false);
-  const watchIdRef = useRef(null);
 
   // Get filtered contacts for display - show all valid contacts for the current user
   const displayContacts = useMemo(() => contacts.filter(c => 
@@ -31,9 +28,6 @@ export default function Sos() {
     c.name.trim() !== '' && 
     (c.addedBy === currentUserId || !c.addedBy) // Show contacts added by current user OR contacts without addedBy (legacy)
   ), [contacts, currentUserId]);
-  
-  const displayContactsRef = useRef(displayContacts);
-  displayContactsRef.current = displayContacts;
 
   // Load contacts on mount and when user changes
   useEffect(() => {
@@ -75,15 +69,6 @@ export default function Sos() {
     };
   }, [currentUserId]); // Reload when user changes
 
-  // Cleanup location watch on unmount - this is a safety net
-  useEffect(() => {
-    return () => {
-      if (watchIdRef.current && navigator.geolocation && navigator.geolocation.clearWatch) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
-    };
-  }, []);
-
   // Get user's location on mount
   useEffect(() => {
     // Try to get user's location
@@ -102,66 +87,6 @@ export default function Sos() {
     }
   }, []);
 
-  // Live location sharing when enabled
-  useEffect(() => {
-    if (!isLiveSharing) {
-      if (watchIdRef.current && navigator.geolocation && navigator.geolocation.clearWatch) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-      return;
-    }
-    
-    if (!navigator.geolocation) return;
-    
-    const startWatch = () => {
-      try {
-        watchIdRef.current = navigator.geolocation.watchPosition(
-          (pos) => {
-            const { latitude, longitude } = pos.coords;
-            setCoordinates({ latitude, longitude });
-            
-            // Determine in-app recipients (contacts with userId)
-            const recipientIds = displayContactsRef.current
-              .filter(c => c.userId)
-              .map(c => c.userId);
-              
-            if (recipientIds.length > 0) {
-              socketService.emit('sos_location_update', {
-                recipientIds,
-                latitude,
-                longitude,
-                timestamp: new Date()
-              });
-            }
-          },
-          (err) => {
-            setError('Live location sharing failed: ' + err.message);
-            setIsLiveSharing(false);
-          },
-          {
-            enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 5000
-          }
-        );
-      } catch (e) {
-        setError('Failed to start location sharing: ' + e.message);
-        setIsLiveSharing(false);
-      }
-    };
-    
-    startWatch();
-    
-    // This cleanup runs when isLiveSharing becomes false
-    return () => {
-      if (watchIdRef.current && navigator.geolocation && navigator.geolocation.clearWatch) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-    };
-  }, [isLiveSharing]);
-
   // Load accepted friends for dropdown when toggled
   useEffect(() => {
     const loadFriends = async () => {
@@ -178,7 +103,6 @@ export default function Sos() {
         });
         setFriends(list);
       } catch (e) {
-        console.error('Failed to load friends:', e);
         setFriends([]);
       }
     };
@@ -299,33 +223,13 @@ export default function Sos() {
       }
       
       await sendSosAlert(payload);
-      alert('SOS alert sent!');
+      alert('SOS alert sent with your current location!');
       setMessage('');
-      // Enable live sharing after initial SOS
-      setIsLiveSharing(true);
     } catch (err) {
       setError('Failed to send SOS: ' + (err.message || ''));
     } finally {
       setAlerting(false);
     }
-  };
-
-  const stopLiveSharing = () => {
-    
-    // Clear the location watch
-    if (watchIdRef.current && navigator.geolocation && navigator.geolocation.clearWatch) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
-    
-    // Notify recipients that live sharing has stopped
-    const recipientIds = displayContacts.filter(c => c.userId).map(c => c.userId);
-    if (recipientIds.length > 0) {
-      socketService.emit('sos_stop_sharing', { recipientIds });
-    }
-    
-    setIsLiveSharing(false);
-    setError(''); // Clear any location-related errors
   };
 
   return (
@@ -479,29 +383,6 @@ export default function Sos() {
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
               Your current coordinates will be included in the alert.
             </p>
-          )}
-          
-          {/* Live location status */}
-          {isLiveSharing && (
-            <div className="mt-3 p-2 bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg animate-fade-in">
-              <div className="flex justify-between items-center">
-                <p className="text-xs text-green-700 dark:text-green-300 text-center">
-                  🟢 Live location sharing active
-                </p>
-                <button
-                  type="button"
-                  onClick={stopLiveSharing}
-                  className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-xs text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  Stop
-                </button>
-              </div>
-              {coordinates.latitude && coordinates.longitude && (
-                <p className="text-xs text-green-600 dark:text-green-400 text-center mt-1">
-                  Current: {coordinates.latitude.toFixed(5)}, {coordinates.longitude.toFixed(5)}
-                </p>
-              )}
-            </div>
           )}
         </div>
       </div>
