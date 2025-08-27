@@ -1,9 +1,13 @@
 // client/src/components/RideOfferForm.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createRideOffer, createRecurringRides } from '../api/rides';
 import LocationAutocomplete from './LocationAutocomplete';
+import CustomDateTimePicker from './CustomDateTimePicker';
 
 export default function RideOfferForm() {
+  // Feature flag for custom picker - set to false to revert to native picker
+  const USE_CUSTOM_PICKER = true;
+
   const [form, setForm] = useState({
     startLocation: '',
     endLocation: '',
@@ -18,20 +22,80 @@ export default function RideOfferForm() {
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false); // Track if form has been submitted
 
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+  // Enhanced validation function
   const validate = () => {
     const newErrors = {};
-    if (!form.startLocation) newErrors.startLocation = "Start location is required";
-    if (!form.endLocation) newErrors.endLocation = "End location is required";
-    if (!form.departureTime && !form.recurring) newErrors.departureTime = "Departure time is required for one-time rides";
-    if (form.recurring && form.recurringDays.length === 0) newErrors.recurringDays = "Select at least one recurring day";
+    
+    // Check required fields
+    if (!form.startLocation.trim()) {
+      newErrors.startLocation = "Start location is required";
+    }
+    if (!form.endLocation.trim()) {
+      newErrors.endLocation = "End location is required";
+    }
+    
+    // Check departure time for one-time rides
+    if (!form.recurring) {
+      if (!form.departureTime) {
+        newErrors.departureTime = "Departure time is required for one-time rides";
+      }
+      // Removed client-side time validation - server will handle this
+    }
+    
+    // Check recurring ride requirements
+    if (form.recurring) {
+      if (form.recurringDays.length === 0) {
+        newErrors.recurringDays = "Select at least one recurring day";
+      }
+      if (!form.recurringHour || !form.recurringMinute) {
+        newErrors.recurringTime = "Recurring time is required";
+      }
+    }
+    
     return newErrors;
   };
 
+  // Check if form is valid for enabling/disabling submit button
+  const isFormValid = () => {
+    const validationErrors = validate();
+    return Object.keys(validationErrors).length === 0;
+  };
+
+  // Set departure time to current time + 5 minutes (ASAP)
+  const setAsapTime = () => {
+    const now = new Date();
+    const asapTime = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
+    setForm(prev => ({ ...prev, departureTime: asapTime.toISOString() }));
+    
+    // Clear departure time error when user sets ASAP time
+    if (errors.departureTime) {
+      setErrors(prev => ({ ...prev, departureTime: undefined }));
+    }
+  };
+
+  // Check authentication status on component mount
+  useEffect(() => {
+    const token = sessionStorage.getItem('token');
+    const userId = sessionStorage.getItem('userId');
+    
+    console.log('=== RideOfferForm Auth Check ===');
+    console.log('Token exists:', !!token);
+    console.log('UserId exists:', !!userId);
+    console.log('Token length:', token?.length || 0);
+    console.log('UserId:', userId);
+    
+    if (!token || !userId) {
+      setErrors({ api: 'Please log in to offer a ride. Your session may have expired.' });
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setHasSubmitted(true); // Mark that form has been submitted
     setErrors({});
     setSuccess(null);
     setLoading(true);
@@ -44,14 +108,22 @@ export default function RideOfferForm() {
     }
 
     const userId = sessionStorage.getItem('userId');
+    const token = sessionStorage.getItem('token');
+
+    // Check if user is authenticated
+    if (!userId || !token) {
+      setErrors({ api: 'Please log in to offer a ride. Your session may have expired.' });
+      setLoading(false);
+      return;
+    }
 
     try {
       if (form.recurring) {
         // Create recurring rides
         const payload = {
           riderId: userId,
-          startLocation: form.startLocation,
-          endLocation: form.endLocation,
+          startLocation: form.startLocation.trim(),
+          endLocation: form.endLocation.trim(),
           recurring: {
             days: form.recurringDays,
             hour: parseInt(form.recurringHour) || 8,
@@ -86,9 +158,20 @@ export default function RideOfferForm() {
         recurringMinute: '0',
         availableSeats: '1'
       });
+      setHasSubmitted(false); // Reset submission state
     } catch (err) {
-      console.error(err);
-      setErrors({ api: err.response?.data?.error || 'API error' });
+      console.error('Error submitting ride offer:', err);
+      
+      // Handle authentication errors specifically
+      if (err.response?.status === 401) {
+        setErrors({ api: 'Your session has expired. Please log in again to offer a ride.' });
+        // Clear invalid session data
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('userId');
+        sessionStorage.removeItem('userName');
+      } else {
+        setErrors({ api: err.response?.data?.error || 'Failed to submit ride offer. Please try again.' });
+      }
     } finally {
       setLoading(false);
     }
@@ -101,6 +184,19 @@ export default function RideOfferForm() {
         ? prev.recurringDays.filter(d => d !== day)
         : [...prev.recurringDays, day]
     }));
+  };
+
+  // Clear departure time when switching to recurring
+  const handleRecurringToggle = (isRecurring) => {
+    setForm(prev => ({
+      ...prev,
+      recurring: isRecurring,
+      departureTime: isRecurring ? '' : prev.departureTime
+    }));
+    // Clear departure time errors when switching
+    if (isRecurring && errors.departureTime) {
+      setErrors(prev => ({ ...prev, departureTime: undefined }));
+    }
   };
 
   return (
@@ -116,12 +212,22 @@ export default function RideOfferForm() {
       {errors.api && (
         <div className="p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded">
           {errors.api}
+          {errors.api.includes('log in') && (
+            <div className="mt-2">
+              <a 
+                href="/login" 
+                className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Go to Login
+              </a>
+            </div>
+          )}
         </div>
       )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Start Location
+          Start Location *
         </label>
         <LocationAutocomplete
           value={form.startLocation}
@@ -129,14 +235,14 @@ export default function RideOfferForm() {
           placeholder="e.g., Gulshan, Dhaka"
           disabled={loading}
         />
-        {errors.startLocation && (
+        {hasSubmitted && errors.startLocation && (
           <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.startLocation}</p>
         )}
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          End Location
+          End Location *
         </label>
         <LocationAutocomplete
           value={form.endLocation}
@@ -144,7 +250,7 @@ export default function RideOfferForm() {
           placeholder="e.g., Banani, Dhaka"
           disabled={loading}
         />
-        {errors.endLocation && (
+        {hasSubmitted && errors.endLocation && (
           <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.endLocation}</p>
         )}
       </div>
@@ -154,7 +260,7 @@ export default function RideOfferForm() {
           type="checkbox"
           id="recurring"
           checked={form.recurring}
-          onChange={() => setForm(prev => ({ ...prev, recurring: !prev.recurring }))}
+          onChange={(e) => handleRecurringToggle(e.target.checked)}
           className="rounded"
         />
         <label htmlFor="recurring" className="text-gray-700 dark:text-gray-300">
@@ -178,15 +284,39 @@ export default function RideOfferForm() {
       {!form.recurring ? (
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Departure Time
+            Departure Time *
           </label>
-          <input
-            type="datetime-local"
-            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
-            value={form.departureTime}
-            onChange={e => setForm({ ...form, departureTime: e.target.value })}
-          />
-          {errors.departureTime && (
+          
+          {/* ASAP Button */}
+          <div className="mb-2">
+            <button
+              type="button"
+              onClick={setAsapTime}
+              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+            >
+              🚀 ASAP (5 min from now)
+            </button>
+          </div>
+          
+          {USE_CUSTOM_PICKER ? (
+            <CustomDateTimePicker
+              value={form.departureTime}
+              onChange={(value) => {
+                setForm({ ...form, departureTime: value });
+              }}
+              placeholder="Select departure date and time"
+              disabled={loading}
+            />
+          ) : (
+            <input
+              type="datetime-local"
+              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+              value={form.departureTime}
+              onChange={e => setForm({ ...form, departureTime: e.target.value })}
+              min={new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)} // 5 minutes from now
+            />
+          )}
+          {hasSubmitted && errors.departureTime && (
             <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.departureTime}</p>
           )}
         </div>
@@ -194,7 +324,7 @@ export default function RideOfferForm() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Select Days
+              Select Days *
             </label>
             <div className="grid grid-cols-2 gap-2">
               {days.map(day => (
@@ -209,7 +339,7 @@ export default function RideOfferForm() {
                 </label>
               ))}
             </div>
-            {errors.recurringDays && (
+            {hasSubmitted && errors.recurringDays && (
               <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.recurringDays}</p>
             )}
           </div>
@@ -217,7 +347,7 @@ export default function RideOfferForm() {
           <div className="flex space-x-4">
             <div className="w-1/2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Hour (0-23)
+                Hour (0-23) *
               </label>
               <input
                 type="number"
@@ -230,7 +360,7 @@ export default function RideOfferForm() {
             </div>
             <div className="w-1/2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Minute (0-59)
+                Minute (0-59) *
               </label>
               <input
                 type="number"
@@ -242,6 +372,9 @@ export default function RideOfferForm() {
               />
             </div>
           </div>
+          {hasSubmitted && errors.recurringTime && (
+            <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.recurringTime}</p>
+          )}
         </div>
       )}
 
