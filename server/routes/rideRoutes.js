@@ -4,6 +4,12 @@ const router = express.Router();
 const rideController = require('../controllers/rideController');
 const auth = require('../middleware/auth');
 
+// Debug endpoint
+router.get('/debug/user', auth, rideController.debugUserData);
+
+// Test endpoint for gender data
+router.get('/test/gender', auth, rideController.testGenderData);
+
 // Get all available rides (no search parameters)
 router.get('/available', auth, rideController.getAllAvailableRides);
 

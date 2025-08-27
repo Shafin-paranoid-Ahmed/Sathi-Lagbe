@@ -7,6 +7,15 @@ const rideMatchSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  // Store user info directly to avoid population issues
+  riderName: {
+    type: String,
+    default: 'Anonymous User'
+  },
+  riderGender: {
+    type: String,
+    default: ''
+  },
   departureTime: {
     type: Date,
     required: true

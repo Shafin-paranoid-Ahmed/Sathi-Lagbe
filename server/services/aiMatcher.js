@@ -7,7 +7,9 @@ const fuzzyMatch = (a = '', b = '') =>
 
 async function aiMatch({ startLocation, endLocation, departureTime }) {
   // 1. Fetch all pending rides (status = 'pending')
-  const candidates = await RideMatch.find({ status: 'pending' }).lean();
+  const candidates = await RideMatch.find({ status: 'pending' })
+    // .populate('riderId', 'name email gender') // <-- REMOVED THIS LINE
+    .lean();
 
   const desiredTime = new Date(departureTime);
 
