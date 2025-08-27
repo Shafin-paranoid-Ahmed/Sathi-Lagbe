@@ -66,6 +66,19 @@ export default function NotificationBell() {
     }
   };
 
+  const handleTrackLive = (senderId) => {
+    if (!senderId) return;
+    // Add sender to a list in session storage to track them
+    const trackedUsers = JSON.parse(sessionStorage.getItem('liveTrackingSosUsers') || '[]');
+    if (!trackedUsers.includes(senderId)) {
+      trackedUsers.push(senderId);
+      sessionStorage.setItem('liveTrackingSosUsers', JSON.stringify(trackedUsers));
+    }
+    setShowDropdown(false);
+    // Optionally, you could navigate to a map page here
+    // navigate('/map'); 
+  };
+
   const fetchUnreadCount = async () => {
     try {
       const response = await API.get('/notifications/unread-count');
@@ -334,14 +347,30 @@ export default function NotificationBell() {
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                         {notification.message}
                       </p>
-                      {!notification.isRead && (
-                        <button
-                          onClick={() => markAsRead(notification._id)}
-                          className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mt-2"
-                        >
-                          Mark as read
-                        </button>
-                      )}
+                      <div className="flex items-center space-x-2 mt-2">
+                        {!notification.isRead && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markAsRead(notification._id);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            Mark as read
+                          </button>
+                        )}
+                        {notification.type === 'sos' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTrackLive(notification.sender?._id);
+                            }}
+                            className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                          >
+                            Track Live
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

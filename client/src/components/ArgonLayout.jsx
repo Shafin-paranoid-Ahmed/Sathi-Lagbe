@@ -449,55 +449,65 @@ export default ArgonLayout;
 function LiveSosToast() {
   const [activeShares, setActiveShares] = React.useState([]); // Array of active SOS shares
   const [currentUserId] = React.useState(sessionStorage.getItem('userId'));
+  const [trackedUsers, setTrackedUsers] = React.useState(
+    () => JSON.parse(sessionStorage.getItem('liveTrackingSosUsers') || '[]')
+  );
 
   React.useEffect(() => {
     // Listen for SOS location updates (both as sender and recipient)
     const handleLocationUpdate = (data) => {
-      setActiveShares(prev => {
-        // Remove any existing share from the same sender
-        const filtered = prev.filter(share => share.senderId !== data.senderId);
-        // Add the new/updated share
-        return [...filtered, {
-          senderId: data.senderId,
-          senderName: data.senderName || 'Unknown User',
-          latitude: data.latitude,
-          longitude: data.longitude,
-          timestamp: data.timestamp || new Date(),
-          isOwnShare: data.senderId === currentUserId
-        }];
-      });
+      // Show if it's our own share OR if we are tracking this sender
+      if (data.senderId === currentUserId || trackedUsers.includes(data.senderId)) {
+        setActiveShares(prev => {
+          // Remove any existing share from the same sender
+          const filtered = prev.filter(share => share.senderId !== data.senderId);
+          // Add the new/updated share
+          return [...filtered, {
+            senderId: data.senderId,
+            senderName: data.senderName || 'Unknown User',
+            latitude: data.latitude,
+            longitude: data.longitude,
+            timestamp: data.timestamp || new Date(),
+            isOwnShare: data.senderId === currentUserId
+          }];
+        });
+      }
     };
 
     const handleStopSharing = (data) => {
       if (data.senderId) {
+        // Remove from active shares
         setActiveShares(prev => prev.filter(share => share.senderId !== data.senderId));
+        // Remove from session storage tracking
+        const newTracked = trackedUsers.filter(id => id !== data.senderId);
+        setTrackedUsers(newTracked);
+        sessionStorage.setItem('liveTrackingSosUsers', JSON.stringify(newTracked));
       } else if (data.recipientIds && data.recipientIds.includes(currentUserId)) {
         // If we're a recipient and sharing stopped, clear all shares
         setActiveShares([]);
       }
     };
 
-    // Listen for new SOS alerts that might start live sharing
-    const handleNewSosAlert = (notification) => {
-      if (notification.type === 'sos' && notification.senderId !== currentUserId) {
-        // The location updates will come through the socket events
-      }
+    // Listen for changes in session storage (e.g., from another tab)
+    const handleStorageChange = () => {
+      setTrackedUsers(JSON.parse(sessionStorage.getItem('liveTrackingSosUsers') || '[]'));
     };
+    window.addEventListener('storage', handleStorageChange);
 
     // Set up socket listeners
     if (socketService.addListener) {
       socketService.addListener('sos_location_update', handleLocationUpdate);
       socketService.addListener('sos_stop_sharing', handleStopSharing);
-      socketService.onNewNotification(handleNewSosAlert);
     }
 
     return () => {
+      window.removeEventListener('storage', handleStorageChange);
       if (socketService.off) {
         socketService.off('sos_location_update');
         socketService.off('sos_stop_sharing');
       }
     };
-  }, [currentUserId]);
+  }, [currentUserId, trackedUsers]);
 
   // Don't show anything if no active shares
   if (activeShares.length === 0) return null;
@@ -538,10 +548,12 @@ function LiveSosToast() {
                     <button
                       onClick={() => {
                         // Stop sharing for own SOS
-                        socketService.emit('sos_stop_sharing', { 
-                          senderId: currentUserId,
-                          recipientIds: [] // Will be filled by server
-                        });
+                        const recipientIds = []; // Let backend determine recipients
+                        socketService.emit('sos_stop_sharing', { senderId: currentUserId, recipientIds });
+                        // Also clear from our own tracking immediately
+                        const newTracked = trackedUsers.filter(id => id !== currentUserId);
+                        setTrackedUsers(newTracked);
+                        sessionStorage.setItem('liveTrackingSosUsers', JSON.stringify(newTracked));
                       }}
                       className="inline-block text-xs px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
                     >
