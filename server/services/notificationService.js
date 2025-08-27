@@ -662,12 +662,14 @@ class NotificationService {
           message: notification.message
         });
         
+        // Emit minimal, but include sender for deep-linking to chat on client
         io.to(room).emit('new_notification', {
           id: notification._id,
           type: notification.type,
           title: notification.title,
           message: notification.message,
           data: notification.data,
+          sender: notification.sender ? { _id: notification.sender.toString ? notification.sender.toString() : notification.sender } : undefined,
           priority: notification.priority,
           category: notification.category,
           isRead: false,
