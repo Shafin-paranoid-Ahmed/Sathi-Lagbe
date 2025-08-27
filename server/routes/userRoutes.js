@@ -30,4 +30,11 @@ router.get('/status/:userId', auth, userController.getUserStatus);
 // Update avatar
 router.post('/avatar', auth, upload.single('avatar'), userController.updateAvatar);
 
+// Auto-status related routes
+router.get('/next-class', auth, userController.getNextClassInfo);
+router.post('/trigger-auto-status', auth, userController.triggerAutoStatusUpdate);
+router.get('/today-routine', auth, userController.getTodayRoutine);
+router.get('/auto-status-setup', auth, userController.checkAutoStatusSetup);
+router.get('/debug-auto-status', auth, userController.debugAutoStatus);
+
 module.exports = router;
