@@ -199,15 +199,22 @@ io.on('connection', (socket) => {
   });
 
   // Notify recipients that live sharing has stopped
-  socket.on('sos_stop_sharing', (payload) => {
+  socket.on('sos_stop_sharing', async (payload) => {
     try {
-      const { recipientIds = [] } = payload || {};
-      if (!Array.isArray(recipientIds)) return;
+      const { recipientIds = [], senderId } = payload || {};
+      let finalRecipientIds = recipientIds;
 
-      // If we're a recipient and sharing stopped, clear all shares
-      // This logic needs to be coordinated across all recipients
-      // For now, we'll just broadcast the stop to all recipients
-      recipientIds.forEach((recipientId) => {
+      // If recipientIds is empty, look up the sender's contacts
+      if (finalRecipientIds.length === 0 && senderId) {
+        const contactDoc = await require('./models/sosContact').findOne({ user: senderId });
+        if (contactDoc) {
+          finalRecipientIds = contactDoc.contacts.filter(c => c.userId).map(c => c.userId.toString());
+        }
+      }
+      
+      if (!Array.isArray(finalRecipientIds)) return;
+      
+      finalRecipientIds.forEach((recipientId) => {
         const room = `user_${recipientId}`;
         io.to(room).emit('sos_stop_sharing', {
           senderId: socket.userId,
@@ -215,7 +222,7 @@ io.on('connection', (socket) => {
         });
       });
     } catch (err) {
-      console.error('Error handling sos_stop_sharing:', err);
+      // silently fail
     }
   });
 });

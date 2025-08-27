@@ -27,12 +27,15 @@ export default function NotificationBell() {
     // Fallback SSE for environments without sockets
     let eventSource;
     try {
-      eventSource = new EventSource(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/stream`);
-      eventSource.onmessage = (event) => {
-        const notification = JSON.parse(event.data);
-        setUnreadCount(prev => prev + 1);
-        setNotifications(prev => [notification, ...prev]);
-      };
+      const token = sessionStorage.getItem('token');
+      if (token) {
+        eventSource = new EventSource(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/stream?token=${token}`);
+        eventSource.onmessage = (event) => {
+          const notification = JSON.parse(event.data);
+          setUnreadCount(prev => prev + 1);
+          setNotifications(prev => [notification, ...prev]);
+        };
+      }
     } catch (_) {}
 
     return () => {
@@ -73,6 +76,8 @@ export default function NotificationBell() {
     if (!trackedUsers.includes(senderId)) {
       trackedUsers.push(senderId);
       sessionStorage.setItem('liveTrackingSosUsers', JSON.stringify(trackedUsers));
+      // Dispatch a custom event to notify other components of the change
+      window.dispatchEvent(new Event('storageUpdated'));
     }
     setShowDropdown(false);
     // Optionally, you could navigate to a map page here
@@ -280,9 +285,9 @@ export default function NotificationBell() {
             >
               All
             </button>
-            {categories.map(category => (
+            {categories.map((category, index) => (
               <button
-                key={category.name}
+                key={category.name || `category-${index}`}
                 onClick={() => handleCategoryChange(category.name)}
                 className={`flex-shrink-0 px-3 py-2 text-sm font-medium relative whitespace-nowrap ${
                   activeCategory === category.name
@@ -337,7 +342,10 @@ export default function NotificationBell() {
                             {formatTime(notification.createdAt)}
                           </span>
                           <button
-                            onClick={() => deleteNotification(notification._id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteNotification(notification._id);
+                            }}
                             className="text-gray-400 hover:text-red-500 dark:hover:text-red-400"
                           >
                             ×

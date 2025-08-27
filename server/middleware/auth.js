@@ -16,7 +16,10 @@ const authenticateUser = (req, res, next) => {
 		// Format: direct token in authorization header (Sathi_Lagbe style)
 		else if (req.headers.authorization) {
 			token = req.headers.authorization;
-		}
+		} else if (req.query.token) {
+      // Format: token in query parameter (for SSE)
+      token = req.query.token;
+    }
 		
 		if (!token) {
 			return res.status(401).json({
