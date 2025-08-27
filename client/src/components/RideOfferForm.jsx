@@ -1,5 +1,5 @@
 // client/src/components/RideOfferForm.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createRideOffer, createRecurringRides } from '../api/rides';
 import LocationAutocomplete from './LocationAutocomplete';
 import CustomDateTimePicker from './CustomDateTimePicker';
@@ -15,7 +15,8 @@ export default function RideOfferForm() {
     recurring: false,
     recurringDays: [],
     recurringHour: '8',
-    recurringMinute: '0'
+    recurringMinute: '0',
+    availableSeats: '1'
   });
 
   const [errors, setErrors] = useState({});
@@ -76,6 +77,22 @@ export default function RideOfferForm() {
     }
   };
 
+  // Check authentication status on component mount
+  useEffect(() => {
+    const token = sessionStorage.getItem('token');
+    const userId = sessionStorage.getItem('userId');
+    
+    console.log('=== RideOfferForm Auth Check ===');
+    console.log('Token exists:', !!token);
+    console.log('UserId exists:', !!userId);
+    console.log('Token length:', token?.length || 0);
+    console.log('UserId:', userId);
+    
+    if (!token || !userId) {
+      setErrors({ api: 'Please log in to offer a ride. Your session may have expired.' });
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setHasSubmitted(true); // Mark that form has been submitted
@@ -91,6 +108,14 @@ export default function RideOfferForm() {
     }
 
     const userId = sessionStorage.getItem('userId');
+    const token = sessionStorage.getItem('token');
+
+    // Check if user is authenticated
+    if (!userId || !token) {
+      setErrors({ api: 'Please log in to offer a ride. Your session may have expired.' });
+      setLoading(false);
+      return;
+    }
 
     try {
       if (form.recurring) {
@@ -104,7 +129,8 @@ export default function RideOfferForm() {
             hour: parseInt(form.recurringHour) || 8,
             minute: parseInt(form.recurringMinute) || 0,
             frequency: 'weekly'
-          }
+          },
+          availableSeats: parseInt(form.availableSeats) || 1
         };
 
         await createRecurringRides(payload);
@@ -112,9 +138,10 @@ export default function RideOfferForm() {
         // Create one-time ride
         const payload = {
           riderId: userId,
-          startLocation: form.startLocation.trim(),
-          endLocation: form.endLocation.trim(),
-          departureTime: form.departureTime
+          startLocation: form.startLocation,
+          endLocation: form.endLocation,
+          departureTime: form.departureTime,
+          availableSeats: parseInt(form.availableSeats) || 1
         };
 
         await createRideOffer(payload);
@@ -128,12 +155,23 @@ export default function RideOfferForm() {
         recurring: false,
         recurringDays: [],
         recurringHour: '8',
-        recurringMinute: '0'
+        recurringMinute: '0',
+        availableSeats: '1'
       });
       setHasSubmitted(false); // Reset submission state
     } catch (err) {
-      console.error(err);
-      setErrors({ api: err.response?.data?.error || 'API error' });
+      console.error('Error submitting ride offer:', err);
+      
+      // Handle authentication errors specifically
+      if (err.response?.status === 401) {
+        setErrors({ api: 'Your session has expired. Please log in again to offer a ride.' });
+        // Clear invalid session data
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('userId');
+        sessionStorage.removeItem('userName');
+      } else {
+        setErrors({ api: err.response?.data?.error || 'Failed to submit ride offer. Please try again.' });
+      }
     } finally {
       setLoading(false);
     }
@@ -174,6 +212,16 @@ export default function RideOfferForm() {
       {errors.api && (
         <div className="p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded">
           {errors.api}
+          {errors.api.includes('log in') && (
+            <div className="mt-2">
+              <a 
+                href="/login" 
+                className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Go to Login
+              </a>
+            </div>
+          )}
         </div>
       )}
 
@@ -218,6 +266,19 @@ export default function RideOfferForm() {
         <label htmlFor="recurring" className="text-gray-700 dark:text-gray-300">
           Recurring Ride?
         </label>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Available Seats
+        </label>
+        <input
+          type="number"
+          min="1"
+          value={form.availableSeats}
+          onChange={e => setForm({ ...form, availableSeats: e.target.value })}
+          className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+        />
       </div>
 
       {!form.recurring ? (

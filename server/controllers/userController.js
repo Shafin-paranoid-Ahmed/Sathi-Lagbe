@@ -52,7 +52,28 @@ exports.searchUsers = async (req, res) => {
 };
 
 /**
- * Get user profile
+ * Get current user's profile
+ */
+exports.getCurrentUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    
+    const user = await User.findById(userId)
+      .select('name email gender location avatarUrl bracuId phone preferences');
+      
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json(user);
+  } catch (err) {
+    console.error('Error fetching current user profile:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch user profile' });
+  }
+};
+
+/**
+ * Get user profile by ID
  */
 exports.getUserProfile = async (req, res) => {
   try {
@@ -64,7 +85,7 @@ exports.getUserProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+      
     res.json(user);
   } catch (err) {
     console.error('Error fetching user profile:', err);

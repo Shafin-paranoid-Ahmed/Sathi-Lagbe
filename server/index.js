@@ -11,6 +11,7 @@ const { initSocket } = require('./utils/socket');
 const fs = require('fs');
 const path = require('path');
 
+
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const chatRoutes = require('./routes/chatRoutes');
@@ -23,11 +24,15 @@ const feedbackRoutes = require('./routes/feedbackRoutes');
 const freeRoutes = require('./routes/freeRoutes');
 const userRoutes = require('./routes/userRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const ratingRoutes = require('./routes/ratingRoutes');
 
 const app = express();
 
 // Middleware - ORDER IS IMPORTANT
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:5173'],
+  credentials: true
+}));
 // Make sure body-parser middleware is before routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -55,6 +60,7 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/free', freeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/ratings', ratingRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
@@ -176,3 +182,20 @@ server.listen(PORT, () => {
   console.log(`Socket.IO server initialized`);
 });
 
+// Scheduled cleanup of orphaned notifications (runs every hour)
+const cleanupInterval = 60 * 60 * 1000; // 1 hour in milliseconds
+
+setInterval(async () => {
+  try {
+    console.log('🕐 Running scheduled notification cleanup...');
+    const rideNotificationService = require('./services/rideNotificationService');
+    const deletedCount = await rideNotificationService.cleanupOrphanedNotifications();
+    if (deletedCount > 0) {
+      console.log(`🧹 Scheduled cleanup completed. Deleted ${deletedCount} orphaned notifications.`);
+    }
+  } catch (error) {
+    console.error('❌ Error during scheduled notification cleanup:', error);
+  }
+}, cleanupInterval);
+
+console.log(`🕐 Scheduled notification cleanup set to run every ${cleanupInterval / (60 * 1000)} minutes`);

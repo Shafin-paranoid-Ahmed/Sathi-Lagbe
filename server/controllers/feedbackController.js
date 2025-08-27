@@ -1,6 +1,7 @@
 // server/controllers/feedbackController.js - Merged implementation
 const Feedback = require('../models/Feedback');
 const RideMatch = require('../models/RideMatch');
+const User = require('../models/User');
 
 /**
  * Submit feedback for a ride
@@ -82,5 +83,63 @@ exports.getUserFeedback = async (req, res) => {
   } catch (err) {
     console.error('Error getting user feedback:', err);
     res.status(500).json({ error: err.message || 'Failed to get user feedback' });
+  }
+};
+
+/**
+ * Breakdown feedback for a ride: passenger feedback and owner's feedback about riders
+ */
+exports.getRideFeedbackBreakdown = async (req, res) => {
+  try {
+    const { rideId } = req.params;
+    const ride = await RideMatch.findById(rideId).lean();
+    if (!ride) return res.status(404).json({ error: 'Ride not found' });
+
+    const ownerId = ride.riderId.toString();
+    const confirmedUserIds = (ride.confirmedRiders || []).map(cr => cr.user.toString());
+
+    // Segment 1a: feedback written by passengers (Feedback collection)
+    const riderFeedbackDocs = await Feedback.find({ rideId, userId: { $in: confirmedUserIds } })
+      .populate('userId', 'name avatarUrl')
+      .lean();
+
+    // Segment 1b: ratings written by passengers about the owner (RideMatch.ratings)
+    const passengerRatingsOnOwner = (ride.ratings || []).filter(rt => {
+      return rt.riderId && rt.raterId && rt.riderId.toString() === ownerId && confirmedUserIds.includes(rt.raterId.toString());
+    });
+
+    // Map rater info
+    const passengerRaterIds = [...new Set(passengerRatingsOnOwner.map(rt => rt.raterId.toString()))];
+    const passengerRaters = passengerRaterIds.length ? await User.find({ _id: { $in: passengerRaterIds } }).select('name avatarUrl').lean() : [];
+    const raterMap = new Map(passengerRaters.map(u => [u._id.toString(), u]));
+    const riderRatingsCombined = passengerRatingsOnOwner.map(rt => ({
+      userId: { _id: rt.raterId.toString(), name: (raterMap.get(rt.raterId.toString())?.name) || 'User', avatarUrl: raterMap.get(rt.raterId.toString())?.avatarUrl || null },
+      overallScore: rt.score,
+      comments: rt.comment || ''
+    }));
+
+    // Merge feedback docs and ratings on owner
+    const riderFeedback = [...riderFeedbackDocs, ...riderRatingsCombined];
+
+    // Segment 2: owner's feedback about riders (use ratings made by owner about riders)
+    const ownerAbout = (ride.ratings || []).filter(rt => {
+      return rt.raterId && rt.raterId.toString() === ownerId && confirmedUserIds.includes(rt.riderId.toString());
+    });
+
+    const targetIds = [...new Set(ownerAbout.map(rt => rt.riderId.toString()))];
+    const users = targetIds.length ? await User.find({ _id: { $in: targetIds } }).select('name avatarUrl').lean() : [];
+    const userMap = new Map(users.map(u => [u._id.toString(), u]));
+    const ownerAboutRiders = ownerAbout.map(rt => ({
+      riderId: rt.riderId.toString(),
+      raterId: rt.raterId ? rt.raterId.toString() : null,
+      score: rt.score,
+      comment: rt.comment || '',
+      rider: userMap.get(rt.riderId.toString()) || null
+    }));
+
+    return res.json({ riderFeedback, ownerAboutRiders });
+  } catch (err) {
+    console.error('Error getting feedback breakdown:', err);
+    res.status(500).json({ error: err.message || 'Failed to get feedback breakdown' });
   }
 };
