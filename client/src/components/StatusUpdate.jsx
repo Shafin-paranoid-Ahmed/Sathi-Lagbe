@@ -12,8 +12,6 @@ const StatusUpdate = () => {
   const [todayRoutine, setTodayRoutine] = useState(null);
   const [autoUpdateLoading, setAutoUpdateLoading] = useState(false);
   const [setupStatus, setSetupStatus] = useState(null);
-  const [setupLoading, setSetupLoading] = useState(false);
-  const token = sessionStorage.getItem('token');
 
   const statusOptions = [
     { value: 'available', label: 'Available', icon: User, color: 'text-green-600' },
@@ -69,13 +67,11 @@ const StatusUpdate = () => {
 
   const checkSetupStatus = async () => {
     try {
-      setSetupLoading(true);
       const response = await checkAutoStatusSetup();
       setSetupStatus(response.data);
     } catch (error) {
       console.error('Error checking setup status:', error);
-    } finally {
-      setSetupLoading(false);
+
     }
   };
 
@@ -139,6 +135,35 @@ const StatusUpdate = () => {
       }
     } finally {
       setAutoUpdateLoading(false);
+    }
+  };
+  const toggleAutoUpdate = async () => {
+    try {
+      setLoading(true);
+      const response = await API.patch('/users/status', {
+        status,
+        location,
+        isAutoUpdate: !isAutoUpdate
+      });
+
+      setCurrentStatus(response.data.status);
+      setIsAutoUpdate(!isAutoUpdate);
+
+      if (!isAutoUpdate) {
+        const autoResp = await API.post('/users/trigger-auto-status');
+        setCurrentStatus(autoResp.data.user.status);
+        fetchNextClassInfo();
+        fetchTodayRoutine();
+        checkSetupStatus();
+        alert('Auto status enabled and updated!');
+      } else {
+        alert('Auto status disabled. You can now update manually.');
+      }
+    } catch (error) {
+      console.error('Error toggling auto status:', error);
+      alert(error.response?.data?.error || 'Failed to toggle auto status');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -254,76 +279,81 @@ const StatusUpdate = () => {
       )}
 
       {/* Status Selection */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          New Status
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          {statusOptions.map((option) => {
-            const IconComponent = option.icon;
-            return (
-              <button
-                key={option.value}
-                onClick={() => setStatus(option.value)}
-                className={`p-3 rounded-lg border-2 transition-colors flex items-center justify-center ${
-                  status === option.value
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                <IconComponent className={`w-4 h-4 mr-2 ${option.color}`} />
-                <span className="text-sm">{option.label}</span>
-              </button>
-            );
-          })}
+            {!isAutoUpdate && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            New Status
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {statusOptions.map((option) => {
+              const IconComponent = option.icon;
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => setStatus(option.value)}
+                  className={`p-3 rounded-lg border-2 transition-colors flex items-center justify-center ${
+                    status === option.value
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  <IconComponent className={`w-4 h-4 mr-2 ${option.color}`} />
+                  <span className="text-sm">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Location Input */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Location (optional)
-        </label>
-        <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g., Library, Cafeteria, Room 301"
-            className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-          />
+      {!isAutoUpdate && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Location (optional)
+          </label>
+          <div className="relative">
+            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., Library, Cafeteria, Room 301"
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Auto Update Toggle */}
+      {/* Auto/Manual Toggle Button */}
       <div className="mb-4">
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            checked={isAutoUpdate}
-            onChange={(e) => setIsAutoUpdate(e.target.checked)}
-            className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-700"
-          />
-          <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-            Enable automatic status updates based on class schedule
-          </span>
-        </label>
-        {isAutoUpdate && (
-          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 ml-6">
-            Your status will automatically update every 5 minutes based on your class schedule
-          </p>
-        )}
+        <button
+          onClick={toggleAutoUpdate}
+          disabled={loading}
+          className={`w-full ${
+            isAutoUpdate
+              ? 'bg-red-600 hover:bg-red-700'
+              : 'bg-blue-600 hover:bg-blue-700'
+          } text-white py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+        >
+          {loading
+            ? 'Saving...'
+            : isAutoUpdate
+            ? 'Disable Auto Status'
+            : 'Enable Auto Status'}
+        </button>
       </div>
 
       {/* Manual Update Button */}
-      <button
-        onClick={handleStatusUpdate}
-        disabled={loading}
-        className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-2"
-      >
-        {loading ? 'Updating...' : 'Update Status Manually'}
-      </button>
+      {!isAutoUpdate && (
+        <button
+          onClick={handleStatusUpdate}
+          disabled={loading}
+          className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-2"
+        >
+          {loading ? 'Updating...' : 'Update Status Manually'}
+        </button>
+      )}
 
       {/* Auto Update Button */}
       {isAutoUpdate && (
@@ -349,20 +379,22 @@ const StatusUpdate = () => {
       )}
 
       {/* Quick Location Buttons */}
-      <div className="mt-4">
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Quick locations:</p>
-        <div className="flex flex-wrap gap-2">
-          {['Library', 'Cafeteria', 'Gym', 'Study Room', 'Campus'].map((loc) => (
-            <button
-              key={loc}
-              onClick={() => setLocation(loc)}
-              className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-            >
-              {loc}
-            </button>
-          ))}
+      {!isAutoUpdate && (
+        <div className="mt-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Quick locations:</p>
+          <div className="flex flex-wrap gap-2">
+            {['Library', 'Cafeteria', 'Gym', 'Study Room', 'Campus'].map((loc) => (
+              <button
+                key={loc}
+                onClick={() => setLocation(loc)}
+                className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                {loc}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
