@@ -45,21 +45,16 @@ export default function App() {
         const token = sessionStorage.getItem('token');
         
         if (!token) {
-          console.log('No token found, user is not authenticated');
           setIsAuthenticated(false);
           setLoading(false);
           return;
         }
         
-        console.log('Token found, verifying with server...');
-        
         // Verify the token with the server
         await verifyToken();
         
-        console.log('Token verified successfully');
         setIsAuthenticated(true);
       } catch (err) {
-        console.error('Token verification failed:', err);
         // Don't remove token here - the API interceptor will handle it if needed
         setIsAuthenticated(false);
       } finally {
