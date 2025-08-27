@@ -488,7 +488,7 @@ export default function Chat() {
   const isSenderCurrentUser = (sender) => {
     if (!sender) return false;
     if (typeof sender === 'string') return sender === currentUserId;
-    if (typeof sender === 'object') return sender._id === currentUserId;
+    if (typeof sender === 'object' && sender._id) return sender._id === currentUserId;
     return false;
   };
 
@@ -753,7 +753,7 @@ export default function Chat() {
                            <div className="flex-shrink-0 mr-2">
                              {console.log('Rendering avatar for message sender:', msg.sender)}
                              {renderAvatar(
-                               typeof msg.sender === 'object' ? msg.sender._id : msg.sender,
+                               (msg.sender && typeof msg.sender === 'object') ? msg.sender._id : msg.sender,
                                getSenderName(msg.sender),
                                'w-8 h-8',
                                typeof msg.sender === 'object' ? msg.sender : null

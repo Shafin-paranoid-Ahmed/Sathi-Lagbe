@@ -1,7 +1,9 @@
 // server/controllers/userController.js
 const User = require('../models/User');
+const Classroom = require('../models/Classroom');
 const cloudinary = require('../utils/cloudinary');
 const fs = require('fs');
+const mongoose = require('mongoose');
 
 /**
  * Get all users (except the current user)
@@ -266,5 +268,75 @@ exports.updateAvatar = async (req, res) => {
   } catch (err) {
     console.error('Error updating avatar:', err);
     res.status(500).json({ error: err.message || 'Failed to update avatar' });
+  }
+};
+
+/**
+ * Add a classroom to bookmarks
+ */
+exports.addBookmark = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const { classroomId } = req.params;
+
+    await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { bookmarkedClassrooms: classroomId } },
+      { new: true }
+    );
+
+    res.json({ success: true, message: 'Classroom bookmarked' });
+  } catch (err) {
+    console.error('Error adding bookmark:', err);
+    res.status(500).json({ error: err.message || 'Failed to add bookmark' });
+  }
+};
+
+/**
+ * Remove a classroom from bookmarks
+ */
+exports.removeBookmark = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const { classroomId } = req.params;
+
+    await User.findByIdAndUpdate(
+      userId,
+      { $pull: { bookmarkedClassrooms: classroomId } },
+      { new: true }
+    );
+
+    res.json({ success: true, message: 'Classroom bookmark removed' });
+  } catch (err) {
+    console.error('Error removing bookmark:', err);
+    res.status(500).json({ error: err.message || 'Failed to remove bookmark' });
+  }
+};
+
+/**
+ * Get bookmarked classrooms for the current user
+ */
+exports.getBookmarks = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+
+    const user = await User.findById(userId).select('bookmarkedClassrooms').lean();
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const rawBookmarks = Array.isArray(user.bookmarkedClassrooms) ? user.bookmarkedClassrooms : [];
+
+    // Validate IDs to prevent cast errors
+    const validIds = rawBookmarks.filter(id => mongoose.Types.ObjectId.isValid(id));
+
+    // Fetch classrooms for valid IDs only
+    const classrooms = await Classroom.find({ _id: { $in: validIds } }).lean();
+
+    res.json({ success: true, bookmarks: classrooms });
+  } catch (err) {
+    console.error('Error fetching bookmarks:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch bookmarks' });
   }
 };
