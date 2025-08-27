@@ -1,8 +1,10 @@
 // client/src/pages/Sos.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { getContacts, saveContacts, sendSosAlert } from '../api/sos';
 import { API } from '../api/auth';
 import socketService from '../services/socketService';
+import { UserPlusIcon, PhoneIcon, TrashIcon, UserCircleIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
+
 
 export default function Sos() {
   // Get current user ID for contact ownership validation
@@ -20,15 +22,18 @@ export default function Sos() {
   const [friends, setFriends] = useState([]);
   const [selectedFriendId, setSelectedFriendId] = useState('');
   const [isLiveSharing, setIsLiveSharing] = useState(false);
-  const [watchIdRef, setWatchIdRef] = useState(null);
+  const watchIdRef = useRef(null);
 
   // Get filtered contacts for display - show all valid contacts for the current user
-  const displayContacts = contacts.filter(c => 
+  const displayContacts = useMemo(() => contacts.filter(c => 
     c && 
     c.name && 
     c.name.trim() !== '' && 
     (c.addedBy === currentUserId || !c.addedBy) // Show contacts added by current user OR contacts without addedBy (legacy)
-  );
+  ), [contacts, currentUserId]);
+  
+  const displayContactsRef = useRef(displayContacts);
+  displayContactsRef.current = displayContacts;
 
   // Load contacts on mount and when user changes
   useEffect(() => {
@@ -70,14 +75,14 @@ export default function Sos() {
     };
   }, [currentUserId]); // Reload when user changes
 
-  // Cleanup location watch on unmount
+  // Cleanup location watch on unmount - this is a safety net
   useEffect(() => {
     return () => {
-      if (watchIdRef && navigator.geolocation && navigator.geolocation.clearWatch) {
-        navigator.geolocation.clearWatch(watchIdRef);
+      if (watchIdRef.current && navigator.geolocation && navigator.geolocation.clearWatch) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [watchIdRef]);
+  }, []);
 
   // Get user's location on mount
   useEffect(() => {
@@ -99,18 +104,25 @@ export default function Sos() {
 
   // Live location sharing when enabled
   useEffect(() => {
-    if (!isLiveSharing) return;
+    if (!isLiveSharing) {
+      if (watchIdRef.current && navigator.geolocation && navigator.geolocation.clearWatch) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      return;
+    }
+    
     if (!navigator.geolocation) return;
     
     const startWatch = () => {
       try {
-        const watchId = navigator.geolocation.watchPosition(
+        watchIdRef.current = navigator.geolocation.watchPosition(
           (pos) => {
             const { latitude, longitude } = pos.coords;
             setCoordinates({ latitude, longitude });
             
             // Determine in-app recipients (contacts with userId)
-            const recipientIds = displayContacts
+            const recipientIds = displayContactsRef.current
               .filter(c => c.userId)
               .map(c => c.userId);
               
@@ -121,10 +133,9 @@ export default function Sos() {
                 longitude,
                 timestamp: new Date()
               });
-                          }
+            }
           },
           (err) => {
-            console.error('Error watching position:', err);
             setError('Live location sharing failed: ' + err.message);
             setIsLiveSharing(false);
           },
@@ -134,23 +145,22 @@ export default function Sos() {
             timeout: 5000
           }
         );
-        
-                  setWatchIdRef(watchId);
-              } catch (e) {
-          setError('Failed to start location sharing: ' + e.message);
+      } catch (e) {
+        setError('Failed to start location sharing: ' + e.message);
         setIsLiveSharing(false);
       }
     };
     
     startWatch();
     
-          return () => {
-        if (watchIdRef && navigator.geolocation && navigator.geolocation.clearWatch) {
-          navigator.geolocation.clearWatch(watchIdRef);
-          setWatchIdRef(null);
-        }
-      };
-  }, [isLiveSharing, displayContacts]);
+    // This cleanup runs when isLiveSharing becomes false
+    return () => {
+      if (watchIdRef.current && navigator.geolocation && navigator.geolocation.clearWatch) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+  }, [isLiveSharing]);
 
   // Load accepted friends for dropdown when toggled
   useEffect(() => {
@@ -301,10 +311,11 @@ export default function Sos() {
   };
 
   const stopLiveSharing = () => {
+    
     // Clear the location watch
-    if (watchIdRef && navigator.geolocation && navigator.geolocation.clearWatch) {
-      navigator.geolocation.clearWatch(watchIdRef);
-      setWatchIdRef(null);
+    if (watchIdRef.current && navigator.geolocation && navigator.geolocation.clearWatch) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
     }
     
     // Notify recipients that live sharing has stopped
@@ -318,34 +329,39 @@ export default function Sos() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
-      <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-        <h1 className="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">
-          SOS Emergency Contacts
-        </h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 animate-fade-in">
+      <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 space-y-6">
+        <div className="text-center">
+          <ShieldCheckIcon className="h-12 w-12 text-red-500 mx-auto mb-2" />
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
+            Emergency SOS
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage contacts and send alerts in case of an emergency.</p>
+        </div>
+
 
         {error && (
-          <div className="mb-4 p-2 bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-100 rounded">
+          <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-200 rounded-lg border border-red-200 dark:border-red-600 animate-fade-in">
             {error}
           </div>
         )}
 
         {/* Add new contact form */}
-        <div className="mb-6 p-4 bg-gray-100 dark:bg-gray-700 rounded">
-          <h2 className="text-lg font-semibold mb-2 text-gray-800 dark:text-gray-200">
+        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-700">
+          <h2 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
             Add Emergency Contact
           </h2>
-          <div className="space-y-2">
-            <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
-              <input type="checkbox" checked={isAppUser} onChange={e => setIsAppUser(e.target.checked)} />
-              <span>They use this app</span>
+          <div className="space-y-3">
+            <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 p-2 rounded-lg">
+              <input type="checkbox" checked={isAppUser} onChange={e => setIsAppUser(e.target.checked)} className="rounded text-primary-500 focus:ring-primary-500" />
+              <span>Add a friend who uses this app</span>
             </label>
 
             {isAppUser ? (
               <select
                 value={selectedFriendId}
                 onChange={e => setSelectedFriendId(e.target.value)}
-                className="w-full p-2 border rounded dark:bg-gray-600 dark:text-white"
+                className="w-full p-2 border rounded-lg dark:bg-gray-600 dark:text-white dark:border-gray-500 focus:ring-2 focus:ring-primary-500 transition"
               >
                 <option value="">Select a friend</option>
                 {friends.map((f, index) => (
@@ -359,94 +375,75 @@ export default function Sos() {
                   placeholder="Contact Name"
                   value={newContact.name}
                   onChange={e => setNewContact({...newContact, name: e.target.value})}
-                  className="w-full p-2 border rounded dark:bg-gray-600 dark:text-white"
+                  className="w-full p-2 border rounded-lg dark:bg-gray-600 dark:text-white dark:border-gray-500 focus:ring-2 focus:ring-primary-500 transition"
                 />
                 <input
                   type="tel"
                   placeholder="Phone Number"
                   value={newContact.phone}
                   onChange={e => setNewContact({...newContact, phone: e.target.value})}
-                  className="w-full p-2 border rounded dark:bg-gray-600 dark:text-white"
+                  className="w-full p-2 border rounded-lg dark:bg-gray-600 dark:text-white dark:border-gray-500 focus:ring-2 focus:ring-primary-500 transition"
                 />
               </>
             )}
             <button
               onClick={addContact}
-              className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              className="w-full py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-transform transform hover:scale-105 flex items-center justify-center space-x-2"
             >
-              Add Contact
+              <UserPlusIcon className="h-5 w-5" />
+              <span>Add Contact</span>
             </button>
           </div>
         </div>
 
         {/* Contacts list */}
-        <h2 className="text-lg font-semibold mb-2 text-gray-800 dark:text-gray-200">
-          Your Emergency Contacts
-        </h2>
+        <div>
+          <h2 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
+            Your Emergency Contacts
+          </h2>
 
-        {loading && <p className="text-gray-600 dark:text-gray-400">Loading...</p>}
+          {loading && <p className="text-gray-600 dark:text-gray-400">Loading...</p>}
 
-        {!loading && displayContacts.length === 0 && (
-          <div>
-            <p className="text-gray-600 dark:text-gray-400">No contacts added yet.</p>
-            {/* Debug info */}
-            <details className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              <summary>Debug Info</summary>
-              <p>Raw contacts: {JSON.stringify(contacts)}</p>
-              <p>Display contacts: {JSON.stringify(displayContacts)}</p>
-              <p>Current user ID: {currentUserId}</p>
-              <p>Live sharing: {isLiveSharing ? 'Active' : 'Inactive'}</p>
-              <p>Watch ID: {watchIdRef || 'None'}</p>
-              <p>Coordinates: {coordinates.latitude && coordinates.longitude ? `${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}` : 'Not available'}</p>
-            </details>
-          </div>
-        )}
+          {!loading && displayContacts.length === 0 && (
+            <div className="text-center py-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-gray-600 dark:text-gray-400">No contacts added yet.</p>
+            </div>
+          )}
 
-        <ul className="mb-6 space-y-2">
-          {displayContacts.map((c, index) => (
-            <li
-              key={c.userId || c.phone || index}
-              className="p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow-sm flex justify-between items-center"
-            >
-              <div>
-                <span className="text-gray-800 dark:text-gray-200 font-medium">
-                  {c.name || 'Unknown Contact'}
-                </span>
-                <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
-                  {c.phone || 'App User'}
-                </span>
-                {c.userId && (
-                  <span className="text-xs text-green-600 dark:text-green-400 ml-2">
-                    📱 App User
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={() => removeContact(index)}
-                className="text-red-600 hover:text-red-800"
+          <ul className="space-y-2">
+            {displayContacts.map((c, index) => (
+              <li
+                key={c.userId || c.phone || index}
+                className="p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-sm flex justify-between items-center transition-transform transform hover:scale-105"
               >
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
+                <div className="flex items-center space-x-3">
+                  <div className={`p-2 rounded-full ${c.userId ? 'bg-green-100 dark:bg-green-900' : 'bg-gray-100 dark:bg-gray-600'}`}>
+                    {c.userId ? <UserCircleIcon className="h-6 w-6 text-green-500" /> : <PhoneIcon className="h-6 w-6 text-gray-500" />}
+                  </div>
+                  <div>
+                    <span className="text-gray-800 dark:text-gray-200 font-medium">
+                      {c.name || 'Unknown Contact'}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 block">
+                      {c.phone || 'App User'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeContact(index)}
+                  className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition"
+                >
+                  <TrashIcon className="h-5 w-5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
         
-        {/* Debug info when contacts exist */}
-        {displayContacts.length > 0 && (
-          <details className="mb-4 text-xs text-gray-500 dark:text-gray-400">
-            <summary>Debug: Live Location Status</summary>
-            <p>Live sharing: {isLiveSharing ? '🟢 Active' : '🔴 Inactive'}</p>
-            <p>Watch ID: {watchIdRef || 'None'}</p>
-            <p>Coordinates: {coordinates.latitude && coordinates.longitude ? `${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}` : 'Not available'}</p>
-            <p>App users: {displayContacts.filter(c => c.userId).length} of {displayContacts.length}</p>
-            <p>App user IDs: {displayContacts.filter(c => c.userId).map(c => c.userId).join(', ') || 'None'}</p>
-          </details>
-        )}
-
         {/* SOS section */}
-        <div className="bg-red-100 dark:bg-red-900 p-4 rounded-lg">
-          <h2 className="text-lg font-semibold mb-2 text-red-800 dark:text-red-100">
-            Emergency SOS
+        <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-xl border-2 border-dashed border-red-300 dark:border-red-700">
+          <h2 className="text-xl font-bold mb-3 text-red-800 dark:text-red-200 text-center">
+            Emergency Alert
           </h2>
           
           <div className="space-y-3 mb-4">
@@ -455,14 +452,14 @@ export default function Sos() {
               placeholder="Your Location (optional)"
               value={location}
               onChange={e => setLocation(e.target.value)}
-              className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white"
+              className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-2 focus:ring-red-500 transition"
             />
             
             <textarea
-              placeholder="Emergency Message (optional)"
+              placeholder="Emergency Message (optional, e.g., 'I am in danger')"
               value={message}
               onChange={e => setMessage(e.target.value)}
-              className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white"
+              className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-2 focus:ring-red-500 transition"
               rows="2"
             />
           </div>
@@ -471,19 +468,11 @@ export default function Sos() {
             <button
               onClick={handleAlert}
               disabled={alerting || displayContacts.length === 0}
-              className="flex-1 py-3 bg-red-600 text-white text-lg font-bold rounded hover:bg-red-700 disabled:opacity-50"
+              className={`w-full py-4 text-white text-lg font-bold rounded-lg transition-all transform hover:scale-105 flex items-center justify-center space-x-2 ${alerting || displayContacts.length === 0 ? 'bg-red-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 animate-pulse'}`}
             >
-              {alerting ? 'Sending SOS Alert...' : 'SEND SOS ALERT'}
+              <ShieldCheckIcon className="h-6 w-6" />
+              <span>{alerting ? 'Sending Alert...' : 'SEND SOS'}</span>
             </button>
-            {isLiveSharing && (
-              <button
-                type="button"
-                onClick={stopLiveSharing}
-                className="px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-              >
-                Stop sharing
-              </button>
-            )}
           </div>
           
           {coordinates.latitude && coordinates.longitude && (
@@ -494,10 +483,19 @@ export default function Sos() {
           
           {/* Live location status */}
           {isLiveSharing && (
-            <div className="mt-3 p-2 bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
-              <p className="text-xs text-green-700 dark:text-green-300 text-center">
-                🟢 Live location sharing active - Your location is being updated in real-time
-              </p>
+            <div className="mt-3 p-2 bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg animate-fade-in">
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-green-700 dark:text-green-300 text-center">
+                  🟢 Live location sharing active
+                </p>
+                <button
+                  type="button"
+                  onClick={stopLiveSharing}
+                  className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-xs text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                >
+                  Stop
+                </button>
+              </div>
               {coordinates.latitude && coordinates.longitude && (
                 <p className="text-xs text-green-600 dark:text-green-400 text-center mt-1">
                   Current: {coordinates.latitude.toFixed(5)}, {coordinates.longitude.toFixed(5)}
