@@ -62,15 +62,19 @@ async function setInClassForUsers(currentDay, currentSlot) {
   const userIds = Array.from(byUser.keys());
   if (!userIds.length) return { setCount: 0 };
 
-  // Load users who enabled auto-update
-  const users = await User.find({ _id: { $in: userIds }, 'status.isAutoUpdate': true })
-    .select('_id name status').lean();
+  // Find users who have auto-update enabled.
+  const usersToUpdate = await User.find({ 
+    _id: { $in: userIds }, 
+    'status.isAutoUpdate': true 
+  }).select('_id name status').lean();
 
   let setCount = 0;
-  for (const u of users) {
+  for (const u of usersToUpdate) {
     const entry = byUser.get(u._id.toString());
     const newLocation = entry?.course || 'Class';
-    if (u.status?.current !== 'in_class' || (u.status?.location || '') !== newLocation) {
+    
+    // ONLY update if status is not already correct. This is the crucial check.
+    if (u.status?.current !== 'in_class' || u.status?.location !== newLocation) {
       await User.findByIdAndUpdate(u._id, {
         $set: {
           'status.current': 'in_class',
@@ -88,36 +92,41 @@ async function setInClassForUsers(currentDay, currentSlot) {
 }
 
 async function clearInClassForUsersNotInSlot(currentDay, currentSlot) {
-  // Users currently in_class with auto-update on
-  const users = await User.find({ 'status.isAutoUpdate': true, 'status.current': 'in_class' })
+  // Find users currently marked as 'in_class' with auto-update on.
+  const usersInClass = await User.find({ 'status.isAutoUpdate': true, 'status.current': 'in_class' })
     .select('_id status').lean();
-  if (!users.length) return { clearedCount: 0 };
+  if (!usersInClass.length) return { clearedCount: 0 };
 
-  const userIds = users.map(u => u._id);
-  // Which of these users actually have class now?
-  const stillInClassUserIds = await Routine.find({
-    userId: { $in: userIds },
+  const userIdsInClass = usersInClass.map(u => u._id);
+  
+  // Find which of these users ACTUALLY have a class in the current slot.
+  const usersWhoShouldBeInClass = await Routine.find({
+    userId: { $in: userIdsInClass },
     day: currentDay,
     timeSlot: currentSlot
   }).distinct('userId');
 
-  const stillSet = new Set(stillInClassUserIds.map(id => id.toString()))
+  const usersToKeepInClass = new Set(usersWhoShouldBeInClass.map(id => id.toString()));
   let clearedCount = 0;
 
-  for (const u of users) {
-    if (stillSet.has(u._id.toString())) continue; // keep in_class
-    // Clear to 'available'
-    await User.findByIdAndUpdate(u._id, {
-      $set: {
-        'status.current': 'available',
-        'status.location': '',
-        'status.lastUpdated': new Date()
+  for (const u of usersInClass) {
+    // If the user is NOT in the set of users who should be in class, clear their status.
+    if (!usersToKeepInClass.has(u._id.toString())) {
+      // Double check that the status needs to be cleared before updating
+      if (u.status?.current !== 'available' || u.status?.location !== '') {
+        await User.findByIdAndUpdate(u._id, {
+          $set: {
+            'status.current': 'available',
+            'status.location': '',
+            'status.lastUpdated': new Date()
+          }
+        });
+        try {
+          await notificationService.sendStatusChangeNotification(u._id, 'available', '');
+        } catch {}
+        clearedCount++;
       }
-    });
-    try {
-      await notificationService.sendStatusChangeNotification(u._id, 'available', '');
-    } catch {}
-    clearedCount++;
+    }
   }
   return { clearedCount };
 }
@@ -133,17 +142,17 @@ async function tick() {
       const { setCount } = await setInClassForUsers(day, slot);
       const { clearedCount } = await clearInClassForUsersNotInSlot(day, slot);
       if (setCount || clearedCount) {
-        console.log(`[AutoStatus] Updated statuses. Set in_class: ${setCount}, cleared: ${clearedCount} (day=${day}, slot=${slot})`);
+        // No logging
       }
     } else {
       // Outside any slot: clear users auto-marked as in_class
       const { clearedCount } = await clearInClassForUsersNotInSlot(day, null);
       if (clearedCount) {
-        console.log(`[AutoStatus] Cleared in_class outside slots: ${clearedCount} (day=${day})`);
+        // No logging
       }
     }
   } catch (err) {
-    console.error('[AutoStatus] Error during tick:', err);
+    // silently fail
   }
 }
 
@@ -152,7 +161,7 @@ function startAutoStatusScheduler({ intervalMs = 5 * 60 * 1000 } = {}) {
   setTimeout(() => tick(), 10 * 1000);
   // Then run periodically
   setInterval(tick, intervalMs);
-  console.log(`[AutoStatus] Scheduler started. Interval ${Math.round(intervalMs / 1000)}s`);
+  // No logging
 }
 
 module.exports = { startAutoStatusScheduler };

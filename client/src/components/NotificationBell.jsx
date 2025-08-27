@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BellIcon, UserIcon } from '@heroicons/react/24/outline';
+import { BellIcon, UserIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { API } from '../api/auth';
 import { createChat } from '../api/chat';
@@ -31,7 +31,12 @@ export default function NotificationBell() {
       if (token) {
         eventSource = new EventSource(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/stream?token=${token}`);
         eventSource.onmessage = (event) => {
-          const notification = JSON.parse(event.data);
+          const data = JSON.parse(event.data);
+          // Ignore SSE keep-alive messages
+          if (data.type === 'ping' || data.type === 'connected') {
+            return;
+          }
+          const notification = data;
           setUnreadCount(prev => prev + 1);
           setNotifications(prev => [notification, ...prev]);
         };
@@ -216,7 +221,14 @@ export default function NotificationBell() {
   };
 
   const formatTime = (timestamp) => {
+    if (!timestamp) {
+      return '';
+    }
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) {
+      return '';
+    }
+    
     const now = new Date();
     const diffInMinutes = Math.floor((now - date) / (1000 * 60));
     
@@ -253,14 +265,23 @@ export default function NotificationBell() {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Notifications
               </h3>
-              {unreadCount > 0 && (
+              <div className="flex items-center space-x-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllAsRead}
+                    className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    Mark all read
+                  </button>
+                )}
                 <button
-                  onClick={markAllAsRead}
-                  className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  onClick={() => setShowDropdown(false)}
+                  className="p-1 rounded-full text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  title="Close"
                 >
-                  Mark all read
+                  <XMarkIcon className="h-5 w-5" />
                 </button>
-              )}
+              </div>
             </div>
           </div>
 
