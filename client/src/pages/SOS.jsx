@@ -75,6 +75,16 @@ export default function Sos() {
     };
   }, [currentUserId]); // Reload when user changes
 
+  // Cleanup location watch on unmount
+  useEffect(() => {
+    return () => {
+      if (watchIdRef && navigator.geolocation && navigator.geolocation.clearWatch) {
+        console.log('Component unmounting - clearing location watch:', watchIdRef);
+        navigator.geolocation.clearWatch(watchIdRef);
+      }
+    };
+  }, [watchIdRef]);
+
   // Get user's location on mount
   useEffect(() => {
     // Try to get user's location
@@ -97,32 +107,62 @@ export default function Sos() {
   useEffect(() => {
     if (!isLiveSharing) return;
     if (!navigator.geolocation) return;
-    let watchId = null;
+    
+    console.log('Starting live location sharing...');
+    
     const startWatch = () => {
       try {
-        watchId = navigator.geolocation.watchPosition((pos) => {
-          const { latitude, longitude } = pos.coords;
-          setCoordinates({ latitude, longitude });
-          // Determine in-app recipients (contacts with userId)
-          const recipientIds = displayContacts
-            .filter(c => c.userId)
-            .map(c => c.userId);
-          if (recipientIds.length) {
-            socketService.emit('sos_location_update', {
-              recipientIds,
-              latitude,
-              longitude
-            });
+        const watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            console.log('Live location update:', { latitude, longitude });
+            setCoordinates({ latitude, longitude });
+            
+            // Determine in-app recipients (contacts with userId)
+            const recipientIds = displayContacts
+              .filter(c => c.userId)
+              .map(c => c.userId);
+              
+            if (recipientIds.length > 0) {
+              console.log('Sending live location to recipients:', recipientIds);
+              socketService.emit('sos_location_update', {
+                recipientIds,
+                latitude,
+                longitude,
+                timestamp: new Date()
+              });
+            } else {
+              console.log('No app users to send live location to');
+            }
+          },
+          (err) => {
+            console.error('Error watching position:', err);
+            setError('Live location sharing failed: ' + err.message);
+            setIsLiveSharing(false);
+          },
+          {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 5000
           }
-        });
+        );
+        
+        setWatchIdRef(watchId);
+        console.log('Location watch started with ID:', watchId);
       } catch (e) {
         console.error('Error starting geolocation watch:', e);
+        setError('Failed to start location sharing: ' + e.message);
+        setIsLiveSharing(false);
       }
     };
+    
     startWatch();
+    
     return () => {
-      if (watchId !== null && navigator.geolocation && navigator.geolocation.clearWatch) {
-        navigator.geolocation.clearWatch(watchId);
+      if (watchIdRef && navigator.geolocation && navigator.geolocation.clearWatch) {
+        console.log('Clearing location watch:', watchIdRef);
+        navigator.geolocation.clearWatch(watchIdRef);
+        setWatchIdRef(null);
       }
     };
   }, [isLiveSharing, displayContacts]);
@@ -285,11 +325,24 @@ export default function Sos() {
   };
 
   const stopLiveSharing = () => {
-    setIsLiveSharing(false);
+    console.log('Stopping live location sharing...');
+    
+    // Clear the location watch
+    if (watchIdRef && navigator.geolocation && navigator.geolocation.clearWatch) {
+      console.log('Clearing location watch:', watchIdRef);
+      navigator.geolocation.clearWatch(watchIdRef);
+      setWatchIdRef(null);
+    }
+    
+    // Notify recipients that live sharing has stopped
     const recipientIds = displayContacts.filter(c => c.userId).map(c => c.userId);
-    if (recipientIds.length) {
+    if (recipientIds.length > 0) {
+      console.log('Notifying recipients that live sharing stopped:', recipientIds);
       socketService.emit('sos_stop_sharing', { recipientIds });
     }
+    
+    setIsLiveSharing(false);
+    setError(''); // Clear any location-related errors
   };
 
   return (
@@ -370,6 +423,9 @@ export default function Sos() {
               <p>Raw contacts: {JSON.stringify(contacts)}</p>
               <p>Display contacts: {JSON.stringify(displayContacts)}</p>
               <p>Current user ID: {currentUserId}</p>
+              <p>Live sharing: {isLiveSharing ? 'Active' : 'Inactive'}</p>
+              <p>Watch ID: {watchIdRef || 'None'}</p>
+              <p>Coordinates: {coordinates.latitude && coordinates.longitude ? `${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}` : 'Not available'}</p>
             </details>
           </div>
         )}
@@ -387,6 +443,11 @@ export default function Sos() {
                 <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
                   {c.phone || 'App User'}
                 </span>
+                {c.userId && (
+                  <span className="text-xs text-green-600 dark:text-green-400 ml-2">
+                    📱 App User
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => removeContact(index)}
@@ -397,6 +458,18 @@ export default function Sos() {
             </li>
           ))}
         </ul>
+        
+        {/* Debug info when contacts exist */}
+        {displayContacts.length > 0 && (
+          <details className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            <summary>Debug: Live Location Status</summary>
+            <p>Live sharing: {isLiveSharing ? '🟢 Active' : '🔴 Inactive'}</p>
+            <p>Watch ID: {watchIdRef || 'None'}</p>
+            <p>Coordinates: {coordinates.latitude && coordinates.longitude ? `${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}` : 'Not available'}</p>
+            <p>App users: {displayContacts.filter(c => c.userId).length} of {displayContacts.length}</p>
+            <p>App user IDs: {displayContacts.filter(c => c.userId).map(c => c.userId).join(', ') || 'None'}</p>
+          </details>
+        )}
 
         {/* SOS section */}
         <div className="bg-red-100 dark:bg-red-900 p-4 rounded-lg">
@@ -445,6 +518,20 @@ export default function Sos() {
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
               Your current coordinates will be included in the alert.
             </p>
+          )}
+          
+          {/* Live location status */}
+          {isLiveSharing && (
+            <div className="mt-3 p-2 bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
+              <p className="text-xs text-green-700 dark:text-green-300 text-center">
+                🟢 Live location sharing active - Your location is being updated in real-time
+              </p>
+              {coordinates.latitude && coordinates.longitude && (
+                <p className="text-xs text-green-600 dark:text-green-400 text-center mt-1">
+                  Current: {coordinates.latitude.toFixed(5)}, {coordinates.longitude.toFixed(5)}
+                </p>
+              )}
+            </div>
           )}
         </div>
       </div>
