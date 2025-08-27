@@ -1,5 +1,6 @@
 // server/controllers/authController.js - Fixed implementation
 const User = require('../models/User');
+const Routine = require('../models/Routine');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -287,6 +288,10 @@ const deleteAccount = async (req, res) => {
             });
         }
 
+        // Delete user's routine entries
+        await Routine.deleteMany({ userId });
+        
+        // Delete user account
         await User.findByIdAndDelete(userId);
 
         res.json({
