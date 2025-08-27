@@ -126,3 +126,24 @@ export function getCurrentUserStatus() {
   if (!userId) return Promise.reject('No user ID found');
   return API.get(`/users/status/${userId}`);
 }
+
+// Auto-status related functions
+export function getNextClassInfo() {
+  return API.get('/users/next-class');
+}
+
+export function triggerAutoStatusUpdate() {
+  return API.post('/users/trigger-auto-status');
+}
+
+export function getTodayRoutine() {
+  return API.get('/users/today-routine');
+}
+
+export function checkAutoStatusSetup() {
+  return API.get('/users/auto-status-setup');
+}
+
+export function debugAutoStatus() {
+  return API.get('/users/debug-auto-status');
+}

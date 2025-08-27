@@ -201,3 +201,21 @@ setInterval(async () => {
 }, cleanupInterval);
 
 console.log(`🕐 Scheduled notification cleanup set to run every ${cleanupInterval / (60 * 1000)} minutes`);
+
+// Scheduled auto-status updates (runs every 5 minutes)
+const autoStatusInterval = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+setInterval(async () => {
+  try {
+    console.log('🔄 Running scheduled auto-status updates...');
+    const AutoStatusService = require('./services/autoStatusService');
+    const updatedUsers = await AutoStatusService.updateAllAutoUsers();
+    if (updatedUsers.length > 0) {
+      console.log(`✅ Auto-status updates completed. Updated ${updatedUsers.length} users.`);
+    }
+  } catch (error) {
+    console.error('❌ Error during scheduled auto-status updates:', error);
+  }
+}, autoStatusInterval);
+
+console.log(`🔄 Scheduled auto-status updates set to run every ${autoStatusInterval / (60 * 1000)} minutes`);
