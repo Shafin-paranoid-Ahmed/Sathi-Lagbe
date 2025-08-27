@@ -63,25 +63,16 @@ export default function NotificationBell() {
       } catch (error) {
         // Silently fail
       }
+    } else if (notification.type === 'sos') {
+      const { latitude, longitude } = notification.data?.coordinates || {};
+      if (latitude && longitude) {
+        window.open(`https://www.google.com/maps?q=${latitude},${longitude}`, '_blank');
+      }
+      setShowDropdown(false);
     } else if (notification.data?.rideId) {
         setShowDropdown(false);
         navigate(`/rides/${notification.data.rideId}/manage`);
     }
-  };
-
-  const handleTrackLive = (senderId) => {
-    if (!senderId) return;
-    // Add sender to a list in session storage to track them
-    const trackedUsers = JSON.parse(sessionStorage.getItem('liveTrackingSosUsers') || '[]');
-    if (!trackedUsers.includes(senderId)) {
-      trackedUsers.push(senderId);
-      sessionStorage.setItem('liveTrackingSosUsers', JSON.stringify(trackedUsers));
-      // Dispatch a custom event to notify other components of the change
-      window.dispatchEvent(new Event('storageUpdated'));
-    }
-    setShowDropdown(false);
-    // Optionally, you could navigate to a map page here
-    // navigate('/map'); 
   };
 
   const fetchUnreadCount = async () => {
@@ -365,17 +356,6 @@ export default function NotificationBell() {
                             className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                           >
                             Mark as read
-                          </button>
-                        )}
-                        {notification.type === 'sos' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTrackLive(notification.sender?._id);
-                            }}
-                            className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-                          >
-                            Track Live
                           </button>
                         )}
                       </div>
