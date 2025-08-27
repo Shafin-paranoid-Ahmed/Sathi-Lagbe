@@ -21,6 +21,9 @@ router.get('/:id', auth, userController.getUserProfile);
 // Update current user's profile
 router.put('/profile', auth, userController.updateProfile);
 
+// Update user settings (e.g., routine sharing)
+router.put('/profile/settings', auth, userController.updateSettings);
+
 // Update user status
 router.patch('/status', auth, userController.updateStatus);
 

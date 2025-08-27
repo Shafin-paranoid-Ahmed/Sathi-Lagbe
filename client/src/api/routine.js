@@ -6,6 +6,11 @@ export function getUserRoutine() {
   return API.get('/routine');
 }
 
+// Get routines of user's friends
+export function getFriendsRoutines() {
+    return API.get('/routine/friends');
+}
+
 // Add new routine entry
 export function addRoutineEntry(entryData) {
   return API.post('/routine', entryData);

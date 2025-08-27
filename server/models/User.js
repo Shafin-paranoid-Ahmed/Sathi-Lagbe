@@ -1,4 +1,4 @@
-// server/models/User.js - Merged version
+
 const mongoose = require('mongoose');
 
 const UserSchema = new mongoose.Schema({
@@ -19,6 +19,9 @@ const UserSchema = new mongoose.Schema({
   preferences: {
     darkMode: { type: Boolean, default: false }
   },
+
+  // Routine Sharing Preference
+  routineSharingEnabled: { type: Boolean, default: true },
   
   // Ride history from Sathi_Lagbe
   rideHistory: [
@@ -46,4 +49,4 @@ const UserSchema = new mongoose.Schema({
   totalRatings: { type: Number, default: 0, min: 0 }
 }, { timestamps: true });
 
-module.exports = mongoose.model('User', UserSchema); 
+module.exports = mongoose.model('User', UserSchema);
