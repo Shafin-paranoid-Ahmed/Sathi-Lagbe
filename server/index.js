@@ -26,6 +26,7 @@ const userRoutes = require('./routes/userRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const ratingRoutes = require('./routes/ratingRoutes');
 const routineRoutes = require('./routes/routineRoutes');
+const { startAutoStatusScheduler } = require('./services/autoStatusService');
 
 const app = express();
 
@@ -239,3 +240,10 @@ setInterval(async () => {
 }, cleanupInterval);
 
 console.log(`🕐 Scheduled notification cleanup set to run every ${cleanupInterval / (60 * 1000)} minutes`);
+
+// Start auto status scheduler (updates 'in_class' based on Routine and notifies friends)
+try {
+  startAutoStatusScheduler({ intervalMs: 5 * 60 * 1000 }); // every 5 minutes
+} catch (e) {
+  console.warn('Failed to start auto status scheduler:', e?.message);
+}
