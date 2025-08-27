@@ -1,5 +1,6 @@
 // client/src/pages/Chat.jsx - Enhanced version with Socket.IO real-time chat
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   getAllChats,
   getChatMessages,
@@ -13,6 +14,7 @@ import FriendList from '../components/FriendList';
 import { MessageSquareIcon, SendIcon, ArrowLeftIcon, CheckIcon, PlusIcon, UserIcon } from 'lucide-react';
 
 export default function Chat() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('chats'); // 'chats' or 'friends'
   const [chats, setChats] = useState(() => {
     // Try to load from localStorage for persistence, per user
@@ -41,12 +43,28 @@ export default function Chat() {
   const token = sessionStorage.getItem('token');
   const isInitialLoad = useRef(true);
   const [replyTo, setReplyTo] = useState(null);
+  const [showWhereAreYouButton, setShowWhereAreYouButton] = useState(false);
 
   // Use a ref to hold the current selected chat to avoid stale closures in socket handlers
   const selectedChatRef = useRef(selectedChat);
   useEffect(() => {
     selectedChatRef.current = selectedChat;
   }, [selectedChat]);
+
+  useEffect(() => {
+    if (location.state && location.state.chat) {
+      const incomingChat = location.state.chat;
+      // If the chat is not already in the list, add it
+      if (!chats.find(c => c._id === incomingChat._id)) {
+        setChats(prev => [incomingChat, ...prev]);
+      }
+      setSelectedChat(incomingChat);
+
+      if(location.state.from === 'status_notification'){
+          setShowWhereAreYouButton(true);
+      }
+    }
+  }, [location.state, chats]);
 
   const fetchChats = useCallback(async () => {
     if (!currentUserId) {
@@ -395,6 +413,11 @@ export default function Chat() {
         )
       );
     }
+  };
+
+  const handleQuickReply = (message) => {
+    setDraft(message);
+    setShowWhereAreYouButton(false);
   };
 
   // Handle pressing Enter to send
@@ -827,6 +850,13 @@ export default function Chat() {
                     >
                       ✕
                     </button>
+                  </div>
+                )}
+                {showWhereAreYouButton && (
+                  <div className="mb-2">
+                      <button onClick={() => handleQuickReply("Where are you on campus?")} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-sm rounded-full hover:bg-gray-300 dark:hover:bg-gray-600">
+                          Where are you on campus?
+                      </button>
                   </div>
                 )}
                 <div className="flex items-end space-x-3">

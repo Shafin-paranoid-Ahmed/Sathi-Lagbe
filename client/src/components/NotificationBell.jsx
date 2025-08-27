@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { BellIcon } from '@heroicons/react/24/outline';
+import { BellIcon, UserIcon } from '@heroicons/react/24/outline';
+import { useNavigate } from 'react-router-dom';
 import { API } from '../api/auth';
+import { createChat } from '../api/chat';
 import socketService from '../services/socketService';
 
 export default function NotificationBell() {
@@ -10,6 +12,7 @@ export default function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
   const [categories, setCategories] = useState([]);
+  const navigate = useNavigate();
   useEffect(() => {
     fetchUnreadCount();
     fetchCategories();
@@ -38,12 +41,37 @@ export default function NotificationBell() {
     };
   }, []);
 
+  const handleNotificationClick = async (notification) => {
+    // Mark as read first
+    if (!notification.isRead) {
+      markAsRead(notification._id);
+    }
+
+    if (notification.type === 'status_change') {
+      try {
+        const senderId = notification.sender?._id;
+        if (senderId) {
+          const res = await createChat([senderId]);
+          if (res.data && res.data.data) {
+            setShowDropdown(false); // close dropdown
+            navigate('/chat', { state: { chat: res.data.data, from: 'status_notification' } });
+          }
+        }
+      } catch (error) {
+        // Silently fail
+      }
+    } else if (notification.data?.rideId) {
+        setShowDropdown(false);
+        navigate(`/rides/${notification.data.rideId}/manage`);
+    }
+  };
+
   const fetchUnreadCount = async () => {
     try {
       const response = await API.get('/notifications/unread-count');
       setUnreadCount(response.data.count);
     } catch (error) {
-      console.error('Error fetching unread count:', error);
+      // Silently fail
     }
   };
 
@@ -52,7 +80,7 @@ export default function NotificationBell() {
       const response = await API.get('/notifications/categories');
       setCategories(response.data.categories);
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      // Silently fail
     }
   };
 
@@ -67,7 +95,7 @@ export default function NotificationBell() {
       const response = await API.get('/notifications', { params });
       setNotifications(response.data);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      // Silently fail
     } finally {
       setLoading(false);
     }
@@ -84,7 +112,7 @@ export default function NotificationBell() {
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      // Silently fail
     }
   };
 
@@ -103,7 +131,7 @@ export default function NotificationBell() {
       // Refresh categories to update unread counts
       fetchCategories();
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      // Silently fail
     }
   };
 
@@ -114,7 +142,7 @@ export default function NotificationBell() {
       setNotifications(prev => prev.filter(notif => notif._id !== notificationId));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('Error deleting notification:', error);
+      // Silently fail
     }
   };
 
@@ -140,6 +168,8 @@ export default function NotificationBell() {
       case 'group_ride_suggestion':
       case 'safety_checkin':
         return <span className={`${iconClasses} text-green-500`}>👥</span>;
+      case 'status_change':
+        return <UserIcon className={`${iconClasses} text-yellow-500`} />;
       case 'better_match_found':
       case 'recurring_ride_alert':
       case 'location_suggestion':
@@ -271,9 +301,10 @@ export default function NotificationBell() {
               notifications.map(notification => (
                 <div
                   key={notification._id}
+                  onClick={() => handleNotificationClick(notification)}
                   className={`p-4 border-l-4 ${getPriorityColor(notification.priority)} ${
                     !notification.isRead ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                  } hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors`}
+                  } hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer`}
                 >
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0">
