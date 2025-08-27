@@ -1,13 +1,15 @@
-// client/src/pages/Classroom.jsx
+// client/src/pages/Classroom.jsx - Enhanced with Module 3
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { AcademicCapIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { AcademicCapIcon, CheckCircleIcon, XCircleIcon, ClockIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { API } from '../api/auth';
+import ClassroomAvailability from '../components/ClassroomAvailability';
 
 export default function Classroom() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showModule3, setShowModule3] = useState(false);
 
   const fetchClassrooms = async () => {
     try {
@@ -66,6 +68,24 @@ export default function Classroom() {
     );
   }
 
+  // Show Module 3 if enabled
+  if (showModule3) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => setShowModule3(false)}
+            className="flex items-center space-x-2 text-primary-600 hover:text-primary-700"
+          >
+            <AcademicCapIcon className="h-5 w-5" />
+            <span>← Back to Basic View</span>
+          </button>
+        </div>
+        <ClassroomAvailability />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="mb-8 flex justify-between items-center">
@@ -75,9 +95,18 @@ export default function Classroom() {
             Check the availability of classrooms across campus.
             </p>
         </div>
-        <button onClick={handleSetAllAvailable} className="bg-primary-500 text-white px-4 py-2 rounded-md hover:bg-primary-600">
-            Set All to Available
-        </button>
+        <div className="flex space-x-4">
+          <button 
+            onClick={() => setShowModule3(true)}
+            className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-md hover:from-purple-600 hover:to-pink-600 transition-all duration-200"
+          >
+            <SparklesIcon className="h-5 w-5" />
+            <span>Module 3: Enhanced View</span>
+          </button>
+          <button onClick={handleSetAllAvailable} className="bg-primary-500 text-white px-4 py-2 rounded-md hover:bg-primary-600">
+              Set All to Available
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-red-500">{error}</p>}
@@ -113,8 +142,8 @@ export default function Classroom() {
         
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-warning-100">
-              <ClockIcon className="h-6 w-6 text-warning-600" />
+            <div className="p-3 rounded-full bg-primary-100">
+              <AcademicCapIcon className="h-6 w-6 text-primary-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
