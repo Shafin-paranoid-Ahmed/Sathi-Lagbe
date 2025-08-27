@@ -25,6 +25,7 @@ const freeRoutes = require('./routes/freeRoutes');
 const userRoutes = require('./routes/userRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const ratingRoutes = require('./routes/ratingRoutes');
+const routineRoutes = require('./routes/routineRoutes');
 
 const app = express();
 
@@ -61,6 +62,7 @@ app.use('/api/free', freeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/ratings', ratingRoutes);
+app.use('/api/routine', routineRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
