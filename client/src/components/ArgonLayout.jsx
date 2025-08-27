@@ -103,7 +103,7 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
           sessionStorage.setItem(`userAvatarUrl_${userId}`, av);
         }
       } catch (error) {
-        console.error('Error refreshing user data:', error);
+        // Silent error handling
       }
     })();
 
@@ -116,7 +116,6 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     const handleUserNameChange = (event) => {
       const newUserName = event.detail.userName;
       setUserName(newUserName);
-      console.log('UserName updated in ArgonLayout:', newUserName);
     };
 
     window.addEventListener('userNameChanged', handleUserNameChange);
@@ -131,16 +130,11 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     const token = sessionStorage.getItem('token');
     const userId = sessionStorage.getItem('userId');
     if (token) {
-      console.log('=== SOCKET CONNECTION DEBUG ===');
-      console.log('Token exists, connecting socket for user:', userId);
       try {
         socketService.connect(token);
-        console.log('Socket connect initiated');
       } catch (e) {
-        console.error('Socket connect error:', e);
+        // Silent error handling
       }
-    } else {
-      console.log('No token found, cannot connect socket');
     }
   }, []);
 
@@ -151,7 +145,7 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
         setCurrentStatus(response.data.status.current);
       }
     } catch (error) {
-      console.error('Error fetching status:', error);
+      // Silent error handling
     }
   };
 
@@ -163,7 +157,7 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
       await updateStatus({ status: newStatus });
       setCurrentStatus(newStatus);
     } catch (error) {
-      console.error('Error updating status:', error);
+      // Silent error handling
     } finally {
       setStatusLoading(false);
     }
@@ -194,7 +188,7 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     try {
       await logout();
     } catch (err) {
-      console.error('Logout error:', err);
+      // Silent error handling
     }
     setIsAuthenticated(false);
     navigate('/login');
@@ -453,21 +447,49 @@ export default ArgonLayout;
 
 // Inline component to display live SOS updates for recipients
 function LiveSosToast() {
-  const [activeShare, setActiveShare] = React.useState(null); // {senderId, latitude, longitude, timestamp}
+  const [activeShares, setActiveShares] = React.useState([]); // Array of active SOS shares
+  const [currentUserId] = React.useState(sessionStorage.getItem('userId'));
 
   React.useEffect(() => {
-    const offUpdate = socketService.addListener
-      ? null
-      : null;
-    const onUpdate = (data) => {
-      setActiveShare({ ...data });
+    // Listen for SOS location updates (both as sender and recipient)
+    const handleLocationUpdate = (data) => {
+      setActiveShares(prev => {
+        // Remove any existing share from the same sender
+        const filtered = prev.filter(share => share.senderId !== data.senderId);
+        // Add the new/updated share
+        return [...filtered, {
+          senderId: data.senderId,
+          senderName: data.senderName || 'Unknown User',
+          latitude: data.latitude,
+          longitude: data.longitude,
+          timestamp: data.timestamp || new Date(),
+          isOwnShare: data.senderId === currentUserId
+        }];
+      });
     };
-    const onStop = () => setActiveShare(null);
 
-    // Subscribe to socket events
-    socketService.onNewNotification(() => {}); // ensure connection
-    socketService.addListener ? socketService.addListener('sos_location_update', onUpdate) : null;
-    socketService.addListener ? socketService.addListener('sos_stop_sharing', onStop) : null;
+    const handleStopSharing = (data) => {
+      if (data.senderId) {
+        setActiveShares(prev => prev.filter(share => share.senderId !== data.senderId));
+      } else if (data.recipientIds && data.recipientIds.includes(currentUserId)) {
+        // If we're a recipient and sharing stopped, clear all shares
+        setActiveShares([]);
+      }
+    };
+
+    // Listen for new SOS alerts that might start live sharing
+    const handleNewSosAlert = (notification) => {
+      if (notification.type === 'sos' && notification.senderId !== currentUserId) {
+        // The location updates will come through the socket events
+      }
+    };
+
+    // Set up socket listeners
+    if (socketService.addListener) {
+      socketService.addListener('sos_location_update', handleLocationUpdate);
+      socketService.addListener('sos_stop_sharing', handleStopSharing);
+      socketService.onNewNotification(handleNewSosAlert);
+    }
 
     return () => {
       if (socketService.off) {
@@ -475,36 +497,63 @@ function LiveSosToast() {
         socketService.off('sos_stop_sharing');
       }
     };
-  }, []);
+  }, [currentUserId]);
 
-  if (!activeShare) return null;
-
-  const { latitude, longitude } = activeShare;
-  const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+  // Don't show anything if no active shares
+  if (activeShares.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] max-w-sm w-full">
-      <div className="bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg shadow-lg p-4 animate-fade-in">
-        <div className="flex items-start space-x-3">
-          <div className="flex-shrink-0">
-            <MapPinIcon className="h-6 w-6 text-red-600" />
+    <div className="fixed bottom-4 right-4 z-[100] space-y-3 max-w-sm w-full">
+      {activeShares.map((share, index) => {
+        const mapsUrl = `https://www.google.com/maps?q=${share.latitude},${share.longitude}`;
+        const timeAgo = Math.floor((new Date() - new Date(share.timestamp)) / 1000);
+        const timeText = timeAgo < 60 ? 'Just now' : `${Math.floor(timeAgo / 60)}m ago`;
+
+        return (
+          <div key={share.senderId} className="bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg shadow-lg p-4 animate-fade-in">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0">
+                <MapPinIcon className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                    {share.isOwnShare ? 'Your Live SOS Location' : `Live SOS: ${share.senderName}`}
+                  </p>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{timeText}</span>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-300 break-words mb-2">
+                  {share.latitude.toFixed(5)}, {share.longitude.toFixed(5)}
+                </p>
+                <div className="flex space-x-2">
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block text-xs px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                  >
+                    Open in Maps
+                  </a>
+                  {share.isOwnShare && (
+                    <button
+                      onClick={() => {
+                        // Stop sharing for own SOS
+                        socketService.emit('sos_stop_sharing', { 
+                          senderId: currentUserId,
+                          recipientIds: [] // Will be filled by server
+                        });
+                      }}
+                      className="inline-block text-xs px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                    >
+                      Stop Sharing
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-red-700 dark:text-red-300">Live SOS Location</p>
-            <p className="text-xs text-gray-600 dark:text-gray-300 break-words">
-              {latitude.toFixed(5)}, {longitude.toFixed(5)}
-            </p>
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-block mt-2 text-xs px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              Open in Maps
-            </a>
-          </div>
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 }

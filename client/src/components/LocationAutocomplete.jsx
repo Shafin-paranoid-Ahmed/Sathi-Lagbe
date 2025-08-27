@@ -36,7 +36,6 @@ const LocationAutocomplete = ({
           );
           setApiAvailable(true);
         } catch (err) {
-          console.error('Failed to initialize Google Places API:', err);
           setApiAvailable(false);
         }
       } else {
@@ -58,7 +57,6 @@ const LocationAutocomplete = ({
       }
 
       if (!apiAvailable || !autocompleteService.current) {
-        console.warn('Google Places Autocomplete service not available');
         return;
       }
 
@@ -82,7 +80,6 @@ const LocationAutocomplete = ({
             setSuggestions([]);
             setShowSuggestions(false);
           } else {
-            console.error('Places API error:', status);
             setError('Unable to fetch location suggestions');
             setSuggestions([]);
             setShowSuggestions(false);
@@ -91,7 +88,6 @@ const LocationAutocomplete = ({
       } catch (err) {
         setLoading(false);
         setError('Error fetching suggestions');
-        console.error('Autocomplete error:', err);
       }
     }, 300),
     [apiAvailable]

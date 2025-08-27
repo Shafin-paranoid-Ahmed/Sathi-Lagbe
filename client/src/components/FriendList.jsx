@@ -23,7 +23,6 @@ export default function FriendList({ onSelectChat }) {
       const res = await getAllUsers();
       setUsers(res.data || []);
     } catch (err) {
-      console.error('Failed to fetch users:', err);
       setError(err.response?.data?.error || 'Failed to load users');
     } finally {
       setLoading(false);
@@ -42,7 +41,6 @@ export default function FriendList({ onSelectChat }) {
       const res = await searchUsers(searchQuery);
       setUsers(res.data || []);
     } catch (err) {
-      console.error('Search failed:', err);
       setError(err.response?.data?.error || 'Search failed');
     } finally {
       setLoading(false);
@@ -60,8 +58,6 @@ export default function FriendList({ onSelectChat }) {
       // Create a new chat with the selected user
       const res = await createChat([userId]);
       
-      console.log('Chat created successfully:', res.data);
-      
       // Check if the response contains data
       if (res.data && res.data.data) {
         // Pass the chat data to the parent component
@@ -70,7 +66,6 @@ export default function FriendList({ onSelectChat }) {
         throw new Error('Invalid response format from server');
       }
     } catch (err) {
-      console.error('Failed to start chat:', err);
       setError(err.response?.data?.error || 'Failed to start chat. Please try again.');
     } finally {
       setProcessingChat(prev => ({ ...prev, [userId]: false }));

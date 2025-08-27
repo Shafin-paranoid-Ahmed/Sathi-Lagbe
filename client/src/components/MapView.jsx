@@ -52,16 +52,12 @@ function Directions({ start, end }) {
     geocodingService.geocode({ address: start }, (results, status) => {
       if (status === 'OK') {
         setStartPoint(results[0].geometry.location);
-      } else {
-        console.error(`Geocode was not successful for the following reason: ${status}`);
       }
     });
 
     geocodingService.geocode({ address: end }, (results, status) => {
       if (status === 'OK') {
         setEndPoint(results[0].geometry.location);
-      } else {
-        console.error(`Geocode was not successful for the following reason: ${status}`);
       }
     });
   }, [geocodingService, start, end]);
@@ -78,7 +74,7 @@ function Directions({ start, end }) {
       .then((response) => {
         directionsRenderer.setDirections(response);
       })
-      .catch((e) => console.error("Directions request failed due to " + e.status));
+      .catch(() => {});
 
     return () => directionsRenderer.setMap(null);
   }, [directionsService, directionsRenderer, startPoint, endPoint]);

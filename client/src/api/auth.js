@@ -29,9 +29,6 @@ API.interceptors.response.use(
   (error) => {
     // Handle 401 errors (unauthorized)
     if (error.response && error.response.status === 401 && !isRedirecting) {
-      console.error('Authentication error (401):', error.response?.data);
-      console.error('Request that failed:', error.config.url);
-      
       // Prevent multiple redirects
       isRedirecting = true;
       
@@ -47,10 +44,9 @@ API.interceptors.response.use(
         localStorage.removeItem(`userAvatarUrl_${userId}`);
         localStorage.removeItem(`darkMode_${userId}`);
         localStorage.removeItem(`theme_${userId}`);
-        console.log('Cleared user-specific data on 401 error for:', userId);
       }
       
-      // Add a small delay before redirecting to allow console logs to be seen
+      // Add a small delay before redirecting
       setTimeout(() => {
         window.location.href = '/login?expired=true';
         isRedirecting = false; // Reset flag
@@ -67,9 +63,6 @@ export function signup(details) {
 export function login(credentials) {
   return API.post('/auth/login', credentials)
     .then(response => {
-      // Log successful login data
-      console.log('Login successful, received data:', response.data);
-      
       // Clear any existing user-specific data from previous sessions
       const previousUserId = sessionStorage.getItem('userId');
       if (previousUserId) {
@@ -77,7 +70,6 @@ export function login(credentials) {
         localStorage.removeItem(`userAvatarUrl_${previousUserId}`);
         localStorage.removeItem(`darkMode_${previousUserId}`);
         localStorage.removeItem(`theme_${previousUserId}`);
-        console.log('Cleared previous user data for:', previousUserId);
       }
       
       return response;
@@ -105,8 +97,6 @@ export function logout() {
     localStorage.removeItem(`userAvatarUrl_${userId}`);
     localStorage.removeItem(`darkMode_${userId}`);
     localStorage.removeItem(`theme_${userId}`);
-    
-    console.log('Cleared user-specific data for:', userId);
   }
   
   return API.post('/auth/logout');

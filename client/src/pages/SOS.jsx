@@ -36,9 +36,6 @@ export default function Sos() {
       setLoading(true);
       try {
         const res = await getContacts();
-        console.log('=== SOS CONTACTS DEBUG ===');
-        console.log('API Response:', res);
-        console.log('Current User ID:', currentUserId);
         
         // Handle different API response structures
         let contactsData = [];
@@ -50,10 +47,8 @@ export default function Sos() {
           contactsData = [];
         }
         
-        console.log('Parsed contacts data:', contactsData);
         setContacts(contactsData);
-      } catch (err) {
-        console.error('Failed to load contacts:', err);
+      } catch {
         setError('Failed to load contacts');
       } finally {
         setLoading(false);
@@ -79,7 +74,6 @@ export default function Sos() {
   useEffect(() => {
     return () => {
       if (watchIdRef && navigator.geolocation && navigator.geolocation.clearWatch) {
-        console.log('Component unmounting - clearing location watch:', watchIdRef);
         navigator.geolocation.clearWatch(watchIdRef);
       }
     };
@@ -108,14 +102,11 @@ export default function Sos() {
     if (!isLiveSharing) return;
     if (!navigator.geolocation) return;
     
-    console.log('Starting live location sharing...');
-    
     const startWatch = () => {
       try {
         const watchId = navigator.geolocation.watchPosition(
           (pos) => {
             const { latitude, longitude } = pos.coords;
-            console.log('Live location update:', { latitude, longitude });
             setCoordinates({ latitude, longitude });
             
             // Determine in-app recipients (contacts with userId)
@@ -124,16 +115,13 @@ export default function Sos() {
               .map(c => c.userId);
               
             if (recipientIds.length > 0) {
-              console.log('Sending live location to recipients:', recipientIds);
               socketService.emit('sos_location_update', {
                 recipientIds,
                 latitude,
                 longitude,
                 timestamp: new Date()
               });
-            } else {
-              console.log('No app users to send live location to');
-            }
+                          }
           },
           (err) => {
             console.error('Error watching position:', err);
@@ -147,24 +135,21 @@ export default function Sos() {
           }
         );
         
-        setWatchIdRef(watchId);
-        console.log('Location watch started with ID:', watchId);
-      } catch (e) {
-        console.error('Error starting geolocation watch:', e);
-        setError('Failed to start location sharing: ' + e.message);
+                  setWatchIdRef(watchId);
+              } catch (e) {
+          setError('Failed to start location sharing: ' + e.message);
         setIsLiveSharing(false);
       }
     };
     
     startWatch();
     
-    return () => {
-      if (watchIdRef && navigator.geolocation && navigator.geolocation.clearWatch) {
-        console.log('Clearing location watch:', watchIdRef);
-        navigator.geolocation.clearWatch(watchIdRef);
-        setWatchIdRef(null);
-      }
-    };
+          return () => {
+        if (watchIdRef && navigator.geolocation && navigator.geolocation.clearWatch) {
+          navigator.geolocation.clearWatch(watchIdRef);
+          setWatchIdRef(null);
+        }
+      };
   }, [isLiveSharing, displayContacts]);
 
   // Load accepted friends for dropdown when toggled
@@ -222,11 +207,8 @@ export default function Sos() {
       };
       setContacts(prev => {
         const newContacts = [...prev, contactToAdd];
-        console.log('Saving contacts to backend:', newContacts);
         saveContacts(newContacts)
-          .then(() => console.log('Contacts saved successfully'))
-          .catch((err) => {
-            console.error('Failed to save contact:', err);
+          .catch(() => {
             setError('Failed to save contact');
           });
         return newContacts;
@@ -258,11 +240,8 @@ export default function Sos() {
       
       setContacts(prev => {
         const newContacts = [...prev, contactToAdd];
-        console.log('Saving contacts to backend:', newContacts);
         saveContacts(newContacts)
-          .then(() => console.log('Contacts saved successfully'))
-          .catch((err) => {
-            console.error('Failed to save contact:', err);
+          .catch(() => {
             setError('Failed to save contact');
           });
         return newContacts;
@@ -275,14 +254,11 @@ export default function Sos() {
   // Remove a contact
   const removeContact = (index) => {
     const updated = contacts.filter((_, i) => i !== index);
-    console.log('Removing contact, updated list:', updated);
     setContacts(updated);
     
     // Save to backend
     saveContacts(updated)
-      .then(() => console.log('Contacts updated successfully after removal'))
-      .catch((err) => {
-        console.error('Failed to update contacts:', err);
+      .catch(() => {
         setError('Failed to update contacts');
       });
     
@@ -325,11 +301,8 @@ export default function Sos() {
   };
 
   const stopLiveSharing = () => {
-    console.log('Stopping live location sharing...');
-    
     // Clear the location watch
     if (watchIdRef && navigator.geolocation && navigator.geolocation.clearWatch) {
-      console.log('Clearing location watch:', watchIdRef);
       navigator.geolocation.clearWatch(watchIdRef);
       setWatchIdRef(null);
     }
@@ -337,7 +310,6 @@ export default function Sos() {
     // Notify recipients that live sharing has stopped
     const recipientIds = displayContacts.filter(c => c.userId).map(c => c.userId);
     if (recipientIds.length > 0) {
-      console.log('Notifying recipients that live sharing stopped:', recipientIds);
       socketService.emit('sos_stop_sharing', { recipientIds });
     }
     
