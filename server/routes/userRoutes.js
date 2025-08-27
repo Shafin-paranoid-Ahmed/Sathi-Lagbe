@@ -12,6 +12,9 @@ router.get('/', auth, userController.getAllUsers);
 // Search users by name or email
 router.get('/search', auth, userController.searchUsers);
 
+// Get current user's profile
+router.get('/profile', auth, userController.getCurrentUserProfile);
+
 // Get user profile by ID
 router.get('/:id', auth, userController.getUserProfile);
 

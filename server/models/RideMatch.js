@@ -34,6 +34,12 @@ const rideMatchSchema = new mongoose.Schema({
     enum: ['pending', 'confirmed', 'completed'],
     default: 'pending'
   }, 
+  // Capacity for the ride (total seats available including driver exclusions)
+  availableSeats: {
+    type: Number,
+    min: 1,
+    default: 1
+  },
   // Riders who have requested to join with their seat counts
   requestedRiders: [
     {
@@ -62,6 +68,7 @@ const rideMatchSchema = new mongoose.Schema({
     ratings: [
     {
       riderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      raterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       score: { type: Number, min: 1, max: 5 },
       comment: { type: String }
     }

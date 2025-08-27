@@ -60,6 +60,11 @@ export function getMyRides() {
   return API.get(`/rides/owner/${userId}`);
 }
 
+// Get offered, joined, and requested rides for current user
+export function getMyRidesCombined() {
+  return API.get('/rides/mine/combined');
+}
+
 // Update a ride
 export function updateRide(rideId, updates) {
   return API.put(`/rides/${rideId}`, updates);

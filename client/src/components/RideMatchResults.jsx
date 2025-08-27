@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { searchRides, getAiMatches, requestToJoinRide, getAllAvailableRides } from '../api/rides';
+import { API } from '../api/auth';
 import MapView from './MapView';
 import LocationAutocomplete from './LocationAutocomplete';
 import CustomDateTimePicker from './CustomDateTimePicker';
@@ -27,6 +28,9 @@ export default function RideMatchResults() {
   const [isSearching, setIsSearching] = useState(false);
   const [seatCounts, setSeatCounts] = useState({});
   const [visibleMap, setVisibleMap] = useState(null);
+  const [feedbackOpenFor, setFeedbackOpenFor] = useState(null);
+  const [feedbackData, setFeedbackData] = useState(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   // Feature flag for custom picker - set to false to revert to native picker
   const USE_CUSTOM_PICKER = true;
@@ -34,6 +38,23 @@ export default function RideMatchResults() {
   // Load all available rides on component mount
   useEffect(() => {
     console.log('RideMatchResults useEffect triggered - loading all rides');
+    
+    // Check authentication first
+    const token = sessionStorage.getItem('token');
+    const userId = sessionStorage.getItem('userId');
+    
+    console.log('=== RideMatchResults Auth Check ===');
+    console.log('Token exists:', !!token);
+    console.log('UserId exists:', !!userId);
+    console.log('Token length:', token?.length || 0);
+    console.log('UserId:', userId);
+    
+    if (!token || !userId) {
+      setErrors({ api: 'Please log in to view available rides. Your session may have expired.' });
+      setLoading(false);
+      return;
+    }
+    
     loadAllRides();
   }, []);
 
@@ -54,6 +75,16 @@ export default function RideMatchResults() {
     setSuccess('');
     setIsSearching(false);
     
+    // Check if user is authenticated
+    const token = sessionStorage.getItem('token');
+    const userId = sessionStorage.getItem('userId');
+    
+    if (!token || !userId) {
+      setErrors({ api: 'Please log in to view available rides. Your session may have expired.' });
+      setLoading(false);
+      return;
+    }
+    
     try {
       console.log('=== Frontend: Calling getAllAvailableRides ===');
       const res = await getAllAvailableRides();
@@ -67,7 +98,17 @@ export default function RideMatchResults() {
       }
     } catch (err) {
       console.error('=== Frontend: Error fetching rides ===', err);
-      setErrors({ api: err.response?.data?.error || 'Error fetching rides' });
+      
+      // Handle authentication errors specifically
+      if (err.response?.status === 401) {
+        setErrors({ api: 'Your session has expired. Please log in again to view rides.' });
+        // Clear invalid session data
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('userId');
+        sessionStorage.removeItem('userName');
+      } else {
+        setErrors({ api: err.response?.data?.error || 'Error fetching rides. Please try again.' });
+      }
     } finally {
       setLoading(false);
     }
@@ -94,6 +135,17 @@ export default function RideMatchResults() {
     setLoading(true);
     setIsSearching(true);
     
+    // Check if user is authenticated
+    const token = sessionStorage.getItem('token');
+    const userId = sessionStorage.getItem('userId');
+    
+    if (!token || !userId) {
+      setErrors({ api: 'Please log in to search for rides. Your session may have expired.' });
+      setLoading(false);
+      setIsSearching(false);
+      return;
+    }
+    
     try {
       let res;
       
@@ -108,9 +160,21 @@ export default function RideMatchResults() {
         setSuccess('No rides found matching your criteria.');
       }
     } catch (err) {
-      setErrors({ api: err.response?.data?.error || 'Error fetching rides' });
+      console.error('Error searching rides:', err);
+      
+      // Handle authentication errors specifically
+      if (err.response?.status === 401) {
+        setErrors({ api: 'Your session has expired. Please log in again to search rides.' });
+        // Clear invalid session data
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('userId');
+        sessionStorage.removeItem('userName');
+      } else {
+        setErrors({ api: err.response?.data?.error || 'Error searching rides. Please try again.' });
+      }
     } finally {
       setLoading(false);
+      setIsSearching(false);
     }
   };
 
@@ -133,9 +197,24 @@ export default function RideMatchResults() {
     }
   };
 
-  const getGenderIcon = (gender) => {
-    // Remove emoji function - no longer needed
-    return '';
+  const openFeedback = async (rideId) => {
+    try {
+      setFeedbackOpenFor(rideId);
+      setFeedbackLoading(true);
+      setFeedbackData(null);
+      const res = await API.get(`/feedback/ride/${rideId}/breakdown`);
+      setFeedbackData(res.data);
+    } catch (e) {
+      console.error('Failed to load feedback', e);
+      setFeedbackData({ error: e.response?.data?.error || 'Failed to load feedback' });
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const closeFeedback = () => {
+    setFeedbackOpenFor(null);
+    setFeedbackData(null);
   };
 
   console.log('RideMatchResults render state:', { loading, matches: matches.length, errors, success });
@@ -159,9 +238,35 @@ export default function RideMatchResults() {
         </div>
       )}
 
+      {!hasSubmitted && errors.api && (
+        <div className="p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded">
+          {errors.api}
+          {errors.api.includes('log in') && (
+            <div className="mt-2">
+              <a 
+                href="/login" 
+                className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Go to Login
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+
       {hasSubmitted && errors.api && (
         <div className="p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded">
           {errors.api}
+          {errors.api.includes('log in') && (
+            <div className="mt-2">
+              <a 
+                href="/login" 
+                className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Go to Login
+              </a>
+            </div>
+          )}
         </div>
       )}
       
@@ -300,96 +405,151 @@ export default function RideMatchResults() {
           </div>
         )}
         
-        {!loading && filteredMatches.map(ride => (
-          <div 
-            key={ride._id} 
-            className="border border-gray-200 dark:border-gray-600 p-4 rounded-lg shadow-sm bg-gray-50 dark:bg-gray-700"
-          >
-            {useAI && isSearching && (
-              <div className="mb-2">
-                <span className="inline-block bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded text-sm">
-                  Match Score: {ride.matchScore}%
-                </span>
-              </div>
-            )}
-            
-            {/* User Information */}
-            <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-              <div className="flex items-center space-x-2">
+        {!loading && filteredMatches.map(ride => {
+          // Add a failsafe check in case the backend sends a ride with a null riderId
+          if (!ride.riderId) {
+            return null; // Don't render this ride
+          }
+          return (
+            <div 
+              key={ride._id} 
+              className="border border-gray-200 dark:border-gray-700 p-4 rounded-lg shadow-sm bg-gray-50 dark:bg-gray-700"
+            >
+              {useAI && isSearching && (
+                <div className="mb-2">
+                  <span className="inline-block bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded text-sm">
+                    Match Score: {ride.matchScore}%
+                  </span>
+                </div>
+              )}
+              
+              <div className="flex items-center space-x-3 mb-3 border-b border-gray-200 dark:border-gray-600 pb-2">
+                {ride.riderId.avatarUrl ? (
+                  <img src={ride.riderId.avatarUrl} alt={ride.riderId.name} className="h-10 w-10 rounded-full object-cover" />
+                ) : (
+                  <div className="h-10 w-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-bold">
+                    {ride.riderId.name.charAt(0)}
+                  </div>
+                )}
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {ride.riderName || ride.riderId?.name || 'Anonymous User'}
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {ride.riderId.name}
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {(() => {
-                      // Try to get gender from the direct field first, then fall back to populated field
-                      const gender = ride.riderGender; // Directly use the consistent field
-        
-                      if (gender && typeof gender === 'string' && gender.trim() !== '') {
-                        // Capitalize the first letter for display
-                        return gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
-                      }
-                      
-                      return 'Gender not specified';
-                    })()}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Ride Owner
                   </p>
                 </div>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
-              <div>
-                <p className="text-gray-700 dark:text-gray-300">
-                  <strong className="text-gray-900 dark:text-gray-100">From:</strong> {ride.startLocation}
-                </p>
-                <p className="text-gray-700 dark:text-gray-300">
-                  <strong className="text-gray-900 dark:text-gray-100">To:</strong> {ride.endLocation}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-700 dark:text-gray-300">
-                  <strong className="text-gray-900 dark:text-gray-100">Departure:</strong>{' '}
-                  {new Date(ride.departureTime).toLocaleString()}
-                </p>
-                {ride.recurring && (
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+                <div>
                   <p className="text-gray-700 dark:text-gray-300">
-                    <strong className="text-gray-900 dark:text-gray-100">Recurring:</strong>{' '}
-                    {ride.recurring.days ? ride.recurring.days.join(', ') : 'Yes'}
+                    <strong className="text-gray-900 dark:text-gray-100">From:</strong> {ride.startLocation}
                   </p>
-                )}
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong className="text-gray-900 dark:text-gray-100">To:</strong> {ride.endLocation}
+                  </p>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong className="text-gray-900 dark:text-gray-100">Seats:</strong> {ride.availableSeats ?? '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong className="text-gray-900 dark:text-gray-100">Departure:</strong>{' '}
+                    {new Date(ride.departureTime).toLocaleString()}
+                  </p>
+                  {ride.recurring && (
+                    <p className="text-gray-700 dark:text-gray-300">
+                      <strong className="text-gray-900 dark:text-gray-100">Recurring:</strong>{' '}
+                      {ride.recurring.days ? ride.recurring.days.join(', ') : 'Yes'}
+                    </p>
+                  )}
+                </div>
               </div>
+              
+              {typeof ride.averageRating !== 'undefined' && ride.averageRating !== null && (
+                <div className="mb-2 text-sm text-gray-700 dark:text-gray-300">
+                  <strong className="text-gray-900 dark:text-gray-100">Owner Rating:</strong> {ride.averageRating} ⭐ ({ride.totalRatings || 0})
+                </div>
+              )}
+              
+              <div className="flex items-center space-x-2 mt-2">
+                <input
+                  type="number"
+                  min="1"
+                  value={seatCounts[ride._id] || 1}
+                  onChange={e => setSeatCounts({ ...seatCounts, [ride._id]: Number(e.target.value) })}
+                  className="w-20 p-2 border rounded bg-white dark:bg-gray-700 dark:text-white"
+                />
+                <button
+                  onClick={() => handleRequestToJoin(ride._id)}
+                  disabled={ride.requested || (ride.availableSeats !== undefined && ride.availableSeats <= 0)}
+                  className="px-4 py-1 bg-green-600 dark:bg-green-700 text-white rounded hover:bg-green-700 dark:hover:bg-green-800 disabled:opacity-50 transition-colors"
+                >
+                  {ride.requested ? 'Request Sent' : (ride.availableSeats !== undefined && ride.availableSeats <= 0 ? 'Full' : 'Request to Join')}
+                </button>
+                <button
+                  onClick={() => openFeedback(ride._id)}
+                  className="px-4 py-1 bg-purple-600 dark:bg-purple-700 text-white rounded hover:bg-purple-700 dark:hover:bg-purple-800 transition-colors"
+                >
+                  See Feedback
+                </button>
+                <button
+                  onClick={() => setVisibleMap(visibleMap === ride._id ? null : ride._id)}
+                  className="px-4 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                >
+                  {visibleMap === ride._id ? 'Hide Route' : 'Show Route'}
+                </button>
+              </div>
+              {visibleMap === ride._id && (
+                <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                  <MapView startLocation={ride.startLocation} endLocation={ride.endLocation} />
+                </div>
+              )}
             </div>
-            
-            <div className="flex items-center space-x-2 mt-2">
-              <input
-                type="number"
-                min="1"
-                value={seatCounts[ride._id] || 1}
-                onChange={e => setSeatCounts({ ...seatCounts, [ride._id]: Number(e.target.value) })}
-                className="w-20 p-2 border rounded bg-white dark:bg-gray-700 dark:text-white"
-              />
-              <button
-                onClick={() => handleRequestToJoin(ride._id)}
-                disabled={ride.requested}
-                className="px-4 py-1 bg-green-600 dark:bg-green-700 text-white rounded hover:bg-green-700 dark:hover:bg-green-800 disabled:opacity-50 transition-colors"
-              >
-                {ride.requested ? 'Request Sent' : 'Request to Join'}
-              </button>
-              <button
-                onClick={() => setVisibleMap(visibleMap === ride._id ? null : ride._id)}
-                className="px-4 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
-              >
-                {visibleMap === ride._id ? 'Hide Route' : 'Show Route'}
-              </button>
+          );
+        })}
+      </div>
+      {feedbackOpenFor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ride Feedback</h3>
+              <button onClick={closeFeedback} className="text-gray-500 hover:text-gray-700">✕</button>
             </div>
-            {visibleMap === ride._id && (
-              <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
-                <MapView startLocation={ride.startLocation} endLocation={ride.endLocation} />
+            {feedbackLoading ? (
+              <div className="text-center py-6 text-gray-500 dark:text-gray-400">Loading...</div>
+            ) : feedbackData?.error ? (
+              <div className="text-center py-6 text-red-600 dark:text-red-400">{feedbackData.error}</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border rounded p-3 border-gray-200 dark:border-gray-700">
+                  <h4 className="font-medium mb-2 text-gray-900 dark:text-white">Passengers about Owner</h4>
+                  {(!feedbackData?.riderFeedback || feedbackData.riderFeedback.length === 0) ? (
+                    <p className="text-sm text-gray-500">No feedback yet.</p>
+                  ) : feedbackData.riderFeedback.map((f, i) => (
+                    <div key={i} className="mb-2">
+                      <p className="text-sm text-gray-800 dark:text-gray-200"><strong>{f.userId?.name || 'User'}:</strong> {f.overallScore}⭐</p>
+                      {f.comments && <p className="text-xs text-gray-500">"{f.comments}"</p>}
+                    </div>
+                  ))}
+                </div>
+                <div className="border rounded p-3 border-gray-200 dark:border-gray-700">
+                  <h4 className="font-medium mb-2 text-gray-900 dark:text-white">Owner about Riders</h4>
+                  {(!feedbackData?.ownerAboutRiders || feedbackData.ownerAboutRiders.length === 0) ? (
+                    <p className="text-sm text-gray-500">No feedback yet.</p>
+                  ) : feedbackData.ownerAboutRiders.map((o, i) => (
+                    <div key={i} className="mb-2">
+                      <p className="text-sm text-gray-800 dark:text-gray-200"><strong>{o.rider?.name || 'Rider'}:</strong> {o.score}⭐</p>
+                      {o.comment && <p className="text-xs text-gray-500">"{o.comment}"</p>}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
