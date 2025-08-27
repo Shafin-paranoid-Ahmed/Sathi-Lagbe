@@ -30,3 +30,18 @@ export function getUserById(userId) {
 export function getUsersByIds(userIds) {
   return API.post('/users/batch', { userIds });
 }
+
+// Get bookmarked classrooms
+export function getBookmarkedClassrooms() {
+  return API.get('/users/bookmarks');
+}
+
+// Add a classroom to bookmarks
+export function addClassroomBookmark(classroomId) {
+  return API.post(`/users/bookmarks/${classroomId}`);
+}
+
+// Remove a classroom from bookmarks
+export function removeClassroomBookmark(classroomId) {
+  return API.delete(`/users/bookmarks/${classroomId}`);
+}

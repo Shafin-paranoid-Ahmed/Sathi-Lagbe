@@ -1,35 +1,35 @@
 // client/src/components/ClassroomAvailability.jsx - Enhanced Classroom Availability System
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   AcademicCapIcon, 
   CheckCircleIcon, 
   XCircleIcon, 
   ClockIcon,
   FunnelIcon,
-  ChartBarIcon,
-  CalendarIcon,
   BuildingOfficeIcon,
   MapPinIcon,
   UsersIcon,
-  CogIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  MagnifyingGlassIcon,
   ChevronDownIcon,
-  ChevronUpIcon
+  ChevronUpIcon,
+  BookmarkIcon
 } from '@heroicons/react/24/outline';
+import { getFilteredClassrooms } from '../api/classrooms';
 import { 
-  getFilteredClassrooms, 
-  getAvailabilityForTimeslot, 
-  getClassroomStats,
-  bulkUpdateTimetables 
-} from '../api/classrooms';
+  getBookmarkedClassrooms, 
+  addClassroomBookmark, 
+  removeClassroomBookmark 
+} from '../api/users';
+
+const capitalize = (str) => {
+  if (typeof str !== 'string' || !str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
 
 export default function ClassroomAvailability() {
-  const [classrooms, setClassrooms] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [allClassrooms, setAllClassrooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [bookmarkedClassrooms, setBookmarkedClassrooms] = useState(new Set());
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -41,20 +41,18 @@ export default function ClassroomAvailability() {
 
   // Time-based availability states
   const [selectedDay, setSelectedDay] = useState('monday');
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState('08:00 AM-09:20 AM');
-  const [availabilityData, setAvailabilityData] = useState(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState('08:00 AM–09:20 AM');
   const [showFilters, setShowFilters] = useState(false);
-  const [activeTab, setActiveTab] = useState('schedule');
 
-  // Sample data structure based on your MongoDB collection
+  // Corrected timeSlots to use en-dash
   const timeSlots = [
-    '08:00 AM-09:20 AM',
-    '09:30 AM-10:50 AM',
-    '11:00 AM-12:20 PM',
-    '12:30 PM-01:50 PM',
-    '02:00 PM-03:20 PM',
-    '03:30 PM-04:50 PM',
-    '05:00 PM-06:20 PM'
+    '08:00 AM–09:20 AM',
+    '09:30 AM–10:50 AM',
+    '11:00 AM–12:20 PM',
+    '12:30 PM–01:50 PM',
+    '02:00 PM–03:20 PM',
+    '03:30 PM–04:50 PM',
+    '05:00 PM–06:20 PM'
   ];
 
   const days = [
@@ -67,43 +65,101 @@ export default function ClassroomAvailability() {
     { value: 'saturday', label: 'Saturday', short: 'SAT' }
   ];
 
-  // Mock data based on your MongoDB structure - Single Building Campus
-  const mockAvailabilityData = [
-    {
-      _id: '68248214551ebbded4bcd349',
-      'Time/Day': '08:00 AM-09:20 AM',
-      sunday: '07A-17C, 09A-30C, 09A-37C, 10A-17C, 10A-21C, 10A-37C, 12A-08C, 12A-11C',
-      monday: '07A-16C, 07A-17C, 07A-28C, 08A-04C, 09A-14C, 09A-37C, 10A-21C, 10A-29C',
-      tuesday: '07A-17C, 09A-30C, 09A-37C, 10A-17C, 10A-21C, 10A-37C, 12A-08C, 12A-11C',
-      wednesday: '07A-16C, 07A-17C, 07A-28C, 08A-04C, 09A-14C, 09A-37C, 10A-21C, 10A-29C',
-      thursday: '07A-01C, 07A-02C, 07A-03C, 07A-04C, 07A-05C, 07A-07C, 07A-08C, 07A-10C',
-      friday: '',
-      saturday: '07A-01C, 07A-02C, 07A-03C, 07A-04C, 07A-05C, 07A-07C, 07A-08C, 07A-10C'
-    },
-    {
-      _id: '68248214551ebbded4bcd350',
-      'Time/Day': '09:30 AM-10:50 AM',
-      sunday: '08A-01C, 08A-02C, 08A-03C, 08A-04C, 08A-05C, 08A-07C, 08A-08C, 08A-10C',
-      monday: '08A-16C, 08A-17C, 08A-28C, 09A-04C, 09A-14C, 09A-37C, 10A-21C, 10A-29C',
-      tuesday: '08A-01C, 08A-02C, 08A-03C, 08A-04C, 08A-05C, 08A-07C, 08A-08C, 08A-10C',
-      wednesday: '08A-16C, 08A-17C, 08A-28C, 09A-04C, 09A-14C, 09A-37C, 10A-21C, 10A-29C',
-      thursday: '09A-01C, 09A-02C, 09A-03C, 09A-04C, 09A-05C, 09A-07C, 09A-08C, 09A-10C',
-      friday: '',
-      saturday: '09A-01C, 09A-02C, 09A-03C, 09A-04C, 09A-05C, 09A-07C, 09A-08C, 09A-10C'
-    }
-  ];
+  useEffect(() => {
+    const fetchAllData = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const roomsRes = await getFilteredClassrooms({}); // Fetch all classrooms without time/day filters initially
+        setAllClassrooms(roomsRes.data.classrooms || []);
+      } catch (err) {
+        setError('Failed to load classroom data.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAllData();
+  }, []);
 
   useEffect(() => {
-    // Simulate loading
-    setTimeout(() => {
-      setClassrooms(mockAvailabilityData);
-      setLoading(false);
-    }, 1000);
+    fetchBookmarkedClassrooms();
   }, []);
+
+  const fetchBookmarkedClassrooms = async () => {
+    try {
+      const response = await getBookmarkedClassrooms();
+      if (response.data.success) {
+        setBookmarkedClassrooms(new Set(response.data.bookmarks.map(b => b._id)));
+      }
+    } catch (err) {
+      console.error('Failed to fetch bookmarks', err);
+    }
+  };
+
+  const toggleBookmark = async (classroomId) => {
+    try {
+      if (bookmarkedClassrooms.has(classroomId)) {
+        await removeClassroomBookmark(classroomId);
+        setBookmarkedClassrooms(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(classroomId);
+          return newSet;
+        });
+      } else {
+        await addClassroomBookmark(classroomId);
+        setBookmarkedClassrooms(prev => new Set(prev).add(classroomId));
+      }
+    } catch (err) {
+      console.error('Failed to toggle bookmark', err);
+    }
+  };
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
+
+  const filteredClassrooms = useMemo(() => {
+    return allClassrooms.filter(room => {
+      if (filters.building && room.building !== filters.building) return false;
+      if (filters.floor && room.floor !== parseInt(filters.floor, 10)) return false;
+      if (filters.roomType && room.roomType !== filters.roomType) return false;
+      if (filters.facilities) {
+        const requiredFacilities = filters.facilities.split(',').map(f => f.trim());
+        const hasAllFacilities = requiredFacilities.every(facility => (room.facilities || []).includes(facility));
+        if (!hasAllFacilities) return false;
+      }
+      return true;
+    });
+  }, [allClassrooms, filters]);
+
+  const scheduleData = useMemo(() => {
+    return timeSlots.map(timeSlot => {
+      const row = { 'Time/Day': timeSlot, _id: timeSlot };
+      const backendTimeSlot = timeSlot.replace(' AM', '').replace(' PM', '').replace('–', '-');
+
+      days.forEach(day => {
+        const availableRooms = filteredClassrooms
+          .filter(room => {
+            const daySchedule = room.timetable?.schedule?.[day.value.toLowerCase()] || [];
+            const slotInfo = daySchedule.find(s => s.timeSlot === backendTimeSlot);
+            return !slotInfo || !slotInfo.isOccupied;
+          })
+          .map(room => room.roomNumber);
+        row[capitalize(day.value)] = availableRooms.join(', ');
+      });
+      return row;
+    });
+  }, [filteredClassrooms]);
+
+  const availableRoomDetails = useMemo(() => {
+    const backendTimeSlot = selectedTimeSlot.replace(' AM', '').replace(' PM', '').replace('–', '-');
+    return filteredClassrooms.filter(room => {
+      const daySchedule = room.timetable?.schedule?.[selectedDay.toLowerCase()] || [];
+      const slot = daySchedule.find(s => s.timeSlot === backendTimeSlot);
+      return !slot || !slot.isOccupied;
+    });
+  }, [filteredClassrooms, selectedDay, selectedTimeSlot]);
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -132,30 +188,6 @@ export default function ClassroomAvailability() {
     return roomString.split(', ').map(room => room.trim());
   };
 
-  const getRoomInfo = (roomCode) => {
-    // Parse room code format: XXY-ZZC (e.g., 07A-17C) - Single Building Campus
-    const match = roomCode.match(/^(\d{2})([A-Z])-(\d{2})([A-Z])$/);
-    if (match) {
-      const [, floor, wing, room, type] = match;
-      return {
-        floor: parseInt(floor),
-        wing: 'A', // All rooms are in Building A
-        room: parseInt(room),
-        type,
-        fullCode: roomCode
-      };
-    }
-    return { fullCode: roomCode };
-  };
-
-  const filterRoomsByBuilding = (rooms, building) => {
-    if (!building) return rooms;
-    return rooms.filter(room => {
-      const roomInfo = getRoomInfo(room);
-      return roomInfo.wing === building;
-    });
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -179,7 +211,7 @@ export default function ClassroomAvailability() {
             </p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold">{classrooms.length}</div>
+            <div className="text-2xl font-bold">{timeSlots.length}</div>
             <div className="text-purple-100">Time Slots</div>
           </div>
         </div>
@@ -207,10 +239,7 @@ export default function ClassroomAvailability() {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Available</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {classrooms.reduce((total, slot) => {
-                  const availableRooms = parseRoomCodes(slot[selectedDay]).length;
-                  return total + availableRooms;
-                }, 0)}
+                {availableRoomDetails.length}
               </p>
             </div>
           </div>
@@ -223,7 +252,7 @@ export default function ClassroomAvailability() {
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Buildings</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">1</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{new Set(allClassrooms.map(r => r.building)).size}</p>
             </div>
           </div>
         </div>
@@ -235,7 +264,7 @@ export default function ClassroomAvailability() {
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Rooms</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">150+</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{allClassrooms.length}</p>
             </div>
           </div>
         </div>
@@ -267,7 +296,7 @@ export default function ClassroomAvailability() {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">All Buildings</option>
-                <option value="A">Main Building</option>
+                {Array.from(new Set(allClassrooms.map(r => r.building))).map(b => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
             
@@ -281,11 +310,7 @@ export default function ClassroomAvailability() {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">All Floors</option>
-                <option value="7">7th Floor</option>
-                <option value="8">8th Floor</option>
-                <option value="9">9th Floor</option>
-                <option value="10">10th Floor</option>
-                <option value="12">12th Floor</option>
+                {Array.from(new Set(allClassrooms.map(r => r.floor))).sort((a, b) => a - b).map(f => <option key={f} value={f}>Floor {f}</option>)}
               </select>
             </div>
             
@@ -328,15 +353,6 @@ export default function ClassroomAvailability() {
 
       {/* Main Schedule View */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            📅 Weekly Schedule - {days.find(d => d.value === selectedDay)?.label}
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Available classrooms for {selectedTimeSlot}
-          </p>
-        </div>
-        
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-700">
@@ -355,7 +371,7 @@ export default function ClassroomAvailability() {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {classrooms.map((slot, index) => (
+              {scheduleData.map((slot, index) => (
                 <tr key={slot._id} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -366,7 +382,7 @@ export default function ClassroomAvailability() {
                     </div>
                   </td>
                   {days.map(day => {
-                    const rooms = parseRoomCodes(slot[day.value]);
+                    const rooms = parseRoomCodes(slot[capitalize(day.value)]);
                     const isCurrentSlot = slot['Time/Day'] === selectedTimeSlot && day.value === selectedDay;
                     
                     return (
@@ -415,56 +431,48 @@ export default function ClassroomAvailability() {
         
         <div className="p-6">
           {(() => {
-            const selectedSlot = classrooms.find(slot => slot['Time/Day'] === selectedTimeSlot);
-            const availableRooms = selectedSlot ? parseRoomCodes(selectedSlot[selectedDay]) : [];
-            
-            if (availableRooms.length === 0) {
+            if (availableRoomDetails.length === 0) {
               return (
                 <div className="text-center py-8">
                   <XCircleIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400">No rooms available for this time slot</p>
+                  <p className="text-gray-500 dark:text-gray-400">No rooms available for this time slot with the selected filters.</p>
                 </div>
               );
             }
 
-            const filteredRooms = filters.building || filters.floor 
-              ? availableRooms.filter(roomCode => {
-                  const roomInfo = getRoomInfo(roomCode);
-                  if (filters.building && roomInfo.wing !== filters.building) return false;
-                  if (filters.floor && roomInfo.floor !== parseInt(filters.floor)) return false;
-                  return true;
-                })
-              : availableRooms;
-
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredRooms.map((roomCode, index) => {
-                  const roomInfo = getRoomInfo(roomCode);
+                {availableRoomDetails.map((room, index) => {
                   return (
                     <div key={index} className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2">
                           <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                            <span className="text-white text-sm font-bold">{roomInfo.wing || '?'}</span>
+                            <span className="text-white text-sm font-bold">{room.building || '?'}</span>
                           </div>
-                          <span className="text-lg font-bold text-gray-900 dark:text-white">{roomCode}</span>
+                          <span className="text-lg font-bold text-gray-900 dark:text-white">{room.roomNumber}</span>
                         </div>
-                        <CheckCircleIcon className="h-6 w-6 text-green-500" />
+                        <div className="flex items-center space-x-2">
+                          <CheckCircleIcon className="h-6 w-6 text-green-500" />
+                          <button onClick={() => toggleBookmark(room._id)} className="text-gray-400 hover:text-yellow-500">
+                            <BookmarkIcon className={`h-6 w-6 ${bookmarkedClassrooms.has(room._id) ? 'text-yellow-500 fill-current' : ''}`} />
+                          </button>
+                        </div>
                       </div>
                       
                       <div className="space-y-2 text-sm">
-                        {roomInfo.floor && (
+                        {room.floor && (
                           <div className="flex items-center space-x-2">
                             <BuildingOfficeIcon className="h-4 w-4 text-gray-500" />
                             <span className="text-gray-600 dark:text-gray-400">
-                              Floor {roomInfo.floor}
+                              Floor {room.floor}
                             </span>
                           </div>
                         )}
                         <div className="flex items-center space-x-2">
                           <MapPinIcon className="h-4 w-4 text-gray-500" />
                           <span className="text-gray-600 dark:text-gray-400">
-                            Main Building
+                            {room.building}
                           </span>
                         </div>
                         <div className="flex items-center space-x-2">

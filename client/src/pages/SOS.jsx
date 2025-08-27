@@ -480,6 +480,18 @@ export default function Sos() {
             </button>
           </div>
           
+          {isLiveSharing && (
+            <div className="mt-4 text-center">
+              <p className="text-sm text-green-600 dark:text-green-400 mb-2">Live location sharing is active.</p>
+              <button
+                onClick={stopLiveSharing}
+                className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+              >
+                Stop Sharing
+              </button>
+            </div>
+          )}
+
           {coordinates.latitude && coordinates.longitude && (
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
               Your current coordinates will be included in the alert.

@@ -43,7 +43,13 @@ const UserSchema = new mongoose.Schema({
   
   // Rating fields
   averageRating: { type: Number, default: 0, min: 0, max: 5 },
-  totalRatings: { type: Number, default: 0, min: 0 }
+  totalRatings: { type: Number, default: 0, min: 0 },
+  
+  // Classroom bookmarks
+  bookmarkedClassrooms: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Classroom' }],
+    default: []
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema); 

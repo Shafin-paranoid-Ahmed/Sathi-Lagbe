@@ -15,9 +15,6 @@ router.get('/search', auth, userController.searchUsers);
 // Get current user's profile
 router.get('/profile', auth, userController.getCurrentUserProfile);
 
-// Get user profile by ID
-router.get('/:id', auth, userController.getUserProfile);
-
 // Update current user's profile
 router.put('/profile', auth, userController.updateProfile);
 
@@ -29,5 +26,13 @@ router.get('/status/:userId', auth, userController.getUserStatus);
 
 // Update avatar
 router.post('/avatar', auth, upload.single('avatar'), userController.updateAvatar);
+
+// Classroom bookmarks (place BEFORE dynamic ':id' route)
+router.get('/bookmarks', auth, userController.getBookmarks);
+router.post('/bookmarks/:classroomId', auth, userController.addBookmark);
+router.delete('/bookmarks/:classroomId', auth, userController.removeBookmark);
+
+// Get user profile by ID (keep AFTER specific routes)
+router.get('/:id', auth, userController.getUserProfile);
 
 module.exports = router;
