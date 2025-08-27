@@ -6,6 +6,11 @@ export function setStatus(isFree) {
   return API.put('/friends/status', { isFree });
 }
 
+// Get friends who share their routine and their current status
+export function getFriendsWithStatus() {
+    return API.get('/friends/status');
+}
+
 // Get all available friends
 export function getFreeFriends() {
   return API.get('/friends/free');

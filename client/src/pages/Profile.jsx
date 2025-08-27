@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { CheckIcon, PencilIcon, UserCircleIcon, XMarkIcon, ClockIcon, BookOpenIcon, CheckCircleIcon, WifiIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, PencilIcon, UserCircleIcon, XMarkIcon, ClockIcon, BookOpenIcon, CheckCircleIcon, WifiIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
-import { deleteAccount, logout, verifyToken, API, updateStatus, getCurrentUserStatus } from '../api/auth';
+import { deleteAccount, logout, verifyToken, API, updateStatus, getCurrentUserStatus, updateSettings } from '../api/auth';
 
 export default function Profile() {
   const [profile, setProfile] = useState({
@@ -11,7 +11,8 @@ export default function Profile() {
     location: '',
     phone: '+880',
     preferences: { darkMode: false },
-    bracuId: ''
+    bracuId: '',
+    routineSharingEnabled: true
   });
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -43,25 +44,27 @@ export default function Profile() {
       const response = await verifyToken();
       
       if (response.data.user) {
-        const currentUserId = response.data.user._id;
+        const currentUser = response.data.user;
+        const currentUserId = currentUser._id;
         
         setProfile({
-          name: response.data.user.name || '',
-          email: response.data.user.email || '',
-          gender: response.data.user.gender || '',
-          location: response.data.user.location || '',
-          phone: response.data.user.phone || '+880',
-          bracuId: response.data.user.bracuId || '',
-          preferences: response.data.user.preferences || { darkMode: false }
+          name: currentUser.name || '',
+          email: currentUser.email || '',
+          gender: currentUser.gender || '',
+          location: currentUser.location || '',
+          phone: currentUser.phone || '+880',
+          bracuId: currentUser.bracuId || '',
+          preferences: currentUser.preferences || { darkMode: false },
+          routineSharingEnabled: currentUser.routineSharingEnabled ?? true
         });
         
         // Use user-specific avatar storage
-        const userAvatarUrl = sessionStorage.getItem(`userAvatarUrl_${currentUserId}`) || response.data.user.avatarUrl || '';
+        const userAvatarUrl = sessionStorage.getItem(`userAvatarUrl_${currentUserId}`) || currentUser.avatarUrl || '';
         setAvatarPreview(userAvatarUrl);
         
         // Update session storage with user-specific key
-        if (response.data.user.avatarUrl) {
-          sessionStorage.setItem(`userAvatarUrl_${currentUserId}`, response.data.user.avatarUrl);
+        if (currentUser.avatarUrl) {
+          sessionStorage.setItem(`userAvatarUrl_${currentUserId}`, currentUser.avatarUrl);
         }
       }
     } catch (err) {
@@ -97,6 +100,20 @@ export default function Profile() {
     } finally {
       setStatusLoading(false);
     }
+  };
+  
+  const handleSettingsChange = async (e) => {
+      const { name, checked } = e.target;
+      setProfile(prev => ({ ...prev, [name]: checked }));
+
+      try {
+          await updateSettings({ [name]: checked });
+          setSuccess('Settings updated successfully!');
+      } catch (err) {
+          setError(err.response?.data?.error || 'Failed to update settings');
+          // Revert on error
+          setProfile(prev => ({ ...prev, [name]: !checked }));
+      }
   };
 
   const handleSave = async () => {
@@ -452,6 +469,35 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+        {/* Privacy Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Privacy
+            </h2>
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                    <h3 className="font-medium text-gray-900 dark:text-white">Share Routine with Friends</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Allow friends to see your free slots in their routine view.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    name="routineSharingEnabled"
+                    onClick={() => handleSettingsChange({ target: { name: 'routineSharingEnabled', checked: !profile.routineSharingEnabled } })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                        profile.routineSharingEnabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                >
+                    <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            profile.routineSharingEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                    />
+                </button>
+            </div>
+        </div>
 
       <div className="text-right">
         <button
