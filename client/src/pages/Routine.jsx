@@ -268,7 +268,7 @@ export default function Routine() {
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-soft-2xl">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <PlusCircleIcon className="h-6 w-6 inline-block mr-2 text-green-500 animate-pulse" />
+                                            <PlusCircleIcon className="h-6 w-6 inline-block mr-2 text-green-500" />
                     Add to Schedule
                 </h2>
                 
@@ -276,7 +276,7 @@ export default function Routine() {
                 <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-700 transform transition-all duration-300 hover:scale-[1.02]">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                            <UserGroupIcon className="h-5 w-5 text-blue-600 animate-bounce" />
+                            <UserGroupIcon className="h-5 w-5 text-blue-600" />
                             <div>
                                 <h3 className="text-sm font-medium text-gray-900 dark:text-white">Single Day Mode</h3>
                                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -307,7 +307,7 @@ export default function Routine() {
                 {groupToggle && (
                     <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-700 rounded-lg transform transition-all duration-500 animate-fade-in">
                         <div className="flex items-start space-x-2">
-                            <UserGroupIcon className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0 animate-pulse" />
+                            <UserGroupIcon className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
                             <div className="text-sm text-green-800 dark:text-green-200">
                                 <p className="font-medium">Grouping Active (Default):</p>
                                 <ul className="mt-1 space-y-1 text-xs">
@@ -379,13 +379,13 @@ export default function Routine() {
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-soft-2xl">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <AcademicCapIcon className="h-6 w-6 inline-block mr-2 text-purple-500 animate-pulse" />
+                                            <AcademicCapIcon className="h-6 w-6 inline-block mr-2 text-purple-500" />
                     Course Routine
                 </h2>
                 
                                  {routineEntries.length === 0 ? (
                      <div className="text-center py-8 text-gray-500 dark:text-gray-400 animate-fade-in">
-                         <AcademicCapIcon className="h-12 w-12 mx-auto mb-4 text-gray-300 animate-bounce" />
+                         <AcademicCapIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                          <p className="text-lg">No routine entries yet. Add your first course or activity above!</p>
                      </div>
                  ) : (

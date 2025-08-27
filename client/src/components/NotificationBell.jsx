@@ -99,6 +99,9 @@ export default function NotificationBell() {
       
       setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
       setUnreadCount(0);
+      
+      // Refresh categories to update unread counts
+      fetchCategories();
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
@@ -195,7 +198,7 @@ export default function NotificationBell() {
         }}
         className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors transform hover:scale-110 duration-150"
       >
-        <BellIcon className="h-6 w-6 animate-bounce" />
+                 <BellIcon className={`h-6 w-6 ${unreadCount > 0 ? 'animate-bounce' : ''}`} />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center shadow-md">
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -204,7 +207,7 @@ export default function NotificationBell() {
       </button>
 
       {showDropdown && (
-        <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-50 transform origin-top-right animate-fade-in">
+        <div className="absolute right-0 mt-2 w-[420px] bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-50 transform origin-top-right animate-fade-in">
           {/* Header */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
@@ -223,10 +226,10 @@ export default function NotificationBell() {
           </div>
 
           {/* Category Tabs */}
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
+          <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
             <button
               onClick={() => handleCategoryChange('all')}
-              className={`flex-1 px-3 py-2 text-sm font-medium ${
+              className={`flex-shrink-0 px-3 py-2 text-sm font-medium whitespace-nowrap ${
                 activeCategory === 'all'
                   ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400'
                   : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
@@ -238,7 +241,7 @@ export default function NotificationBell() {
               <button
                 key={category.name}
                 onClick={() => handleCategoryChange(category.name)}
-                className={`flex-1 px-3 py-2 text-sm font-medium relative ${
+                className={`flex-shrink-0 px-3 py-2 text-sm font-medium relative whitespace-nowrap ${
                   activeCategory === category.name
                     ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'

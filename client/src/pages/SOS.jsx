@@ -22,6 +22,14 @@ export default function Sos() {
   const [isLiveSharing, setIsLiveSharing] = useState(false);
   const [watchIdRef, setWatchIdRef] = useState(null);
 
+  // Get filtered contacts for display - show all valid contacts for the current user
+  const displayContacts = contacts.filter(c => 
+    c && 
+    c.name && 
+    c.name.trim() !== '' && 
+    (c.addedBy === currentUserId || !c.addedBy) // Show contacts added by current user OR contacts without addedBy (legacy)
+  );
+
   // Load contacts on mount and when user changes
   useEffect(() => {
     const loadContacts = async () => {
@@ -241,14 +249,6 @@ export default function Sos() {
     // Clear any previous errors
     setError('');
   };
-  
-  // Get filtered contacts for display - show all valid contacts for the current user
-  const displayContacts = contacts.filter(c => 
-    c && 
-    c.name && 
-    c.name.trim() !== '' && 
-    (c.addedBy === currentUserId || !c.addedBy) // Show contacts added by current user OR contacts without addedBy (legacy)
-  );
 
   // Send an SOS alert
   const handleAlert = async () => {
