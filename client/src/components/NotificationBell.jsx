@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BellIcon } from '@heroicons/react/24/outline';
 import { API } from '../api/auth';
+import socketService from '../services/socketService';
 
 export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -14,14 +15,27 @@ export default function NotificationBell() {
     fetchCategories();
     
     // Set up real-time notifications
-    const eventSource = new EventSource(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/stream`);
-    eventSource.onmessage = (event) => {
-      const notification = JSON.parse(event.data);
+    // Prefer socket if connected; fallback to SSE if needed
+    const disconnect = socketService.onNewNotification((notification) => {
       setUnreadCount(prev => prev + 1);
       setNotifications(prev => [notification, ...prev]);
-    };
+    });
 
-    return () => eventSource.close();
+    // Fallback SSE for environments without sockets
+    let eventSource;
+    try {
+      eventSource = new EventSource(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/stream`);
+      eventSource.onmessage = (event) => {
+        const notification = JSON.parse(event.data);
+        setUnreadCount(prev => prev + 1);
+        setNotifications(prev => [notification, ...prev]);
+      };
+    } catch (_) {}
+
+    return () => {
+      if (disconnect) disconnect();
+      if (eventSource) eventSource.close();
+    };
   }, []);
 
   const fetchUnreadCount = async () => {
@@ -179,18 +193,18 @@ export default function NotificationBell() {
             fetchNotifications(activeCategory);
           }
         }}
-        className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
+        className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors transform hover:scale-110 duration-150"
       >
-        <BellIcon className="h-6 w-6" />
+        <BellIcon className="h-6 w-6 animate-bounce" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center shadow-md">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
       {showDropdown && (
-        <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+        <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-50 transform origin-top-right animate-fade-in">
           {/* Header */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">

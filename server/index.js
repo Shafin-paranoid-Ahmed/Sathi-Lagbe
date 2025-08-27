@@ -170,10 +170,48 @@ io.on('connection', (socket) => {
       readBy: socket.userId
     });
   });
+
+  // Handle live SOS location updates from sender and relay to recipients
+  socket.on('sos_location_update', (payload) => {
+    try {
+      const { recipientIds = [], latitude, longitude } = payload || {};
+      if (!Array.isArray(recipientIds) || typeof latitude !== 'number' || typeof longitude !== 'number') {
+        return;
+      }
+      recipientIds.forEach((recipientId) => {
+        const room = `user_${recipientId}`;
+        io.to(room).emit('sos_location_update', {
+          senderId: socket.userId,
+          latitude,
+          longitude,
+          timestamp: new Date().toISOString()
+        });
+      });
+    } catch (err) {
+      console.error('Error handling sos_location_update:', err);
+    }
+  });
   
   // Handle disconnection
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.userName} (${socket.userId})`);
+  });
+
+  // Notify recipients that live sharing has stopped
+  socket.on('sos_stop_sharing', (payload) => {
+    try {
+      const { recipientIds = [] } = payload || {};
+      if (!Array.isArray(recipientIds)) return;
+      recipientIds.forEach((recipientId) => {
+        const room = `user_${recipientId}`;
+        io.to(room).emit('sos_stop_sharing', {
+          senderId: socket.userId,
+          timestamp: new Date().toISOString()
+        });
+      });
+    } catch (err) {
+      console.error('Error handling sos_stop_sharing:', err);
+    }
   });
 });
 

@@ -23,7 +23,7 @@ export default function Routine() {
     const [newEntry, setNewEntry] = useState({ timeSlot: timeSlots[0], day: 'Monday', course: '' });
     const [submitting, setSubmitting] = useState(false);
     const [deleting, setDeleting] = useState({});
-    const [groupToggle, setGroupToggle] = useState(false);
+    const [groupToggle, setGroupToggle] = useState(true); // Default to grouped view
 
     // Dropdown options for Day based on grouping toggle
     const getDropdownDays = () => {
@@ -71,19 +71,21 @@ export default function Routine() {
                 // Group specific days when toggle is ON
                 const selectedOption = getDropdownDays().find(opt => opt.value === day);
                 const groupedDays = selectedOption ? selectedOption.days : getGroupedDays(day);
+                
+                // Check if ANY entry already exists for the grouped days at this time slot
+                const existingEntries = routineEntries.filter(entry => 
+                    entry.timeSlot === timeSlot && groupedDays.includes(entry.day)
+                );
+                
+                if (existingEntries.length > 0) {
+                    const existingDays = existingEntries.map(e => e.day).join(', ');
+                    setError(`Entries already exist for ${existingDays} at ${timeSlot}. Please choose a different time or day.`);
+                    return;
+                }
+                
                 const createdEntries = [];
                 
                 for (const groupedDay of groupedDays) {
-                    // Check if entry already exists for grouped day
-                    const existingGroupedEntry = routineEntries.find(entry => 
-                        entry.timeSlot === timeSlot && entry.day === groupedDay
-                    );
-                    
-                    if (existingGroupedEntry) {
-                        console.log(`Entry for ${groupedDay} skipped: already exists`);
-                        continue;
-                    }
-                    
                     try {
                         const response = await addRoutineEntry({ 
                             timeSlot, 
@@ -92,7 +94,9 @@ export default function Routine() {
                         });
                         createdEntries.push(response.data.data);
                     } catch (err) {
-                        console.log(`Entry for ${groupedDay} skipped:`, err.response?.data?.error);
+                        console.error(`Entry for ${groupedDay} failed:`, err.response?.data?.error);
+                        setError(`Failed to add entry for ${groupedDay}: ${err.response?.data?.error || 'Unknown error'}`);
+                        return;
                     }
                 }
                 
@@ -189,7 +193,7 @@ export default function Routine() {
                       groupedDays.includes(entry.day))
                 ));
             } else {
-                // Normal single entry deletion
+                // Single entry deletion - only delete the specific entry
                 await deleteRoutineEntry(entryId);
                 setRoutineEntries(prev => prev.filter(entry => entry._id !== entryId));
             }
@@ -274,11 +278,11 @@ export default function Routine() {
                         <div className="flex items-center space-x-3">
                             <UserGroupIcon className="h-5 w-5 text-blue-600 animate-bounce" />
                             <div>
-                                <h3 className="text-sm font-medium text-gray-900 dark:text-white">Group Days</h3>
+                                <h3 className="text-sm font-medium text-gray-900 dark:text-white">Single Day Mode</h3>
                                 <p className="text-xs text-gray-600 dark:text-gray-400">
                                     {groupToggle ? 
-                                        'ON: Sunday+Tuesday, Monday+Wednesday, Saturday+Thursday' : 
-                                        'OFF: Add to single day only'
+                                        'OFF: Grouped days (Sunday+Tuesday, Monday+Wednesday, Saturday+Thursday)' : 
+                                        'ON: Add to single day only'
                                     }
                                 </p>
                             </div>
@@ -287,12 +291,12 @@ export default function Routine() {
                             type="button"
                             onClick={() => setGroupToggle(!groupToggle)}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transform hover:scale-110 ${
-                                groupToggle ? 'bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg' : 'bg-gray-200 dark:bg-gray-600'
+                                !groupToggle ? 'bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg' : 'bg-gray-200 dark:bg-gray-600'
                             }`}
                         >
                             <span
                                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 shadow-md ${
-                                    groupToggle ? 'translate-x-6' : 'translate-x-1'
+                                    !groupToggle ? 'translate-x-6' : 'translate-x-1'
                                 }`}
                             />
                         </button>
@@ -305,7 +309,7 @@ export default function Routine() {
                         <div className="flex items-start space-x-2">
                             <UserGroupIcon className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0 animate-pulse" />
                             <div className="text-sm text-green-800 dark:text-green-200">
-                                <p className="font-medium">Grouping Active:</p>
+                                <p className="font-medium">Grouping Active (Default):</p>
                                 <ul className="mt-1 space-y-1 text-xs">
                                     <li>• <strong>Sunday</strong> + <strong>Tuesday</strong></li>
                                     <li>• <strong>Monday</strong> + <strong>Wednesday</strong></li>
@@ -367,7 +371,7 @@ export default function Routine() {
                                 <span>Adding...</span>
                             </div>
                         ) : (
-                            <span>{groupToggle ? 'Add to Group' : 'Add Entry'}</span>
+                            <span>{groupToggle ? 'Add to Group' : 'Add Single Entry'}</span>
                         )}
                     </button>
                 </form>
