@@ -101,7 +101,7 @@ export default function Classroom() {
             className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-md hover:from-purple-600 hover:to-pink-600 transition-all duration-200"
           >
             <SparklesIcon className="h-5 w-5" />
-            <span>ENHANCE VIEW</span>
+            <span>Welcome Sensei</span>
           </button>
           <button onClick={handleSetAllAvailable} className="bg-primary-500 text-white px-4 py-2 rounded-md hover:bg-primary-600">
               Set All to Available
