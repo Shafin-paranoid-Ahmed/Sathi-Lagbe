@@ -23,6 +23,7 @@ import {
 } from '@heroicons/react/24/outline';
 import NotificationBell from './NotificationBell';
 import socketService from '../services/socketService';
+import { MapPinIcon } from '@heroicons/react/24/outline';
 
 const ArgonLayout = ({ children, setIsAuthenticated }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -216,6 +217,8 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Live SOS Banner for recipients */}
+      <LiveSosToast />
       {/* Top navbar - Fixed at the top */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
@@ -447,3 +450,61 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
 };
 
 export default ArgonLayout; 
+
+// Inline component to display live SOS updates for recipients
+function LiveSosToast() {
+  const [activeShare, setActiveShare] = React.useState(null); // {senderId, latitude, longitude, timestamp}
+
+  React.useEffect(() => {
+    const offUpdate = socketService.addListener
+      ? null
+      : null;
+    const onUpdate = (data) => {
+      setActiveShare({ ...data });
+    };
+    const onStop = () => setActiveShare(null);
+
+    // Subscribe to socket events
+    socketService.onNewNotification(() => {}); // ensure connection
+    socketService.addListener ? socketService.addListener('sos_location_update', onUpdate) : null;
+    socketService.addListener ? socketService.addListener('sos_stop_sharing', onStop) : null;
+
+    return () => {
+      if (socketService.off) {
+        socketService.off('sos_location_update');
+        socketService.off('sos_stop_sharing');
+      }
+    };
+  }, []);
+
+  if (!activeShare) return null;
+
+  const { latitude, longitude } = activeShare;
+  const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+  return (
+    <div className="fixed bottom-4 right-4 z-[100] max-w-sm w-full">
+      <div className="bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg shadow-lg p-4 animate-fade-in">
+        <div className="flex items-start space-x-3">
+          <div className="flex-shrink-0">
+            <MapPinIcon className="h-6 w-6 text-red-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-red-700 dark:text-red-300">Live SOS Location</p>
+            <p className="text-xs text-gray-600 dark:text-gray-300 break-words">
+              {latitude.toFixed(5)}, {longitude.toFixed(5)}
+            </p>
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block mt-2 text-xs px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              Open in Maps
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

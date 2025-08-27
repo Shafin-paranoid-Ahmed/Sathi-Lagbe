@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { getContacts, saveContacts, sendSosAlert } from '../api/sos';
 import { API } from '../api/auth';
+import socketService from '../services/socketService';
 
 export default function Sos() {
   // Get current user ID for contact ownership validation
@@ -18,6 +19,8 @@ export default function Sos() {
   const [isAppUser, setIsAppUser] = useState(false);
   const [friends, setFriends] = useState([]);
   const [selectedFriendId, setSelectedFriendId] = useState('');
+  const [isLiveSharing, setIsLiveSharing] = useState(false);
+  const [watchIdRef, setWatchIdRef] = useState(null);
 
   // Load contacts on mount and when user changes
   useEffect(() => {
@@ -81,6 +84,40 @@ export default function Sos() {
       );
     }
   }, []);
+
+  // Live location sharing when enabled
+  useEffect(() => {
+    if (!isLiveSharing) return;
+    if (!navigator.geolocation) return;
+    let watchId = null;
+    const startWatch = () => {
+      try {
+        watchId = navigator.geolocation.watchPosition((pos) => {
+          const { latitude, longitude } = pos.coords;
+          setCoordinates({ latitude, longitude });
+          // Determine in-app recipients (contacts with userId)
+          const recipientIds = displayContacts
+            .filter(c => c.userId)
+            .map(c => c.userId);
+          if (recipientIds.length) {
+            socketService.emit('sos_location_update', {
+              recipientIds,
+              latitude,
+              longitude
+            });
+          }
+        });
+      } catch (e) {
+        console.error('Error starting geolocation watch:', e);
+      }
+    };
+    startWatch();
+    return () => {
+      if (watchId !== null && navigator.geolocation && navigator.geolocation.clearWatch) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [isLiveSharing, displayContacts]);
 
   // Load accepted friends for dropdown when toggled
   useEffect(() => {
@@ -238,10 +275,20 @@ export default function Sos() {
       await sendSosAlert(payload);
       alert('SOS alert sent!');
       setMessage('');
+      // Enable live sharing after initial SOS
+      setIsLiveSharing(true);
     } catch (err) {
       setError('Failed to send SOS: ' + (err.message || ''));
     } finally {
       setAlerting(false);
+    }
+  };
+
+  const stopLiveSharing = () => {
+    setIsLiveSharing(false);
+    const recipientIds = displayContacts.filter(c => c.userId).map(c => c.userId);
+    if (recipientIds.length) {
+      socketService.emit('sos_stop_sharing', { recipientIds });
     }
   };
 
@@ -375,13 +422,24 @@ export default function Sos() {
             />
           </div>
           
-          <button
-            onClick={handleAlert}
-            disabled={alerting || displayContacts.length === 0}
-            className="w-full py-3 bg-red-600 text-white text-lg font-bold rounded hover:bg-red-700 disabled:opacity-50"
-          >
-            {alerting ? 'Sending SOS Alert...' : 'SEND SOS ALERT'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleAlert}
+              disabled={alerting || displayContacts.length === 0}
+              className="flex-1 py-3 bg-red-600 text-white text-lg font-bold rounded hover:bg-red-700 disabled:opacity-50"
+            >
+              {alerting ? 'Sending SOS Alert...' : 'SEND SOS ALERT'}
+            </button>
+            {isLiveSharing && (
+              <button
+                type="button"
+                onClick={stopLiveSharing}
+                className="px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              >
+                Stop sharing
+              </button>
+            )}
+          </div>
           
           {coordinates.latitude && coordinates.longitude && (
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
