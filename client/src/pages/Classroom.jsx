@@ -1,6 +1,6 @@
 // client/src/pages/Classroom.jsx - Professional Classroom Dashboard
 import React, { useState, useEffect } from 'react';
-import { AcademicCapIcon, BookmarkIcon, MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { AcademicCapIcon, BookmarkIcon, MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon, TrashIcon, ClockIcon } from '@heroicons/react/24/outline';
 import ClassroomAvailability from '../components/ClassroomAvailability';
 import { getBookmarkedClassrooms, removeClassroomBookmark } from '../api/users';
 import { getFreeClassrooms } from '../api/free';
@@ -124,22 +124,47 @@ const BookmarkedClassrooms = () => {
     return availability;
   };
 
-  if (loading) return <p>Loading bookmarks...</p>;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Bookmarked Classrooms</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Track availability of your favorite classrooms.
+          </p>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Bookmarked Classrooms</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">
+          Track availability of your favorite classrooms.
+        </p>
+      </div>
+
       {/* Day selector */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Select Day to Check Availability</h3>
-        <div className="flex flex-wrap gap-2">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-soft-2xl">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+          <ClockIcon className="h-6 w-6 inline-block mr-2 text-blue-500" />
+          Day Selection
+        </h2>
+        <div className="flex flex-wrap gap-3">
           {days.map(day => (
             <button
               key={day.value}
               onClick={() => setSelectedDay(day.value)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md ${
                 selectedDay === day.value
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg'
+                  : 'bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-300 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20'
               }`}
             >
               {day.label}
@@ -149,13 +174,18 @@ const BookmarkedClassrooms = () => {
       </div>
 
       {/* Bookmarked classrooms */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         {bookmarks.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 text-center">
-            <BookmarkIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">No bookmarked classrooms yet.</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-              Go to "Find Available Classrooms" and bookmark rooms you use frequently.
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-12 text-center transform transition-all duration-300 hover:scale-[1.01] hover:shadow-soft-2xl">
+            <div className="bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-full p-6 w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+              <BookmarkIcon className="h-12 w-12 text-yellow-500" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No bookmarked classrooms yet</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">
+              Save your favorite classrooms for quick access to their availability.
+            </p>
+            <p className="text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-lg inline-block">
+              💡 Go to "Find Available Classrooms" and click the bookmark icon to save rooms
             </p>
           </div>
         ) : (
@@ -164,62 +194,76 @@ const BookmarkedClassrooms = () => {
             const availableSlots = Object.entries(availability).filter(([slot, isAvailable]) => isAvailable);
             
             return (
-              <div key={classroom._id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">
-                      {classroom.roomNumber}
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {classroom.building} • Floor {classroom.floor} • Capacity: {classroom.capacity}
-                    </p>
+              <div key={classroom._id} className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-soft-2xl border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full flex items-center justify-center shadow-lg">
+                      <BookmarkIcon className="h-6 w-6 text-white fill-current" />
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+                        {classroom.roomNumber}
+                      </h4>
+                      <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                        <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">
+                          {classroom.building}
+                        </span>
+                        <span className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-1 rounded-full font-medium">
+                          Floor {classroom.floor}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   <button 
                     onClick={() => handleRemoveBookmark(classroom._id)} 
-                    className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                    className="text-red-500 hover:text-red-700 p-3 rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 transition-all duration-200 transform hover:scale-110"
                     title="Remove bookmark"
                   >
-                    <TrashIcon className="h-5 w-5" />
+                    <TrashIcon className="h-6 w-6" />
                   </button>
                 </div>
 
                 {/* Availability for selected day */}
                 <div>
-                  <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                    Availability on {days.find(d => d.value === selectedDay)?.label}:
+                  <h5 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center">
+                    <ClockIcon className="h-5 w-5 mr-2 text-blue-500" />
+                    Availability on {days.find(d => d.value === selectedDay)?.label}
                   </h5>
                   
                   {availableSlots.length === 0 ? (
-                    <div className="text-center py-4">
-                      <XCircleIcon className="h-8 w-8 text-red-400 mx-auto mb-2" />
-                      <p className="text-sm text-red-600 dark:text-red-400">
-                        Not available on {days.find(d => d.value === selectedDay)?.label}
+                    <div className="text-center py-8 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 rounded-xl border border-red-200 dark:border-red-700">
+                      <XCircleIcon className="h-12 w-12 text-red-400 mx-auto mb-3 animate-pulse" />
+                      <p className="text-lg font-medium text-red-600 dark:text-red-400 mb-1">
+                        Not available
+                      </p>
+                      <p className="text-sm text-red-500 dark:text-red-400">
+                        on {days.find(d => d.value === selectedDay)?.label}
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                       {timeSlots.map(timeSlot => {
                         const isAvailable = availability[timeSlot];
                         return (
                           <div
                             key={timeSlot}
-                            className={`p-3 rounded-lg border text-center ${
+                            className={`p-4 rounded-xl border text-center transform transition-all duration-200 hover:scale-105 shadow-sm hover:shadow-md ${
                               isAvailable
-                                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 text-green-800 dark:text-green-200'
-                                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-800 dark:text-red-200'
+                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-700 text-green-800 dark:text-green-200'
+                                : 'bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-red-200 dark:border-red-700 text-red-800 dark:text-red-200'
                             }`}
                           >
-                            <div className="flex items-center justify-center space-x-1">
+                            <div className="flex items-center justify-center space-x-2 mb-2">
                               {isAvailable ? (
-                                <CheckCircleIcon className="h-4 w-4" />
+                                <CheckCircleIcon className="h-5 w-5" />
                               ) : (
-                                <XCircleIcon className="h-4 w-4" />
+                                <XCircleIcon className="h-5 w-5" />
                               )}
-                              <span className="text-xs font-medium">
-                                {isAvailable ? 'Free' : 'Occupied'}
+                              <span className="text-sm font-bold">
+                                {isAvailable ? 'Available' : 'Occupied'}
                               </span>
                             </div>
-                            <p className="text-xs mt-1">{timeSlot}</p>
+                            <p className="text-xs font-medium">{timeSlot}</p>
                           </div>
                         );
                       })}

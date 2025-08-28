@@ -6,7 +6,7 @@ import {
     addClassroomBookmark,
     removeClassroomBookmark
 } from '../api/users';
-import { MagnifyingGlassIcon, MapPinIcon, BuildingOfficeIcon, BookmarkIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, MapPinIcon, BuildingOfficeIcon, BookmarkIcon, AcademicCapIcon } from '@heroicons/react/24/outline';
 
 const timeSlots = [
     '08:00 AM–09:20 AM',
@@ -183,13 +183,37 @@ export default function FindAvailableClassrooms() {
     };
 
     if (loading) {
-        return <div className="text-center p-8">Loading classroom data...</div>;
+        return (
+            <div className="space-y-6">
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Find Available Classrooms</h1>
+                    <p className="text-gray-600 dark:text-gray-400 mt-2">
+                        Search and filter classrooms by day, time, and floor.
+                    </p>
+                </div>
+                <div className="flex items-center justify-center h-64">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+                </div>
+            </div>
+        );
     }
 
     return (
         <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Find an Available Classroom</h3>
+            {/* Header */}
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Find Available Classrooms</h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">
+                    Search and filter classrooms by day, time, and floor.
+                </p>
+            </div>
+
+            {/* Search Form */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-soft-2xl">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <MagnifyingGlassIcon className="h-6 w-6 inline-block mr-2 text-blue-500" />
+                    Search Filters
+                </h2>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {/* Day filter */}
                     <div>
@@ -215,9 +239,22 @@ export default function FindAvailableClassrooms() {
 
                     {/* Search button */}
                     <div className="flex items-end">
-                        <button onClick={handleSearch} disabled={searching} className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                            <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
-                            {searching ? 'Searching...' : 'Search'}
+                        <button 
+                            onClick={handleSearch} 
+                            disabled={searching} 
+                            className="w-full flex items-center justify-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                        >
+                            {searching ? (
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Searching...</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
+                                    Search Classrooms
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
@@ -225,55 +262,54 @@ export default function FindAvailableClassrooms() {
 
             {/* Results */}
             {searched && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        Available Rooms ({availableRooms.length})
-                    </h3>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-soft-2xl">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                        <AcademicCapIcon className="h-6 w-6 inline-block mr-2 text-green-500" />
+                        Search Results ({availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} found)
+                    </h2>
                     {availableRooms.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {availableRooms.map(room => (
-                                <div key={room._id} className="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4 border border-green-200 dark:border-green-700">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center space-x-2">
-                                            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                <div key={room._id} className="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-5 border border-green-200 dark:border-green-700 transform transition-all duration-300 hover:scale-105 hover:shadow-lg group">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
                                                 <span className="text-white text-sm font-bold">{room.zone || '?'}</span>
                                             </div>
-                                            <span className="text-lg font-bold text-gray-900 dark:text-white">{room.roomNumber}</span>
+                                            <span className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">{room.roomNumber}</span>
                                         </div>
-                                        <div className="flex items-center space-x-2">
-                                            <button 
-                                                onClick={() => toggleBookmark(room.roomNumber)} 
-                                                className="text-gray-400 hover:text-yellow-500 transition-colors"
-                                                title={bookmarkedClassrooms.has(room.roomNumber) ? 'Remove bookmark' : 'Add bookmark'}
-                                            >
-                                                <BookmarkIcon 
-                                                    className={`h-6 w-6 ${bookmarkedClassrooms.has(room.roomNumber) ? 'text-yellow-500 fill-current' : ''}`} 
-                                                />
-                                            </button>
-                                        </div>
+                                        <button 
+                                            onClick={() => toggleBookmark(room.roomNumber)} 
+                                            className="text-gray-400 hover:text-yellow-500 transition-all duration-200 transform hover:scale-110"
+                                            title={bookmarkedClassrooms.has(room.roomNumber) ? 'Remove bookmark' : 'Add bookmark'}
+                                        >
+                                            <BookmarkIcon 
+                                                className={`h-7 w-7 ${bookmarkedClassrooms.has(room.roomNumber) ? 'text-yellow-500 fill-current' : 'hover:fill-current'}`} 
+                                            />
+                                        </button>
                                     </div>
                                     
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex items-center space-x-2">
-                                            <BuildingOfficeIcon className="h-4 w-4 text-gray-500" />
-                                            <span className="text-gray-600 dark:text-gray-400">
+                                    <div className="space-y-3">
+                                        <div className="flex items-center space-x-2 bg-white dark:bg-gray-700 p-2 rounded-lg">
+                                            <BuildingOfficeIcon className="h-4 w-4 text-blue-500" />
+                                            <span className="text-gray-700 dark:text-gray-300 font-medium">
                                                 Floor {room.floor}
                                             </span>
                                         </div>
-                                        <div className="flex items-center space-x-2">
-                                            <MapPinIcon className="h-4 w-4 text-gray-500" />
-                                            <span className="text-gray-600 dark:text-gray-400">
+                                        <div className="flex items-center space-x-2 bg-white dark:bg-gray-700 p-2 rounded-lg">
+                                            <MapPinIcon className="h-4 w-4 text-purple-500" />
+                                            <span className="text-gray-700 dark:text-gray-300 font-medium">
                                                 {room.building}
                                             </span>
                                         </div>
                                         {room.zone && room.classroomNumber && (
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                Zone {room.zone} • Room {room.classroomNumber}
-                                            </div>
-                                        )}
-                                        {room.capacity && room.capacity !== 'Unknown' && (
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                Capacity: {room.capacity}
+                                            <div className="flex justify-between bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-2 rounded-lg">
+                                                <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">
+                                                    Zone {room.zone}
+                                                </span>
+                                                <span className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-full font-medium">
+                                                    Room {room.classroomNumber}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
@@ -281,7 +317,13 @@ export default function FindAvailableClassrooms() {
                             ))}
                         </div>
                     ) : (
-                        <p className="text-gray-500 dark:text-gray-400">No available rooms match your criteria. Try different filters.</p>
+                        <div className="text-center py-12">
+                            <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20 rounded-xl p-8 border border-gray-200 dark:border-gray-700">
+                                <MagnifyingGlassIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                                <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">No available rooms match your criteria</p>
+                                <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Try adjusting your filters or selecting a different time slot</p>
+                            </div>
+                        </div>
                     )}
                 </div>
             )}
