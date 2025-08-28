@@ -2,7 +2,7 @@
 const User = require('../models/User');
 const Routine = require('../models/Routine');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const jwt =require('jsonwebtoken');
 
 // Helper to ensure only BRACU G-Suite emails are used
 const isBracuEmail = (email) => /^[^@\s]+@(?:g\.)?bracu\.ac\.bd$/i.test(email);
@@ -164,7 +164,8 @@ const loginUser = async (req, res) => {
             phone: user.phone,
             bracuId: user.bracuId,
             preferences: user.preferences,
-            avatarUrl: user.avatarUrl || ''
+            avatarUrl: user.avatarUrl || '',
+            routineSharingEnabled: user.routineSharingEnabled
         };
 
         // Return token and user data
@@ -221,7 +222,8 @@ const verifyToken = async (req, res) => {
             phone: user.phone,
             bracuId: user.bracuId || '',
             preferences: user.preferences,
-            avatarUrl: user.avatarUrl || ''
+            avatarUrl: user.avatarUrl || '',
+            routineSharingEnabled: user.routineSharingEnabled
         };
 
         res.json({
