@@ -1,7 +1,6 @@
 // client/src/components/FindAvailableClassrooms.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { getFreeClassrooms } from '../api/free';
-import { getFilteredClassrooms } from '../api/classrooms';
 import { 
     getBookmarkedClassrooms,
     addClassroomBookmark,
@@ -36,12 +35,10 @@ const capitalize = (str) => {
 
 export default function FindAvailableClassrooms() {
     const [scheduleRows, setScheduleRows] = useState([]);
-    const [allClassrooms, setAllClassrooms] = useState([]);
     const [filters, setFilters] = useState({
         day: 'monday',
         timeSlot: timeSlots[0],
-        floor: '',
-        building: ''
+        floor: ''
     });
     const [availableRooms, setAvailableRooms] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -52,12 +49,8 @@ export default function FindAvailableClassrooms() {
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                const [freeRoomsRes, allClassroomsRes] = await Promise.all([
-                    getFreeClassrooms(),
-                    getFilteredClassrooms({})
-                ]);
+                const freeRoomsRes = await getFreeClassrooms();
                 setScheduleRows(freeRoomsRes.data || []);
-                setAllClassrooms(allClassroomsRes.data.classrooms || []);
             } catch (error) {
                 console.error("Failed to load classroom data", error);
             } finally {
@@ -70,10 +63,9 @@ export default function FindAvailableClassrooms() {
 
     const fetchBookmarkedClassrooms = async () => {
         try {
-            const response = await getBookmarkedClassrooms();
-            if (response.data.success) {
-                setBookmarkedClassrooms(new Set(response.data.bookmarks.map(b => b.roomNumber)));
-            }
+            // For now, we'll store bookmarks in localStorage since we're only using Free Classroom database
+            const bookmarks = JSON.parse(localStorage.getItem('bookmarkedRooms') || '[]');
+            setBookmarkedClassrooms(new Set(bookmarks));
         } catch (err) {
             console.error('Failed to fetch bookmarks', err);
         }
@@ -125,10 +117,6 @@ export default function FindAvailableClassrooms() {
                     return false;
                 }
             }
-
-            // Building filtering - for now we'll skip this since the Free Classroom data 
-            // doesn't seem to include building information in the room codes
-            // You may need to add building logic based on room code patterns if needed
             
             return true;
         });
@@ -139,19 +127,16 @@ export default function FindAvailableClassrooms() {
             const zone = extractZoneFromRoomCode(roomCode);
             const classroomNumber = extractClassroomNumberFromRoomCode(roomCode);
             
-            // Try to find additional details from allClassrooms if available
-            const classroomDetails = allClassrooms.find(room => room.roomNumber === roomCode) || {};
-            
             return {
                 _id: roomCode, // Use room code as ID since we don't have actual IDs
                 roomNumber: roomCode,
                 floor: floor,
                 zone: zone,
                 classroomNumber: classroomNumber,
-                building: classroomDetails.building || 'Unknown Building',
-                capacity: classroomDetails.capacity || 'Unknown',
-                roomType: classroomDetails.roomType || 'Classroom',
-                facilities: classroomDetails.facilities || []
+                building: 'Main Building', // Default building for Free Classroom database
+                capacity: 'Unknown',
+                roomType: 'Classroom',
+                facilities: []
             };
         });
         
@@ -160,7 +145,7 @@ export default function FindAvailableClassrooms() {
 
         setAvailableRooms(roomObjects);
         setSearching(false);
-    }, [allClassrooms, scheduleRows, filters, loading]);
+    }, [scheduleRows, filters, loading]);
 
     useEffect(() => {
         // Perform an initial search when the component data has loaded
@@ -176,24 +161,21 @@ export default function FindAvailableClassrooms() {
 
     const toggleBookmark = async (roomCode) => {
         try {
-            // Find the classroom in allClassrooms to get its _id
-            const classroom = allClassrooms.find(room => room.roomNumber === roomCode);
+            const currentBookmarks = JSON.parse(localStorage.getItem('bookmarkedRooms') || '[]');
             
-            if (!classroom) {
-                // If classroom doesn't exist in allClassrooms, we can't bookmark it
-                console.warn('Cannot bookmark room - not found in classroom database:', roomCode);
-                return;
-            }
-
             if (bookmarkedClassrooms.has(roomCode)) {
-                await removeClassroomBookmark(classroom._id);
+                // Remove bookmark
+                const updatedBookmarks = currentBookmarks.filter(room => room !== roomCode);
+                localStorage.setItem('bookmarkedRooms', JSON.stringify(updatedBookmarks));
                 setBookmarkedClassrooms(prev => {
                     const newSet = new Set(prev);
                     newSet.delete(roomCode);
                     return newSet;
                 });
             } else {
-                await addClassroomBookmark(classroom._id);
+                // Add bookmark
+                const updatedBookmarks = [...currentBookmarks, roomCode];
+                localStorage.setItem('bookmarkedRooms', JSON.stringify(updatedBookmarks));
                 setBookmarkedClassrooms(prev => new Set(prev).add(roomCode));
             }
         } catch (err) {
@@ -205,13 +187,11 @@ export default function FindAvailableClassrooms() {
         return <div className="text-center p-8">Loading classroom data...</div>;
     }
 
-    const buildings = [...new Set(allClassrooms.map(r => r.building))];
-
     return (
         <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Find an Available Classroom</h3>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {/* Day filter */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Day</label>
@@ -228,19 +208,10 @@ export default function FindAvailableClassrooms() {
                         </select>
                     </div>
 
-                    {/* Building filter */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Building</label>
-                        <select name="building" value={filters.building} onChange={handleFilterChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                            <option value="">All Buildings</option>
-                            {buildings.map(b => <option key={b} value={b}>{b}</option>)}
-                        </select>
-                    </div>
-
                     {/* Floor filter */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Floor</label>
-                        <input type="number" name="floor" value={filters.floor} onChange={handleFilterChange} placeholder="e.g., 9" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                        <input type="number" name="floor" value={filters.floor} onChange={handleFilterChange} placeholder="e.g., 7" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
                     </div>
 
                     {/* Search button */}
