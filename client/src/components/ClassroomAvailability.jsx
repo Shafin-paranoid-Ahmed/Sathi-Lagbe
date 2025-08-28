@@ -1,26 +1,15 @@
 // client/src/components/ClassroomAvailability.jsx - Enhanced Classroom Availability System
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  AcademicCapIcon,
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
-  FunnelIcon,
   BuildingOfficeIcon,
   MapPinIcon,
-  UsersIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  BookmarkIcon,
-  BarsArrowUpIcon
+  UsersIcon
 } from '@heroicons/react/24/outline';
 import { getFilteredClassrooms } from '../api/classrooms';
 import { getFreeClassrooms } from '../api/free';
-import {
-  getBookmarkedClassrooms,
-  addClassroomBookmark,
-  removeClassroomBookmark
-} from '../api/users';
 
 const capitalize = (str) => {
   if (typeof str !== 'string' || !str) return '';
@@ -51,21 +40,11 @@ export default function ClassroomAvailability() {
   const [allClassrooms, setAllClassrooms] = useState([]);
   const [scheduleRows, setScheduleRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [bookmarkedClassrooms, setBookmarkedClassrooms] = useState(new Set());
-
-  const [filters, setFilters] = useState({
-    building: '',
-    floor: '',
-    roomType: '',
-    facilities: '',
-    capacity: ''
-  });
-  const [sortBy, setSortBy] = useState('roomNumber');
+  const [expandedSlots, setExpandedSlots] = useState(new Set()); // Track which time slots are expanded
 
   // Time-based availability states
   const [selectedDay] = useState('monday');
   const [selectedTimeSlot] = useState('08:00 AM–09:20 AM');
-  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -86,84 +65,30 @@ export default function ClassroomAvailability() {
     fetchAllData();
   }, []);
 
-  useEffect(() => {
-    fetchBookmarkedClassrooms();
-  }, []);
 
-  const fetchBookmarkedClassrooms = async () => {
-    try {
-      const response = await getBookmarkedClassrooms();
-      if (response.data.success) {
-        setBookmarkedClassrooms(new Set(response.data.bookmarks.map(b => b._id)));
-      }
-    } catch (err) {
-      console.error('Failed to fetch bookmarks', err);
-    }
-  };
 
-  const toggleBookmark = async (classroomId) => {
-    try {
-      if (bookmarkedClassrooms.has(classroomId)) {
-        await removeClassroomBookmark(classroomId);
-        setBookmarkedClassrooms(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(classroomId);
-          return newSet;
-        });
+
+
+  const toggleSlotExpansion = (slotKey) => {
+    setExpandedSlots(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(slotKey)) {
+        newSet.delete(slotKey);
       } else {
-        await addClassroomBookmark(classroomId);
-        setBookmarkedClassrooms(prev => new Set(prev).add(classroomId));
+        newSet.add(slotKey);
       }
-    } catch (err) {
-      console.error('Failed to toggle bookmark', err);
-    }
+      return newSet;
+    });
   };
 
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
 
   const parseRoomCodes = (roomString) => {
     if (!roomString || roomString === '') return [];
     return roomString.split(', ').map(room => room.trim());
   };
   
-  const availableRoomDetails = useMemo(() => {
-    const selectedSlotData = scheduleRows.find(row => row['Time/Day'] === selectedTimeSlot);
-    const availableRoomCodes = selectedSlotData ? parseRoomCodes(selectedSlotData[capitalize(selectedDay)]) : [];
-    
-    let classrooms = allClassrooms.filter(room => {
-      if (!availableRoomCodes.includes(room.roomNumber)) return false;
-      if (filters.building && room.building !== filters.building) return false;
-      if (filters.floor && room.floor !== parseInt(filters.floor, 10)) return false;
-      if (filters.roomType && room.roomType !== filters.roomType) return false;
-      if (filters.capacity) {
-        const [min, maxStr] = filters.capacity.split('-');
-        const max = maxStr === 'Infinity' ? Infinity : Number(maxStr);
-        if (room.capacity < Number(min)) return false;
-        if (max && room.capacity > max) return false;
-      }
-      if (filters.facilities) {
-        const requiredFacilities = filters.facilities.split(',').map(f => f.trim());
-        const hasAllFacilities = requiredFacilities.every(facility => (room.facilities || []).includes(facility));
-        if (!hasAllFacilities) return false;
-      }
-      return true;
-    });
 
-    classrooms.sort((a, b) => {
-      if (sortBy === 'capacity_asc') {
-        return a.capacity - b.capacity;
-      }
-      if (sortBy === 'capacity_desc') {
-        return b.capacity - a.capacity;
-      }
-      return (a.roomNumber || '').localeCompare(b.roomNumber || '');
-    });
-
-    return classrooms;
-  }, [allClassrooms, scheduleRows, selectedDay, selectedTimeSlot, filters, sortBy]);
 
   if (loading) {
     return (
@@ -214,9 +139,9 @@ export default function ClassroomAvailability() {
               <CheckCircleIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Available Now</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Time Slots</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {availableRoomDetails.length}
+                {scheduleRows.length}
               </p>
             </div>
           </div>
@@ -282,26 +207,50 @@ export default function ClassroomAvailability() {
                   {days.map(day => {
                     const rooms = parseRoomCodes(slot[capitalize(day.value)]);
                     const isCurrentSlot = slot['Time/Day'] === selectedTimeSlot && day.value === selectedDay;
+                    const slotKey = `${slot['Time/Day']}-${day.value}`;
+                    const isExpanded = expandedSlots.has(slotKey);
 
                     return (
                       <td key={day.value} className="px-6 py-4">
                         {rooms.length > 0 ? (
-                          <div className={`p-3 rounded-lg ${isCurrentSlot ? 'bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-700' : 'bg-green-50 dark:bg-green-900/20'}`}>
-                            <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                              {rooms.length} room{rooms.length !== 1 ? 's' : ''} available
-                            </div>
-                            <div className="space-y-1">
-                              {rooms.slice(0, 3).map((room, roomIndex) => (
-                                <div key={roomIndex} className="text-xs bg-white dark:bg-gray-700 px-2 py-1 rounded border">
-                                  {room}
-                                </div>
-                              ))}
+                          <div className={`p-3 rounded-lg transition-all duration-300 ${isCurrentSlot ? 'bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-700' : 'bg-green-50 dark:bg-green-900/20'}`}>
+                            <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 flex items-center justify-between">
+                              <span>{rooms.length} room{rooms.length !== 1 ? 's' : ''} available</span>
                               {rooms.length > 3 && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  +{rooms.length - 3} more
-                                </div>
+                                <button
+                                  onClick={() => toggleSlotExpansion(slotKey)}
+                                  className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors text-xs font-medium"
+                                >
+                                  {isExpanded ? 'Show less' : `+${rooms.length - 3} more`}
+                                </button>
                               )}
                             </div>
+                            <div className={`space-y-1 transition-all duration-300 ${isExpanded ? 'max-h-96 overflow-y-auto' : ''}`}>
+                              {(isExpanded ? rooms : rooms.slice(0, 3)).map((room, roomIndex) => (
+                                <div key={roomIndex} className="text-xs bg-white dark:bg-gray-700 px-2 py-1 rounded border flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                                  <span className="font-medium">{room}</span>
+                                  <div className="flex items-center space-x-1">
+                                    {/* Extract floor info for better display */}
+                                    {room.match(/^(\d+)/) && (
+                                      <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1 rounded">
+                                        Floor {room.match(/^(\d+)/)[1]}
+                                      </span>
+                                    )}
+                                    {/* Extract zone info */}
+                                    {room.match(/^\d+([A-Z])/) && (
+                                      <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-1 rounded">
+                                        Zone {room.match(/^\d+([A-Z])/)[1]}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {isExpanded && rooms.length > 6 && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                                Showing all {rooms.length} rooms
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="text-center py-3">
