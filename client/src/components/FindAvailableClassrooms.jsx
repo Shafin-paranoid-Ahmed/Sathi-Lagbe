@@ -6,7 +6,7 @@ import {
     addClassroomBookmark,
     removeClassroomBookmark
 } from '../api/users';
-import { MagnifyingGlassIcon, MapPinIcon, BuildingOfficeIcon, BookmarkIcon, AcademicCapIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, MapPinIcon, BuildingOfficeIcon, BookmarkIcon, AcademicCapIcon, ClockIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
 const timeSlots = [
     '08:00 AM–09:20 AM',
@@ -35,16 +35,18 @@ const capitalize = (str) => {
 export default function FindAvailableClassrooms() {
     const [scheduleRows, setScheduleRows] = useState([]);
     const [filters, setFilters] = useState({
-        day: 'monday',
-        timeSlot: timeSlots[0],
+        day: '', // Empty means all days
+        timeSlot: '', // Empty means all time slots
         floor: ''
     });
     const [availableRooms, setAvailableRooms] = useState([]);
+    const [groupedResults, setGroupedResults] = useState({});
     const [loading, setLoading] = useState(true);
     const [searching, setSearching] = useState(false);
     const [searched, setSearched] = useState(false);
     const [bookmarkedClassrooms, setBookmarkedClassrooms] = useState(new Set());
     const [searchQuery, setSearchQuery] = useState('');
+    const [expandedDays, setExpandedDays] = useState(new Set()); // Track which days are expanded
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -145,50 +147,100 @@ export default function FindAvailableClassrooms() {
         setSearching(true);
         setSearched(true);
         
-        const selectedSlotData = scheduleRows.find(row => row['Time/Day'] === filters.timeSlot);
-        const availableRoomCodes = selectedSlotData ? parseRoomCodes(selectedSlotData[capitalize(filters.day)]) : [];
-
-        // Filter room codes based on the criteria
-        let filteredRoomCodes = availableRoomCodes.filter(roomCode => {
-            // Floor filtering - extract floor from room code like "12A-09C"
-            if (filters.floor) {
-                const roomFloor = extractFloorFromRoomCode(roomCode);
-                if (roomFloor !== parseInt(filters.floor, 10)) {
-                    return false;
+        const grouped = {};
+        const allRoomsSet = new Set();
+        
+        // Get days to search (all days if no filter, otherwise specific day)
+        const daysToSearch = filters.day ? [filters.day] : days.map(d => d.value);
+        
+        // Get time slots to search (all slots if no filter, otherwise specific slot)
+        const timeSlotsToSearch = filters.timeSlot ? [filters.timeSlot] : timeSlots;
+        
+        // Iterate through all schedule rows and days
+        scheduleRows.forEach(row => {
+            const timeSlot = row['Time/Day'];
+            
+            // Skip if this time slot is not in our filter
+            if (!timeSlotsToSearch.includes(timeSlot)) return;
+            
+            daysToSearch.forEach(dayValue => {
+                const dayLabel = days.find(d => d.value === dayValue)?.label || dayValue;
+                const availableRoomCodes = parseRoomCodes(row[capitalize(dayValue)]);
+                
+                // Filter room codes based on criteria
+                const filteredRoomCodes = availableRoomCodes.filter(roomCode => {
+                    // Floor filtering
+                    if (filters.floor) {
+                        const roomFloor = extractFloorFromRoomCode(roomCode);
+                        if (roomFloor !== parseInt(filters.floor, 10)) {
+                            return false;
+                        }
+                    }
+                    
+                    // Search query filtering
+                    if (!roomMatchesSearch(roomCode, searchQuery)) {
+                        return false;
+                    }
+                    
+                    return true;
+                });
+                
+                if (filteredRoomCodes.length > 0) {
+                    // Initialize day group if it doesn't exist
+                    if (!grouped[dayLabel]) {
+                        grouped[dayLabel] = {};
+                    }
+                    
+                    // Create room objects for this time slot
+                    const roomObjects = filteredRoomCodes.map(roomCode => {
+                        allRoomsSet.add(roomCode); // Track all unique rooms
+                        
+                        const floor = extractFloorFromRoomCode(roomCode);
+                        const zone = extractZoneFromRoomCode(roomCode);
+                        const classroomNumber = extractClassroomNumberFromRoomCode(roomCode);
+                        
+                        return {
+                            _id: `${roomCode}-${dayValue}-${timeSlot}`,
+                            roomNumber: roomCode,
+                            floor: floor,
+                            zone: zone,
+                            classroomNumber: classroomNumber,
+                            building: 'Main Building',
+                            capacity: 'Unknown',
+                            roomType: 'Classroom',
+                            day: dayLabel,
+                            timeSlot: timeSlot
+                        };
+                    });
+                    
+                    // Sort rooms by room number
+                    roomObjects.sort((a, b) => (a.roomNumber || '').localeCompare(b.roomNumber || ''));
+                    
+                    grouped[dayLabel][timeSlot] = roomObjects;
                 }
-            }
-            
-            // Search query filtering
-            if (!roomMatchesSearch(roomCode, searchQuery)) {
-                return false;
-            }
-            
-            return true;
+            });
         });
         
-        // Create room objects from the filtered room codes
-        const roomObjects = filteredRoomCodes.map(roomCode => {
+        // Create a flat array of all unique rooms for the count
+        const allRoomsArray = Array.from(allRoomsSet).map(roomCode => {
             const floor = extractFloorFromRoomCode(roomCode);
             const zone = extractZoneFromRoomCode(roomCode);
             const classroomNumber = extractClassroomNumberFromRoomCode(roomCode);
             
             return {
-                _id: roomCode, // Use room code as ID since we don't have actual IDs
+                _id: roomCode,
                 roomNumber: roomCode,
                 floor: floor,
                 zone: zone,
                 classroomNumber: classroomNumber,
-                building: 'Main Building', // Default building for Free Classroom database
+                building: 'Main Building',
                 capacity: 'Unknown',
-                roomType: 'Classroom',
-                facilities: []
+                roomType: 'Classroom'
             };
         });
         
-        // Sort by room number
-        roomObjects.sort((a, b) => (a.roomNumber || '').localeCompare(b.roomNumber || ''));
-
-        setAvailableRooms(roomObjects);
+        setGroupedResults(grouped);
+        setAvailableRooms(allRoomsArray);
         setSearching(false);
     }, [scheduleRows, filters, loading, searchQuery, roomMatchesSearch]);
 
@@ -265,6 +317,28 @@ export default function FindAvailableClassrooms() {
         return roomNumber;
     };
 
+    // Function to toggle day expansion
+    const toggleDayExpansion = (dayLabel) => {
+        setExpandedDays(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(dayLabel)) {
+                newSet.delete(dayLabel);
+            } else {
+                newSet.add(dayLabel);
+            }
+            return newSet;
+        });
+    };
+
+    // Function to get total rooms count for a day
+    const getTotalRoomsForDay = (timeSlots) => {
+        const uniqueRooms = new Set();
+        Object.values(timeSlots).forEach(rooms => {
+            rooms.forEach(room => uniqueRooms.add(room.roomNumber));
+        });
+        return uniqueRooms.size;
+    };
+
     if (loading) {
         return (
             <div className="space-y-6">
@@ -297,9 +371,9 @@ export default function FindAvailableClassrooms() {
                     <MagnifyingGlassIcon className="h-6 w-6 inline-block mr-2 text-blue-500" />
                     Search Filters
                 </h2>
-                {/* Search bar */}
+                {/* Primary Search bar */}
                 <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-lg font-semibold text-gray-700 dark:text-gray-300 mb-3">
                         🔍 Search Classrooms
                     </label>
                     <div className="relative">
@@ -307,136 +381,189 @@ export default function FindAvailableClassrooms() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search by room code (e.g., '7a', '12A-09', '07B-15C')..."
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                            placeholder="Search by room code (e.g., '7a', '12A-09', '07B-15C') or leave empty to see all..."
+                            className="w-full pl-12 pr-4 py-4 text-lg border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
                         />
-                        <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-6 w-6 text-gray-400" />
                     </div>
-                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="mt-3 text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                         <span className="font-medium">💡 Search tips:</span> 
-                        <span className="ml-1">Type "7a" for 7th floor A zone, "12" for all 12th floor rooms, or "a" for all A zone rooms</span>
+                        <span className="ml-1">Type "7a" for 7th floor A zone, "12" for all 12th floor rooms, "a" for all A zone rooms, or leave empty to see all available classrooms</span>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {/* Day filter */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Day</label>
-                        <select name="day" value={filters.day} onChange={handleFilterChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                            {days.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-                        </select>
-                    </div>
+                {/* Secondary Filters */}
+                <details className="mb-4">
+                    <summary className="cursor-pointer p-3 bg-gray-50 dark:bg-gray-700 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                        🎛️ Additional Filters (Optional)
+                    </summary>
+                    <div className="mt-4 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Day filter */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filter by Day</label>
+                                <select name="day" value={filters.day} onChange={handleFilterChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                    <option value="">All Days</option>
+                                    {days.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                                </select>
+                            </div>
 
-                    {/* Time slot filter */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Slot</label>
-                        <select name="timeSlot" value={filters.timeSlot} onChange={handleFilterChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                            {timeSlots.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                    </div>
+                            {/* Time slot filter */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filter by Time Slot</label>
+                                <select name="timeSlot" value={filters.timeSlot} onChange={handleFilterChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                    <option value="">All Time Slots</option>
+                                    {timeSlots.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
 
-                    {/* Floor filter */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Floor (Optional)</label>
-                        <input type="number" name="floor" value={filters.floor} onChange={handleFilterChange} placeholder="e.g., 7" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                            {/* Floor filter */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filter by Floor</label>
+                                <input type="number" name="floor" value={filters.floor} onChange={handleFilterChange} placeholder="e.g., 7" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                            </div>
+                        </div>
+                        <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                            These filters work together with your search query to narrow down results
+                        </div>
                     </div>
-
-                    {/* Search button */}
-                    <div className="flex items-end">
-                        <button 
-                            onClick={handleSearch} 
-                            disabled={searching} 
-                            className="w-full flex items-center justify-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                        >
-                            {searching ? (
-                                <div className="flex items-center space-x-2">
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                    <span>Searching...</span>
-                                </div>
-                            ) : (
-                                <>
-                                    <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
-                                    Search Classrooms
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </div>
+                </details>
             </div>
 
             {/* Results */}
             {searched && (
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-soft-2xl">
-                    <div className="mb-4">
+                    <div className="mb-6">
                         <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
                             <AcademicCapIcon className="h-6 w-6 inline-block mr-2 text-green-500" />
-                            Search Results ({availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} found)
+                            Search Results ({availableRooms.length} unique room{availableRooms.length !== 1 ? 's' : ''} found)
                         </h2>
-                        {searchQuery && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                <span className="font-medium">Searching for:</span> "{searchQuery}" 
-                                {filters.day && <span className="ml-2">• <span className="font-medium">Day:</span> {days.find(d => d.value === filters.day)?.label}</span>}
-                                {filters.timeSlot && <span className="ml-2">• <span className="font-medium">Time:</span> {filters.timeSlot}</span>}
-                            </p>
-                        )}
+                        <div className="flex flex-wrap gap-2 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            {searchQuery && (
+                                <span className="bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-full">
+                                    <span className="font-medium">Search:</span> "{searchQuery}"
+                                </span>
+                            )}
+                            {filters.day && (
+                                <span className="bg-purple-100 dark:bg-purple-900/30 px-3 py-1 rounded-full">
+                                    <span className="font-medium">Day:</span> {days.find(d => d.value === filters.day)?.label}
+                                </span>
+                            )}
+                            {filters.timeSlot && (
+                                <span className="bg-green-100 dark:bg-green-900/30 px-3 py-1 rounded-full">
+                                    <span className="font-medium">Time:</span> {filters.timeSlot}
+                                </span>
+                            )}
+                            {filters.floor && (
+                                <span className="bg-orange-100 dark:bg-orange-900/30 px-3 py-1 rounded-full">
+                                    <span className="font-medium">Floor:</span> {filters.floor}
+                                </span>
+                            )}
+                        </div>
                     </div>
-                    {availableRooms.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {availableRooms.map(room => (
-                                <div key={room._id} className="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-5 border border-green-200 dark:border-green-700 transform transition-all duration-300 hover:scale-105 hover:shadow-lg group">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
-                                                <span className="text-white text-sm font-bold">{room.zone || '?'}</span>
-                                            </div>
-                                            <span className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-                                                {highlightSearchMatch(room.roomNumber, searchQuery)}
-                                            </span>
-                                        </div>
-                                        <button 
-                                            onClick={() => toggleBookmark(room.roomNumber)} 
-                                            className="text-gray-400 hover:text-yellow-500 transition-all duration-200 transform hover:scale-110"
-                                            title={bookmarkedClassrooms.has(room.roomNumber) ? 'Remove bookmark' : 'Add bookmark'}
+
+                    {Object.keys(groupedResults).length > 0 ? (
+                        <div className="space-y-4">
+                            {Object.entries(groupedResults).map(([dayLabel, timeSlots]) => {
+                                const isExpanded = expandedDays.has(dayLabel);
+                                const totalRooms = getTotalRoomsForDay(timeSlots);
+                                const totalTimeSlots = Object.keys(timeSlots).length;
+                                
+                                return (
+                                    <div key={dayLabel} className="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
+                                        {/* Day Header - Clickable */}
+                                        <button
+                                            onClick={() => toggleDayExpansion(dayLabel)}
+                                            className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 p-4 text-left transition-all duration-200"
                                         >
-                                            <BookmarkIcon 
-                                                className={`h-7 w-7 ${bookmarkedClassrooms.has(room.roomNumber) ? 'text-yellow-500 fill-current' : 'hover:fill-current'}`} 
-                                            />
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="space-y-3">
-                                        <div className="flex items-center space-x-2 bg-white dark:bg-gray-700 p-2 rounded-lg">
-                                            <BuildingOfficeIcon className="h-4 w-4 text-blue-500" />
-                                            <span className="text-gray-700 dark:text-gray-300 font-medium">
-                                                Floor {room.floor}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center space-x-2 bg-white dark:bg-gray-700 p-2 rounded-lg">
-                                            <MapPinIcon className="h-4 w-4 text-purple-500" />
-                                            <span className="text-gray-700 dark:text-gray-300 font-medium">
-                                                {room.building}
-                                            </span>
-                                        </div>
-                                        {room.zone && room.classroomNumber && (
-                                            <div className="flex justify-between bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-2 rounded-lg">
-                                                <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">
-                                                    Zone {room.zone}
-                                                </span>
-                                                <span className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-full font-medium">
-                                                    Room {room.classroomNumber}
-                                                </span>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-3">
+                                                    <span className="text-2xl">📅</span>
+                                                    <div>
+                                                        <h3 className="text-xl font-bold text-white">
+                                                            {dayLabel}
+                                                        </h3>
+                                                        <p className="text-sm text-purple-100">
+                                                            {totalRooms} unique room{totalRooms !== 1 ? 's' : ''} • {totalTimeSlots} time slot{totalTimeSlots !== 1 ? 's' : ''}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="text-sm text-purple-200 hidden sm:inline">
+                                                        {isExpanded ? 'Click to collapse' : 'Click to expand'}
+                                                    </span>
+                                                    {isExpanded ? (
+                                                        <ChevronUpIcon className="h-6 w-6 text-white transform transition-transform duration-200" />
+                                                    ) : (
+                                                        <ChevronDownIcon className="h-6 w-6 text-white transform transition-transform duration-200" />
+                                                    )}
+                                                </div>
                                             </div>
-                                        )}
+                                        </button>
+
+                                        {/* Collapsible Content */}
+                                        <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-none opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                                            <div className="p-4 space-y-6">
+                                                {Object.entries(timeSlots).map(([timeSlot, rooms]) => (
+                                                    <div key={timeSlot} className="border border-gray-100 dark:border-gray-700 rounded-lg overflow-hidden">
+                                                        <div className="bg-gray-50 dark:bg-gray-700 p-3 border-b border-gray-100 dark:border-gray-600">
+                                                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center">
+                                                                <ClockIcon className="h-4 w-4 mr-2 text-blue-500" />
+                                                                {timeSlot} ({rooms.length} room{rooms.length !== 1 ? 's' : ''})
+                                                            </h4>
+                                                        </div>
+                                                        <div className="p-4">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                                                {rooms.map(room => (
+                                                                    <div key={room._id} className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4 border border-green-200 dark:border-green-700 transform transition-all duration-200 hover:scale-105 hover:shadow-md group">
+                                                                        <div className="flex items-center justify-between mb-3">
+                                                                            <div className="flex items-center space-x-2">
+                                                                                <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-sm">
+                                                                                    <span className="text-white text-xs font-bold">{room.zone || '?'}</span>
+                                                                                </div>
+                                                                                <span className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                                                                                    {highlightSearchMatch(room.roomNumber, searchQuery)}
+                                                                                </span>
+                                                                            </div>
+                                                                            <button 
+                                                                                onClick={() => toggleBookmark(room.roomNumber)} 
+                                                                                className="text-gray-400 hover:text-yellow-500 transition-all duration-200 transform hover:scale-110"
+                                                                                title={bookmarkedClassrooms.has(room.roomNumber) ? 'Remove bookmark' : 'Add bookmark'}
+                                                                            >
+                                                                                <BookmarkIcon 
+                                                                                    className={`h-5 w-5 ${bookmarkedClassrooms.has(room.roomNumber) ? 'text-yellow-500 fill-current' : 'hover:fill-current'}`} 
+                                                                                />
+                                                                            </button>
+                                                                        </div>
+                                                                        
+                                                                        <div className="space-y-2">
+                                                                            <div className="flex items-center justify-between text-xs">
+                                                                                <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">
+                                                                                    Floor {room.floor}
+                                                                                </span>
+                                                                                <span className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full font-medium">
+                                                                                    Zone {room.zone}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className="text-center py-12">
                             <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20 rounded-xl p-8 border border-gray-200 dark:border-gray-700">
                                 <MagnifyingGlassIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                                 <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">No available rooms match your criteria</p>
-                                <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Try adjusting your filters or selecting a different time slot</p>
+                                <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Try adjusting your search query or filters</p>
                             </div>
                         </div>
                     )}
