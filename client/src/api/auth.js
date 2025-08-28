@@ -106,6 +106,11 @@ export function deleteAccount() {
   return API.delete('/auth/delete');
 }
 
+// Settings-related functions
+export function updateSettings(settingsData) {
+    return API.put('/users/profile/settings', settingsData);
+}
+
 // Status-related functions
 export function updateStatus(statusData) {
   return API.patch('/users/status', statusData);

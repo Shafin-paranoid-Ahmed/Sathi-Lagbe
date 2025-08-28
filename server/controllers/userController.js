@@ -61,7 +61,7 @@ exports.getCurrentUserProfile = async (req, res) => {
     const userId = req.user.id || req.user.userId;
     
     const user = await User.findById(userId)
-      .select('name email gender location avatarUrl bracuId phone preferences');
+      .select('name email gender location avatarUrl bracuId phone preferences routineSharingEnabled');
       
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -127,6 +127,41 @@ exports.updateProfile = async (req, res) => {
     console.error('Error updating profile:', err);
     res.status(500).json({ error: err.message || 'Failed to update profile' });
   }
+};
+
+/**
+ * Update user's settings, including routine sharing
+ */
+exports.updateSettings = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user.userId;
+        const { routineSharingEnabled } = req.body;
+        
+        const updates = {};
+        if (typeof routineSharingEnabled === 'boolean') {
+            updates.routineSharingEnabled = routineSharingEnabled;
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ error: 'No valid settings provided' });
+        }
+        
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { $set: updates },
+            { new: true }
+        ).select('name email preferences routineSharingEnabled');
+        
+        res.json({
+            message: 'Settings updated successfully',
+            settings: {
+                routineSharingEnabled: user.routineSharingEnabled
+            }
+        });
+    } catch (err) {
+        console.error('Error updating settings:', err);
+        res.status(500).json({ error: err.message || 'Failed to update settings' });
+    }
 };
 
 /**

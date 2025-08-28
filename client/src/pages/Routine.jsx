@@ -1,30 +1,172 @@
 // client/src/pages/Routine.jsx
-import { useState, useEffect } from 'react';
-import { AcademicCapIcon, PlusCircleIcon, TrashIcon, PencilIcon, UserGroupIcon } from '@heroicons/react/24/outline';
-import { getUserRoutine, addRoutineEntry, deleteRoutineEntry } from '../api/routine';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { AcademicCapIcon, PlusCircleIcon, TrashIcon, UserGroupIcon, XMarkIcon, WifiIcon, BookOpenIcon, ClockIcon, CheckCircleIcon, ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { getUserRoutine, addRoutineEntry, deleteRoutineEntry, getFriendsRoutines } from '../api/routine';
+import { getFriendsWithStatus } from '../api/friends';
 
 const timeSlots = [
-    "08:00 AM-09:20 AM",
-    "09:30 AM-10:50 AM", 
-    "11:00 AM-12:20 PM",
-    "12:30 PM-01:50 PM",
-    "02:00 PM-03:20 PM",
-    "03:30 PM-04:50 PM",
+    "08:00 AM-09:20 AM", "09:30 AM-10:50 AM", "11:00 AM-12:20 PM",
+    "12:30 PM-01:50 PM", "02:00 PM-03:20 PM", "03:30 PM-04:50 PM",
     "05:00 PM-06:20 PM"
 ];
 
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+// Helper to get an icon for a friend's status
+const getStatusInfo = (status) => {
+    switch (status) {
+        case 'free': return { Icon: CheckCircleIcon, color: 'text-orange-500', label: 'Free' };
+        case 'available': return { Icon: WifiIcon, color: 'text-green-500', label: 'Available' };
+        case 'in_class': return { Icon: BookOpenIcon, color: 'text-blue-500', label: 'In Class' };
+        case 'studying': return { Icon: BookOpenIcon, color: 'text-purple-500', label: 'Studying' };
+        case 'busy': return { Icon: ClockIcon, color: 'text-red-500', label: 'Busy' };
+        default: return { Icon: WifiIcon, color: 'text-gray-400', label: 'Unknown' };
+    }
+};
+
+// Popup Component to show friends with search and sorting
+const FriendsPopup = ({ friends, onClose }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const processedFriends = useMemo(() => {
+        // 1. Initial filter to remove 'busy' friends
+        let filtered = friends.filter(friend => friend.status?.current !== 'busy');
+        const lowercasedQuery = searchQuery.toLowerCase().trim();
+
+        // 2. Apply search filter
+        if (lowercasedQuery) {
+            // Check for status search like .free.
+            if (lowercasedQuery.startsWith('.') && lowercasedQuery.endsWith('.')) {
+                // Remove periods and convert space to underscore
+                const statusQuery = lowercasedQuery.slice(1, -1).replace(' ', '_');
+                const validStatuses = ["free", "available", "studying", "in_class"];
+                
+                if (validStatuses.includes(statusQuery)) {
+                    filtered = filtered.filter(friend => friend.status?.current === statusQuery);
+                } else {
+                    // Handle common non-underscored input (e.g., "in class")
+                    const nonUnderscoreStatus = lowercasedQuery.slice(1, -1);
+                    if (nonUnderscoreStatus === 'in class') {
+                         filtered = filtered.filter(friend => friend.status?.current === 'in_class');
+                    } else {
+                         // If status is not recognized, show nothing
+                         filtered = [];
+                    }
+                }
+
+            } else {
+                // Normal name search
+                filtered = filtered.filter(friend =>
+                    friend.name.toLowerCase().includes(lowercasedQuery)
+                );
+            }
+        }
+
+        // 3. Apply sorting based on status priority
+        const statusOrder = {
+            'free': 1,
+            'available': 2,
+            'studying': 3,
+            'in_class': 4,
+        };
+
+        return filtered.sort((a, b) => {
+            const statusA = a.status?.current || 'unknown';
+            const statusB = b.status?.current || 'unknown';
+            const orderA = statusOrder[statusA] || 5; // Default to a lower priority
+            const orderB = statusOrder[statusB] || 5;
+            return orderA - orderB;
+        });
+    }, [friends, searchQuery]);
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg m-4">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Available Friends</h3>
+                    <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <XMarkIcon className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+                    </button>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative mb-4">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder='Search by name or .status. (e.g., .free.)'
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-lg border dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-primary-500"
+                    />
+                </div>
+
+                <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {processedFriends.length > 0 ? processedFriends.map(friend => {
+                        const { Icon, color, label } = getStatusInfo(friend.status?.current);
+                        return (
+                            <div key={friend._id} className="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                                <img src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${friend.name}&background=random`} alt={friend.name} className="h-10 w-10 rounded-full object-cover" />
+                                <div className="flex-1">
+                                    <p className="font-medium text-gray-800 dark:text-gray-200">{friend.name}</p>
+                                    <div className={`flex items-center text-sm ${color}`}>
+                                        <Icon className="h-4 w-4 mr-1.5" />
+                                        <span>{label}{friend.status?.location ? ` at ${friend.status.location}` : ''}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }) : (
+                        <p className="text-center text-gray-500 dark:text-gray-400 py-4">No friends match your search.</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+// Component for empty slots (now counts 'available' friends as free)
+const FreeSlot = ({ day, timeSlot, friends, friendsRoutines, onSlotClick }) => {
+    const availableFriends = useMemo(() => {
+        const busyFriendIds = new Set(
+            friendsRoutines
+                .filter(entry => entry.day === day && entry.timeSlot === timeSlot)
+                .map(entry => entry.userId)
+        );
+        return friends.filter(friend => !busyFriendIds.has(friend._id));
+    }, [day, timeSlot, friends, friendsRoutines]);
+
+    const freeNowCount = availableFriends.filter(f => ['free', 'available'].includes(f.status?.current)).length;
+
+    if (freeNowCount === 0) {
+        return <span className="text-gray-400">—</span>;
+    }
+
+    return (
+        <button onClick={() => onSlotClick(availableFriends)} className="w-full h-full text-left p-1">
+            <div className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-md p-2 text-center text-sm font-medium hover:bg-green-200 dark:hover:bg-green-900 transition-colors">
+                <UserGroupIcon className="h-5 w-5 mx-auto mb-1" />
+                {freeNowCount} {freeNowCount > 1 ? 'Friends' : 'Friend'} Free
+            </div>
+        </button>
+    );
+};
+
+
 export default function Routine() {
     const [routineEntries, setRoutineEntries] = useState([]);
+    const [friendsRoutines, setFriendsRoutines] = useState([]);
+    const [friends, setFriends] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [newEntry, setNewEntry] = useState({ timeSlot: timeSlots[0], day: 'Sunday+Tuesday', course: '' });
     const [submitting, setSubmitting] = useState(false);
     const [deleting, setDeleting] = useState({});
     const [groupToggle, setGroupToggle] = useState(true); // Default to grouped view
-
+    const [popupFriends, setPopupFriends] = useState(null);
     // Dropdown options for Day based on grouping toggle
     const getDropdownDays = () => {
         if (groupToggle) {
@@ -46,23 +188,44 @@ export default function Routine() {
             course: '' // Also clear course input
         }));
     }, [groupToggle]);
+    
+    
 
-    // Fetch user's routine on component mount
+    // Fetch all data on initial load
     useEffect(() => {
-        fetchRoutine();
+        const initialLoad = async () => {
+            try {
+                setLoading(true);
+                setError('');
+                const [routineRes, friendsRes, friendsRoutinesRes] = await Promise.all([
+                    getUserRoutine(),
+                    getFriendsWithStatus(),
+                    getFriendsRoutines()
+                ]);
+                setRoutineEntries(routineRes.data.data || []);
+                setFriends(friendsRes.data || []);
+                setFriendsRoutines(friendsRoutinesRes.data.data || []);
+            } catch (err) {
+                console.error('Error fetching initial data:', err);
+                setError('Failed to load routine data');
+            } finally {
+                setLoading(false);
+            }
+        };
+        initialLoad();
     }, []);
-
-    const fetchRoutine = async () => {
+    
+    // Refresh function now ONLY fetches friend statuses for efficiency
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
         try {
-            setLoading(true);
-            setError('');
-            const response = await getUserRoutine();
-            setRoutineEntries(response.data.data || []);
+            const friendsRes = await getFriendsWithStatus();
+            setFriends(friendsRes.data || []);
         } catch (err) {
-            console.error('Error fetching routine:', err);
-            setError('Failed to load routine');
+            console.error('Error refreshing friend status:', err);
+            setError('Failed to refresh friend status');
         } finally {
-            setLoading(false);
+            setIsRefreshing(false);
         }
     };
 
@@ -130,7 +293,9 @@ export default function Routine() {
                 addedCount += 1;
             }
             
-            // Reset form
+            if (addedEntries.length > 0) {
+                setRoutineEntries(prev => [...prev, ...addedEntries]);
+            }
             setNewEntry({ timeSlot: timeSlots[0], day: 'Monday', course: '' });
             
             // Show success message
@@ -150,18 +315,13 @@ export default function Routine() {
         }
     };
 
-    // Function to get grouped days based on the selected day
     const getGroupedDays = (selectedDay) => {
         const dayGroups = {
-            'Sunday': ['Sunday', 'Tuesday'],
-            'Monday': ['Monday', 'Wednesday'],
-            'Tuesday': ['Sunday', 'Tuesday'],
-            'Wednesday': ['Monday', 'Wednesday'],
-            'Thursday': ['Saturday', 'Thursday'],
-            'Friday': ['Friday'], // Friday is not grouped
+            'Sunday': ['Sunday', 'Tuesday'], 'Monday': ['Monday', 'Wednesday'],
+            'Tuesday': ['Sunday', 'Tuesday'], 'Wednesday': ['Monday', 'Wednesday'],
+            'Thursday': ['Saturday', 'Thursday'], 'Friday': ['Friday'],
             'Saturday': ['Saturday', 'Thursday']
         };
-        
         return dayGroups[selectedDay] || [selectedDay];
     };
 
@@ -176,38 +336,28 @@ export default function Routine() {
             setDeleting(prev => ({ ...prev, [entryId]: true }));
             setError('');
             
-            // Find the entry to be deleted
             const entryToDelete = routineEntries.find(entry => entry._id === entryId);
+            if (!entryToDelete) return;
             
-            if (groupToggle && entryToDelete) {
-                // If grouping is enabled, find and delete all entries in the same group
+            const entriesToDeleteIds = new Set();
+            if (groupToggle) {
                 const groupedDays = getGroupedDays(entryToDelete.day);
-                const entriesToDelete = routineEntries.filter(entry => 
-                    entry.timeSlot === entryToDelete.timeSlot && 
-                    entry.course === entryToDelete.course &&
-                    groupedDays.includes(entry.day)
-                );
-                
-                // Delete all entries in the group
-                for (const entry of entriesToDelete) {
-                    try {
-                        await deleteRoutineEntry(entry._id);
-                    } catch (err) {
-                        console.error(`Error deleting entry ${entry._id}:`, err);
+                routineEntries.forEach(entry => {
+                    if (entry.timeSlot === entryToDelete.timeSlot && 
+                        entry.course === entryToDelete.course &&
+                        groupedDays.includes(entry.day)) {
+                        entriesToDeleteIds.add(entry._id);
                     }
-                }
-                
-                // Remove all grouped entries from state
-                setRoutineEntries(prev => prev.filter(entry => 
-                    !(entry.timeSlot === entryToDelete.timeSlot && 
-                      entry.course === entryToDelete.course &&
-                      groupedDays.includes(entry.day))
-                ));
+                });
             } else {
                 // Single entry deletion - only delete the specific entry
                 await deleteRoutineEntry(entryId);
                 setRoutineEntries(prev => prev.filter(entry => entry._id !== entryId));
             }
+
+            await Promise.all(Array.from(entriesToDeleteIds).map(id => deleteRoutineEntry(id)));
+            setRoutineEntries(prev => prev.filter(entry => !entriesToDeleteIds.has(entry._id)));
+
         } catch (err) {
             console.error('Error deleting routine entry:', err);
             setError(err.response?.data?.error || 'Failed to delete routine entry');
@@ -222,25 +372,17 @@ export default function Routine() {
         timeSlots.forEach(timeSlot => {
             const row = { "Time/Day": timeSlot };
             days.forEach(day => {
-                const entry = routineEntries.find(e => e.timeSlot === timeSlot && e.day === day);
-                row[day] = entry ? entry : null;
+                row[day] = routineEntries.find(e => e.timeSlot === timeSlot && e.day === day) || null;
             });
             tableData.push(row);
         });
         return tableData;
     };
 
-    const tableData = getTableData();
-
     if (loading) {
         return (
             <div className="space-y-6">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Routine</h1>
-                    <p className="text-gray-600 dark:text-gray-400 mt-2">
-                        Manage your weekly academic schedule.
-                    </p>
-                </div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Routine</h1>
                 <div className="flex items-center justify-center h-64">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
                 </div>
@@ -250,11 +392,10 @@ export default function Routine() {
 
     return (
         <div className="space-y-6">
+            {popupFriends && <FriendsPopup friends={popupFriends} onClose={() => setPopupFriends(null)} />}
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Routine</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">
-                    Manage your weekly academic schedule.
-                </p>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">Manage your weekly schedule and see when friends are free.</p>
             </div>
 
             {/* Error Display */}
