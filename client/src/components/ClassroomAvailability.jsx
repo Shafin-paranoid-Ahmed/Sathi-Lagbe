@@ -1,9 +1,9 @@
 // client/src/components/ClassroomAvailability.jsx - Enhanced Classroom Availability System
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  AcademicCapIcon, 
-  CheckCircleIcon, 
-  XCircleIcon, 
+import {
+  AcademicCapIcon,
+  CheckCircleIcon,
+  XCircleIcon,
   ClockIcon,
   FunnelIcon,
   BuildingOfficeIcon,
@@ -11,13 +11,15 @@ import {
   UsersIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  BookmarkIcon
+  BookmarkIcon,
+  BarsArrowUpIcon
 } from '@heroicons/react/24/outline';
 import { getFilteredClassrooms } from '../api/classrooms';
-import { 
-  getBookmarkedClassrooms, 
-  addClassroomBookmark, 
-  removeClassroomBookmark 
+import { getFreeClassrooms } from '../api/free';
+import {
+  getBookmarkedClassrooms,
+  addClassroomBookmark,
+  removeClassroomBookmark
 } from '../api/users';
 
 const capitalize = (str) => {
@@ -25,56 +27,59 @@ const capitalize = (str) => {
   return str.charAt(0).toUpperCase() + str.slice(1);
 };
 
+// Moved outside component to prevent re-creation on every render
+const timeSlots = [
+  '08:00 AM–09:20 AM',
+  '09:30 AM–10:50 AM',
+  '11:00 AM–12:20 PM',
+  '12:30 PM–01:50 PM',
+  '02:00 PM–03:20 PM',
+  '03:30 PM–04:50 PM',
+  '05:00 PM–06:20 PM'
+];
+
+const days = [
+  { value: 'sunday', label: 'Sunday', short: 'SUN' },
+  { value: 'monday', label: 'Monday', short: 'MON' },
+  { value: 'tuesday', label: 'Tuesday', short: 'TUE' },
+  { value: 'wednesday', label: 'Wednesday', short: 'WED' },
+  { value: 'thursday', label: 'Thursday', short: 'THU' },
+  { value: 'friday', label: 'Friday', short: 'FRI' },
+  { value: 'saturday', label: 'Saturday', short: 'SAT' }
+];
+
 export default function ClassroomAvailability() {
   const [allClassrooms, setAllClassrooms] = useState([]);
+  const [scheduleRows, setScheduleRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [bookmarkedClassrooms, setBookmarkedClassrooms] = useState(new Set());
-  
-  // Filter states
+
   const [filters, setFilters] = useState({
     building: '',
     floor: '',
     roomType: '',
-    facilities: ''
+    facilities: '',
+    capacity: ''
   });
+  const [sortBy, setSortBy] = useState('roomNumber');
 
   // Time-based availability states
-  const [selectedDay, setSelectedDay] = useState('monday');
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState('08:00 AM–09:20 AM');
+  const [selectedDay] = useState('monday');
+  const [selectedTimeSlot] = useState('08:00 AM–09:20 AM');
   const [showFilters, setShowFilters] = useState(false);
-
-  // Corrected timeSlots to use en-dash
-  const timeSlots = [
-    '08:00 AM–09:20 AM',
-    '09:30 AM–10:50 AM',
-    '11:00 AM–12:20 PM',
-    '12:30 PM–01:50 PM',
-    '02:00 PM–03:20 PM',
-    '03:30 PM–04:50 PM',
-    '05:00 PM–06:20 PM'
-  ];
-
-  const days = [
-    { value: 'sunday', label: 'Sunday', short: 'SUN' },
-    { value: 'monday', label: 'Monday', short: 'MON' },
-    { value: 'tuesday', label: 'Tuesday', short: 'TUE' },
-    { value: 'wednesday', label: 'Wednesday', short: 'WED' },
-    { value: 'thursday', label: 'Thursday', short: 'THU' },
-    { value: 'friday', label: 'Friday', short: 'FRI' },
-    { value: 'saturday', label: 'Saturday', short: 'SAT' }
-  ];
 
   useEffect(() => {
     const fetchAllData = async () => {
       setLoading(true);
-      setError('');
       try {
-        const roomsRes = await getFilteredClassrooms({}); // Fetch all classrooms without time/day filters initially
+        const [freeRoomsRes, roomsRes] = await Promise.all([
+          getFreeClassrooms(),
+          getFilteredClassrooms({})
+        ]);
+        setScheduleRows(freeRoomsRes.data || []);
         setAllClassrooms(roomsRes.data.classrooms || []);
       } catch (err) {
-        setError('Failed to load classroom data.');
-        console.error(err);
+        console.error('Failed to load classroom data', err);
       } finally {
         setLoading(false);
       }
@@ -115,15 +120,31 @@ export default function ClassroomAvailability() {
     }
   };
 
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const filteredClassrooms = useMemo(() => {
-    return allClassrooms.filter(room => {
+  const parseRoomCodes = (roomString) => {
+    if (!roomString || roomString === '') return [];
+    return roomString.split(', ').map(room => room.trim());
+  };
+  
+  const availableRoomDetails = useMemo(() => {
+    const selectedSlotData = scheduleRows.find(row => row['Time/Day'] === selectedTimeSlot);
+    const availableRoomCodes = selectedSlotData ? parseRoomCodes(selectedSlotData[capitalize(selectedDay)]) : [];
+    
+    let classrooms = allClassrooms.filter(room => {
+      if (!availableRoomCodes.includes(room.roomNumber)) return false;
       if (filters.building && room.building !== filters.building) return false;
       if (filters.floor && room.floor !== parseInt(filters.floor, 10)) return false;
       if (filters.roomType && room.roomType !== filters.roomType) return false;
+      if (filters.capacity) {
+        const [min, maxStr] = filters.capacity.split('-');
+        const max = maxStr === 'Infinity' ? Infinity : Number(maxStr);
+        if (room.capacity < Number(min)) return false;
+        if (max && room.capacity > max) return false;
+      }
       if (filters.facilities) {
         const requiredFacilities = filters.facilities.split(',').map(f => f.trim());
         const hasAllFacilities = requiredFacilities.every(facility => (room.facilities || []).includes(facility));
@@ -131,62 +152,19 @@ export default function ClassroomAvailability() {
       }
       return true;
     });
-  }, [allClassrooms, filters]);
 
-  const scheduleData = useMemo(() => {
-    return timeSlots.map(timeSlot => {
-      const row = { 'Time/Day': timeSlot, _id: timeSlot };
-      const backendTimeSlot = timeSlot.replace(' AM', '').replace(' PM', '').replace('–', '-');
-
-      days.forEach(day => {
-        const availableRooms = filteredClassrooms
-          .filter(room => {
-            const daySchedule = room.timetable?.schedule?.[day.value.toLowerCase()] || [];
-            const slotInfo = daySchedule.find(s => s.timeSlot === backendTimeSlot);
-            return !slotInfo || !slotInfo.isOccupied;
-          })
-          .map(room => room.roomNumber);
-        row[capitalize(day.value)] = availableRooms.join(', ');
-      });
-      return row;
+    classrooms.sort((a, b) => {
+      if (sortBy === 'capacity_asc') {
+        return a.capacity - b.capacity;
+      }
+      if (sortBy === 'capacity_desc') {
+        return b.capacity - a.capacity;
+      }
+      return (a.roomNumber || '').localeCompare(b.roomNumber || '');
     });
-  }, [filteredClassrooms]);
 
-  const availableRoomDetails = useMemo(() => {
-    const backendTimeSlot = selectedTimeSlot.replace(' AM', '').replace(' PM', '').replace('–', '-');
-    return filteredClassrooms.filter(room => {
-      const daySchedule = room.timetable?.schedule?.[selectedDay.toLowerCase()] || [];
-      const slot = daySchedule.find(s => s.timeSlot === backendTimeSlot);
-      return !slot || !slot.isOccupied;
-    });
-  }, [filteredClassrooms, selectedDay, selectedTimeSlot]);
-
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'available':
-        return 'text-green-600 bg-green-100 dark:bg-green-900 dark:text-green-400';
-      case 'occupied':
-        return 'text-red-600 bg-red-100 dark:bg-red-900 dark:text-red-400';
-      default:
-        return 'text-gray-600 bg-gray-100 dark:bg-gray-700 dark:text-gray-400';
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'available':
-        return <CheckCircleIcon className="h-5 w-5" />;
-      case 'occupied':
-        return <XCircleIcon className="h-5 w-5" />;
-      default:
-        return <ClockIcon className="h-5 w-5" />;
-    }
-  };
-
-  const parseRoomCodes = (roomString) => {
-    if (!roomString || roomString === '') return [];
-    return roomString.split(', ').map(room => room.trim());
-  };
+    return classrooms;
+  }, [allClassrooms, scheduleRows, selectedDay, selectedTimeSlot, filters, sortBy]);
 
   if (loading) {
     return (
@@ -211,7 +189,7 @@ export default function ClassroomAvailability() {
             </p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold">{timeSlots.length}</div>
+            <div className="text-2xl font-bold">{scheduleRows.length}</div>
             <div className="text-purple-100">Time Slots</div>
           </div>
         </div>
@@ -230,14 +208,14 @@ export default function ClassroomAvailability() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
               <CheckCircleIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Available</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Available Now</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {availableRoomDetails.length}
               </p>
@@ -252,7 +230,7 @@ export default function ClassroomAvailability() {
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Buildings</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{new Set(allClassrooms.map(r => r.building)).size}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{ new Set(allClassrooms.map(r => r.building)).size }</p>
             </div>
           </div>
         </div>
@@ -283,9 +261,9 @@ export default function ClassroomAvailability() {
             {showFilters ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
           </button>
         </div>
-        
+
         {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Building
@@ -313,38 +291,66 @@ export default function ClassroomAvailability() {
                 {Array.from(new Set(allClassrooms.map(r => r.floor))).sort((a, b) => a - b).map(f => <option key={f} value={f}>Floor {f}</option>)}
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Day
+                Room Type
               </label>
               <select
-                value={selectedDay}
-                onChange={(e) => setSelectedDay(e.target.value)}
+                value={filters.roomType}
+                onChange={(e) => handleFilterChange('roomType', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
-                {days.map(day => (
-                  <option key={day.value} value={day.value}>
-                    {day.label}
-                  </option>
-                ))}
+                <option value="">All Room Types</option>
+                {Array.from(new Set(allClassrooms.map(r => r.roomType))).map(type => <option key={type} value={type}>{type}</option>)}
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Time Slot
+                Capacity
               </label>
               <select
-                value={selectedTimeSlot}
-                onChange={(e) => setSelectedTimeSlot(e.target.value)}
+                value={filters.capacity}
+                onChange={(e) => handleFilterChange('capacity', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
-                {timeSlots.map(slot => (
-                  <option key={slot} value={slot}>
-                    {slot}
-                  </option>
-                ))}
+                <option value="">Any Capacity</option>
+                <option value="0-Infinity">0+</option>
+                <option value="1-Infinity">1+</option>
+                <option value="2-Infinity">2+</option>
+                <option value="3-Infinity">3+</option>
+                <option value="4-Infinity">4+</option>
+                <option value="5-Infinity">5+</option>
+                <option value="6-Infinity">6+</option>
+                <option value="7-Infinity">7+</option>
+                <option value="8-Infinity">8+</option>
+                <option value="9-Infinity">9+</option>
+                <option value="10-Infinity">10+</option>
+                <option value="11-Infinity">11+</option>
+                <option value="12-Infinity">12+</option>
+                <option value="13-Infinity">13+</option>
+                <option value="14-Infinity">14+</option>
+                <option value="15-Infinity">15+</option>
+                <option value="16-Infinity">16+</option>
+                <option value="17-Infinity">17+</option>
+                <option value="18-Infinity">18+</option>
+                <option value="19-Infinity">19+</option>
+                <option value="20-Infinity">20+</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Facilities
+              </label>
+              <select
+                value={filters.facilities}
+                onChange={(e) => handleFilterChange('facilities', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">Any Facilities</option>
+                {Array.from(new Set(allClassrooms.flatMap(r => r.facilities || []))).map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
           </div>
@@ -371,7 +377,7 @@ export default function ClassroomAvailability() {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {scheduleData.map((slot, index) => (
+              {scheduleRows.map((slot, index) => (
                 <tr key={slot._id} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -384,7 +390,7 @@ export default function ClassroomAvailability() {
                   {days.map(day => {
                     const rooms = parseRoomCodes(slot[capitalize(day.value)]);
                     const isCurrentSlot = slot['Time/Day'] === selectedTimeSlot && day.value === selectedDay;
-                    
+
                     return (
                       <td key={day.value} className="px-6 py-4">
                         {rooms.length > 0 ? (
@@ -423,14 +429,27 @@ export default function ClassroomAvailability() {
 
       {/* Detailed Room View for Selected Time */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             🏢 Available Rooms - {selectedTimeSlot} on {days.find(d => d.value === selectedDay)?.label}
           </h3>
+          <div className="flex items-center space-x-2">
+            <BarsArrowUpIcon className="h-5 w-5 text-gray-500" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+            >
+              <option value="roomNumber">Sort by Room</option>
+              <option value="capacity_asc">Sort by Capacity (Asc)</option>
+              <option value="capacity_desc">Sort by Capacity (Desc)</option>
+            </select>
+          </div>
         </div>
         
         <div className="p-6">
           {(() => {
+
             if (availableRoomDetails.length === 0) {
               return (
                 <div className="text-center py-8">
