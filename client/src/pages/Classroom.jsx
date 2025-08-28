@@ -46,15 +46,33 @@ const BookmarkedClassrooms = () => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
-        const [bookmarksRes, freeRoomsRes] = await Promise.all([
-          getBookmarkedClassrooms(),
-          getFreeClassrooms()
-        ]);
         
-        if (bookmarksRes.data.success) {
-          setBookmarks(bookmarksRes.data.bookmarks);
-        }
+        // Get bookmarked rooms from localStorage
+        const bookmarkedRoomCodes = JSON.parse(localStorage.getItem('bookmarkedRooms') || '[]');
+        
+        // Get free rooms data
+        const freeRoomsRes = await getFreeClassrooms();
         setScheduleRows(freeRoomsRes.data || []);
+        
+        // Create bookmark objects from room codes
+        const bookmarkObjects = bookmarkedRoomCodes.map(roomCode => {
+          const floor = extractFloorFromRoomCode(roomCode);
+          const zone = extractZoneFromRoomCode(roomCode);
+          const classroomNumber = extractClassroomNumberFromRoomCode(roomCode);
+          
+          return {
+            _id: roomCode,
+            roomNumber: roomCode,
+            floor: floor,
+            zone: zone,
+            classroomNumber: classroomNumber,
+            building: 'Main Building',
+            capacity: 'Unknown',
+            roomType: 'Classroom'
+          };
+        });
+        
+        setBookmarks(bookmarkObjects);
       } catch (err) {
         console.error('Failed to fetch data', err);
       } finally {
@@ -64,10 +82,30 @@ const BookmarkedClassrooms = () => {
     fetchAllData();
   }, []);
 
-  const handleRemoveBookmark = async (classroomId) => {
+  const extractFloorFromRoomCode = (roomCode) => {
+    if (!roomCode) return null;
+    const match = roomCode.match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
+  };
+
+  const extractZoneFromRoomCode = (roomCode) => {
+    if (!roomCode) return null;
+    const match = roomCode.match(/^\d+([A-Z])/);
+    return match ? match[1] : null;
+  };
+
+  const extractClassroomNumberFromRoomCode = (roomCode) => {
+    if (!roomCode) return null;
+    const match = roomCode.match(/-(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
+  };
+
+  const handleRemoveBookmark = async (roomCode) => {
     try {
-      await removeClassroomBookmark(classroomId);
-      setBookmarks(prev => prev.filter(b => b._id !== classroomId));
+      const currentBookmarks = JSON.parse(localStorage.getItem('bookmarkedRooms') || '[]');
+      const updatedBookmarks = currentBookmarks.filter(room => room !== roomCode);
+      localStorage.setItem('bookmarkedRooms', JSON.stringify(updatedBookmarks));
+      setBookmarks(prev => prev.filter(b => b._id !== roomCode));
     } catch (err) {
       console.error('Failed to remove bookmark', err);
     }
