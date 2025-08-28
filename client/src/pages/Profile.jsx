@@ -1,7 +1,7 @@
+import { BookOpenIcon, CheckCircleIcon, CheckIcon, ClockIcon, PencilIcon, UserCircleIcon, WifiIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import React, { useEffect, useState } from 'react';
-import { CheckIcon, PencilIcon, UserCircleIcon, XMarkIcon, ClockIcon, BookOpenIcon, CheckCircleIcon, WifiIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
-import { deleteAccount, logout, verifyToken, API, updateStatus, getCurrentUserStatus } from '../api/auth';
+import { API, deleteAccount, getCurrentUserStatus, logout, updateStatus, verifyToken } from '../api/auth';
 
 export default function Profile() {
   const [profile, setProfile] = useState({
@@ -35,6 +35,18 @@ export default function Profile() {
   useEffect(() => {
     fetchProfile();
     fetchCurrentStatus();
+  }, []);
+
+  // Listen for status changes from other components
+  useEffect(() => {
+    const handleStatusChangeEvent = (event) => {
+      setCurrentStatus(event.detail.status);
+    };
+
+    window.addEventListener('userStatusChanged', handleStatusChangeEvent);
+    return () => {
+      window.removeEventListener('userStatusChanged', handleStatusChangeEvent);
+    };
   }, []);
 
   const fetchProfile = async () => {
@@ -91,6 +103,7 @@ export default function Profile() {
       await updateStatus({ status: newStatus });
       setCurrentStatus(newStatus);
       setSuccess('Status updated successfully!');
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { detail: { status: newStatus } }));
     } catch (error) {
       console.error('Error updating status:', error);
       setError('Failed to update status');
