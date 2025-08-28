@@ -44,6 +44,7 @@ export default function FindAvailableClassrooms() {
     const [searching, setSearching] = useState(false);
     const [searched, setSearched] = useState(false);
     const [bookmarkedClassrooms, setBookmarkedClassrooms] = useState(new Set());
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -99,6 +100,46 @@ export default function FindAvailableClassrooms() {
         return match ? parseInt(match[1], 10) : null;
     };
 
+    // Helper function to check if a room matches the search query
+    const roomMatchesSearch = (roomCode, query) => {
+        if (!query.trim()) return true;
+        
+        const lowerQuery = query.toLowerCase().trim();
+        const lowerRoomCode = roomCode.toLowerCase();
+        
+        // Direct match (e.g., "12a-09c" matches "12A-09C")
+        if (lowerRoomCode.includes(lowerQuery)) {
+            return true;
+        }
+        
+        // Floor + Zone match (e.g., "7a" matches "07A-*")
+        const floorZoneMatch = lowerQuery.match(/^(\d+)([a-z]?)$/);
+        if (floorZoneMatch) {
+            const [, searchFloor, searchZone] = floorZoneMatch;
+            const roomFloor = extractFloorFromRoomCode(roomCode);
+            const roomZone = extractZoneFromRoomCode(roomCode);
+            
+            const floorMatches = roomFloor === parseInt(searchFloor, 10);
+            const zoneMatches = !searchZone || (roomZone && roomZone.toLowerCase() === searchZone);
+            
+            return floorMatches && zoneMatches;
+        }
+        
+        // Zone only match (e.g., "a" matches "*A-*")
+        if (lowerQuery.length === 1 && /^[a-z]$/.test(lowerQuery)) {
+            const roomZone = extractZoneFromRoomCode(roomCode);
+            return roomZone && roomZone.toLowerCase() === lowerQuery;
+        }
+        
+        // Floor only match (e.g., "7" matches "07*-*")
+        if (/^\d+$/.test(lowerQuery)) {
+            const roomFloor = extractFloorFromRoomCode(roomCode);
+            return roomFloor === parseInt(lowerQuery, 10);
+        }
+        
+        return false;
+    };
+
     const handleSearch = useCallback(() => {
         if (loading) return;
         setSearching(true);
@@ -115,6 +156,11 @@ export default function FindAvailableClassrooms() {
                 if (roomFloor !== parseInt(filters.floor, 10)) {
                     return false;
                 }
+            }
+            
+            // Search query filtering
+            if (!roomMatchesSearch(roomCode, searchQuery)) {
+                return false;
             }
             
             return true;
@@ -144,7 +190,7 @@ export default function FindAvailableClassrooms() {
 
         setAvailableRooms(roomObjects);
         setSearching(false);
-    }, [scheduleRows, filters, loading]);
+    }, [scheduleRows, filters, loading, searchQuery, roomMatchesSearch]);
 
     useEffect(() => {
         // Perform an initial search when the component data has loaded
@@ -152,6 +198,17 @@ export default function FindAvailableClassrooms() {
             handleSearch();
         }
     }, [loading, handleSearch]);
+
+    // Auto-search when search query changes (with debouncing)
+    useEffect(() => {
+        if (!loading && searched) {
+            const debounceTimer = setTimeout(() => {
+                handleSearch();
+            }, 500); // 500ms debounce
+
+            return () => clearTimeout(debounceTimer);
+        }
+    }, [searchQuery, loading, searched, handleSearch]);
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -180,6 +237,32 @@ export default function FindAvailableClassrooms() {
         } catch (err) {
             console.error('Failed to toggle bookmark', err);
         }
+    };
+
+    // Helper function to highlight search matches in room numbers
+    const highlightSearchMatch = (roomNumber, query) => {
+        if (!query.trim()) return roomNumber;
+        
+        const lowerQuery = query.toLowerCase().trim();
+        const lowerRoomNumber = roomNumber.toLowerCase();
+        
+        // Check for direct substring match
+        if (lowerRoomNumber.includes(lowerQuery)) {
+            const startIndex = lowerRoomNumber.indexOf(lowerQuery);
+            const endIndex = startIndex + lowerQuery.length;
+            
+            return (
+                <>
+                    {roomNumber.substring(0, startIndex)}
+                    <span className="bg-yellow-200 dark:bg-yellow-600 px-1 rounded font-bold text-yellow-900 dark:text-yellow-100">
+                        {roomNumber.substring(startIndex, endIndex)}
+                    </span>
+                    {roomNumber.substring(endIndex)}
+                </>
+            );
+        }
+        
+        return roomNumber;
     };
 
     if (loading) {
@@ -214,6 +297,27 @@ export default function FindAvailableClassrooms() {
                     <MagnifyingGlassIcon className="h-6 w-6 inline-block mr-2 text-blue-500" />
                     Search Filters
                 </h2>
+                {/* Search bar */}
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        🔍 Search Classrooms
+                    </label>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search by room code (e.g., '7a', '12A-09', '07B-15C')..."
+                            className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                        />
+                        <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="font-medium">💡 Search tips:</span> 
+                        <span className="ml-1">Type "7a" for 7th floor A zone, "12" for all 12th floor rooms, or "a" for all A zone rooms</span>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {/* Day filter */}
                     <div>
@@ -233,7 +337,7 @@ export default function FindAvailableClassrooms() {
 
                     {/* Floor filter */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Floor</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Floor (Optional)</label>
                         <input type="number" name="floor" value={filters.floor} onChange={handleFilterChange} placeholder="e.g., 7" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
                     </div>
 
@@ -263,10 +367,19 @@ export default function FindAvailableClassrooms() {
             {/* Results */}
             {searched && (
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-soft-2xl">
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                        <AcademicCapIcon className="h-6 w-6 inline-block mr-2 text-green-500" />
-                        Search Results ({availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} found)
-                    </h2>
+                    <div className="mb-4">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
+                            <AcademicCapIcon className="h-6 w-6 inline-block mr-2 text-green-500" />
+                            Search Results ({availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} found)
+                        </h2>
+                        {searchQuery && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                <span className="font-medium">Searching for:</span> "{searchQuery}" 
+                                {filters.day && <span className="ml-2">• <span className="font-medium">Day:</span> {days.find(d => d.value === filters.day)?.label}</span>}
+                                {filters.timeSlot && <span className="ml-2">• <span className="font-medium">Time:</span> {filters.timeSlot}</span>}
+                            </p>
+                        )}
+                    </div>
                     {availableRooms.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {availableRooms.map(room => (
@@ -276,7 +389,9 @@ export default function FindAvailableClassrooms() {
                                             <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
                                                 <span className="text-white text-sm font-bold">{room.zone || '?'}</span>
                                             </div>
-                                            <span className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">{room.roomNumber}</span>
+                                            <span className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                                                {highlightSearchMatch(room.roomNumber, searchQuery)}
+                                            </span>
                                         </div>
                                         <button 
                                             onClick={() => toggleBookmark(room.roomNumber)} 
