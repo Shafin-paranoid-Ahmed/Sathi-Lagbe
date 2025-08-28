@@ -375,3 +375,216 @@ exports.getBookmarks = async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to fetch bookmarks' });
   }
 };
+
+/**
+ * Get next class information for auto-status users
+ */
+exports.getNextClassInfo = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const AutoStatusService = require('../services/autoStatusService');
+    
+    const nextClassInfo = await AutoStatusService.getNextClassTime(userId);
+    
+    res.json({
+      nextClass: nextClassInfo,
+      currentTime: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('Error fetching next class info:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch next class info' });
+  }
+};
+
+/**
+ * Manually trigger auto-status update for current user
+ */
+exports.triggerAutoStatusUpdate = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const AutoStatusService = require('../services/autoStatusService');
+    const Routine = require('../models/Routine');
+    
+    // First check if user has auto-update enabled
+    const user = await User.findById(userId).select('status');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (!user.status.isAutoUpdate) {
+      return res.status(400).json({ 
+        error: 'Auto-status update is not enabled. Please enable it first in your status settings.' 
+      });
+    }
+    
+    // Check if user has any routine entries
+    const hasRoutine = await Routine.exists({ userId });
+    if (!hasRoutine) {
+      return res.status(400).json({ 
+        error: 'No class schedule found. Please add your class routine first before using auto-status updates.' 
+      });
+    }
+    
+    const updatedUser = await AutoStatusService.updateUserStatus(userId);
+    
+    if (!updatedUser) {
+      return res.status(400).json({ 
+        error: 'Auto-status update failed. Please check if you have a class schedule set up for today.' 
+      });
+    }
+    
+    res.json({
+      message: 'Status updated automatically',
+      user: updatedUser
+    });
+  } catch (err) {
+    console.error('Error triggering auto-status update:', err);
+    res.status(500).json({ error: err.message || 'Failed to trigger auto-status update' });
+  }
+};
+
+/**
+ * Get user's routine for today
+ */
+exports.getTodayRoutine = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const Routine = require('../models/Routine');
+    
+    const currentDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    const todayRoutine = await Routine.findOne({
+      userId,
+      day: currentDay
+    });
+    
+    res.json({
+      todayRoutine,
+      currentDay,
+      hasRoutine: !!todayRoutine
+    });
+  } catch (err) {
+    console.error('Error fetching today\'s routine:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch today\'s routine' });
+  }
+};
+
+/**
+ * Check user's auto-status setup status
+ */
+exports.checkAutoStatusSetup = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const Routine = require('../models/Routine');
+    
+    const user = await User.findById(userId).select('status');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const currentDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    const todayRoutine = await Routine.findOne({
+      userId,
+      day: currentDay
+    });
+    
+    const totalRoutines = await Routine.countDocuments({ userId });
+    
+    res.json({
+      autoUpdateEnabled: user.status.isAutoUpdate,
+      hasRoutineToday: !!todayRoutine,
+      totalRoutines,
+      currentDay,
+      todayRoutine,
+      setupComplete: user.status.isAutoUpdate && totalRoutines > 0,
+      message: user.status.isAutoUpdate 
+        ? (totalRoutines > 0 
+          ? 'Auto-status is properly configured' 
+          : 'Auto-status enabled but no class routine found')
+        : 'Auto-status is not enabled'
+    });
+  } catch (err) {
+    console.error('Error checking auto-status setup:', err);
+    res.status(500).json({ error: err.message || 'Failed to check auto-status setup' });
+  }
+};
+
+/**
+ * Debug endpoint to check day names and routine matching
+ */
+exports.debugAutoStatus = async (req, res) => {
+  try {
+    console.log('🔍 Debug endpoint called');
+    const userId = req.user.id || req.user.userId;
+    console.log('👤 User ID:', userId);
+    
+    const Routine = require('../models/Routine');
+    const AutoStatusService = require('../services/autoStatusService');
+    
+    console.log('📚 Models loaded successfully');
+    
+    const user = await User.findById(userId).select('status');
+    if (!user) {
+      console.log('❌ User not found');
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    console.log('✅ User found, status:', user.status);
+    
+    // Get current day using different methods
+    const currentDate = new Date();
+    const dayNumber = currentDate.getDay();
+    console.log('📅 Current date:', currentDate.toISOString(), 'Day number:', dayNumber);
+    
+    const dayNameFromService = AutoStatusService.getDayName(dayNumber);
+    const dayNameFromController = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+    
+    console.log('📅 Day names - Service:', dayNameFromService, 'Controller:', dayNameFromController);
+    
+    // Get all routines for the user
+    const allRoutines = await Routine.find({ userId }).select('day timeSlot course');
+    console.log('📚 Total routines found:', allRoutines.length);
+    
+    // Check for today's routine using both methods
+    const routineFromService = await Routine.findOne({
+      userId,
+      day: dayNameFromService
+    });
+    
+    const routineFromController = await Routine.findOne({
+      userId,
+      day: dayNameFromController
+    });
+    
+    console.log('📚 Routines - Service method:', routineFromService ? 'Found' : 'Not found', 'Controller method:', routineFromController ? 'Found' : 'Not found');
+    
+    const response = {
+      debug: {
+        currentDate: currentDate.toISOString(),
+        dayNumber,
+        dayNameFromService,
+        dayNameFromController,
+        dayNamesMatch: dayNameFromService === dayNameFromController,
+        userAutoUpdate: user.status.isAutoUpdate,
+        totalRoutines: allRoutines.length,
+        allRoutineDays: allRoutines.map(r => r.day),
+        routineFromService: routineFromService ? {
+          day: routineFromService.day,
+          timeSlot: routineFromService.timeSlot,
+          course: routineFromService.course
+        } : null,
+        routineFromController: routineFromController ? {
+          day: routineFromController.day,
+          timeSlot: routineFromController.timeSlot,
+          course: routineFromController.course
+        } : null
+      }
+    };
+    
+    console.log('✅ Debug response prepared, sending...');
+    res.json(response);
+  } catch (err) {
+    console.error('❌ Error in debug endpoint:', err);
+    console.error('❌ Error stack:', err.stack);
+    res.status(500).json({ error: err.message || 'Failed to debug auto-status' });
+  }
+};

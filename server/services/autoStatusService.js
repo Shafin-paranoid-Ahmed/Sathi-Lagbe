@@ -1,168 +1,210 @@
 // server/services/autoStatusService.js
-// Periodically updates user status based on Routine timeslots and notifies friends
-
 const mongoose = require('mongoose');
-const Routine = require('../models/Routine');
 const User = require('../models/User');
+const Routine = require('../models/Routine');
 const notificationService = require('./notificationService');
 
-// Map of known timeslots in ascending order
-const TIMESLOTS = [
-  '08:00 AM-09:20 AM',
-  '09:30 AM-10:50 AM',
-  '11:00 AM-12:20 PM',
-  '12:30 PM-01:50 PM',
-  '02:00 PM-03:20 PM',
-  '03:30 PM-04:50 PM',
-  '05:00 PM-06:20 PM'
-];
+class AutoStatusService {
+  /**
+   * Update user status based on their current class schedule
+   */
+  static async updateUserStatus(userId) {
+    try {
+      const user = await User.findById(userId);
+      if (!user || !user.status.isAutoUpdate) {
+        return null; // User doesn't exist or auto-update is disabled
+      }
 
-function parseTimeToMinutes(t12) {
-  // t12 like '08:00 AM' or '03:30 PM'
-  const [time, ampm] = t12.trim().split(' ');
-  const [hh, mm] = time.split(':').map(Number);
-  let h = hh % 12;
-  if (ampm.toUpperCase() === 'PM') h += 12;
-  return h * 60 + mm;
-}
+      const currentTime = new Date();
+      const currentDay = this.getDayName(currentTime.getDay());
+      
+      // Get all of the user's routine entries for today
+      const todayRoutines = await Routine.find({ userId, day: currentDay }).lean();
 
-function parseSlot(slot) {
-  // slot like '08:00 AM-09:20 AM'
-  const [start, end] = slot.split('-');
-  return [parseTimeToMinutes(start), parseTimeToMinutes(end)];
-}
-
-function getCurrentDayName() {
-  return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
-}
-
-function getCurrentTimeslot() {
-  try {
-    const now = new Date();
-    const minutes = now.getHours() * 60 + now.getMinutes();
-    for (const slot of TIMESLOTS) {
-      const [start, end] = parseSlot(slot);
-      if (minutes >= start && minutes <= end) return slot;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function setInClassForUsers(currentDay, currentSlot) {
-  // Find all routine entries for this day + slot
-  const entries = await Routine.find({ day: currentDay, timeSlot: currentSlot }).lean();
-  if (!entries.length) return { setCount: 0 };
-
-  // Group by userId with most recent course (any)
-  const byUser = new Map();
-  entries.forEach(e => { byUser.set(e.userId.toString(), e); });
-
-  const userIds = Array.from(byUser.keys());
-  if (!userIds.length) return { setCount: 0 };
-
-  // Find users who have auto-update enabled.
-  const usersToUpdate = await User.find({ 
-    _id: { $in: userIds }, 
-    'status.isAutoUpdate': true 
-  }).select('_id name status').lean();
-
-  let setCount = 0;
-  for (const u of usersToUpdate) {
-    const entry = byUser.get(u._id.toString());
-    const newLocation = entry?.course || 'Class';
-    
-    // ONLY update if status is not already correct. This is the crucial check.
-    if (u.status?.current !== 'in_class' || u.status?.location !== newLocation) {
-      await User.findByIdAndUpdate(u._id, {
-        $set: {
-          'status.current': 'in_class',
-          'status.location': newLocation,
-          'status.lastUpdated': new Date()
+      if (!todayRoutines.length) {
+        // No classes today, set status to 'available' if it's not already
+        return this.setUserStatus(user, 'available', 'No classes scheduled');
+      }
+      
+      // Check each of today's classes
+      for (const entry of todayRoutines) {
+        const isInClass = this.isTimeInSlot(currentTime, entry.timeSlot);
+        if (isInClass) {
+          return this.setUserStatus(user, 'in_class', entry.course);
         }
-      });
+      }
+
+      // If not in any class, the user is now 'available'
+      // This handles the case where a class has just ended.
+      return this.setUserStatus(user, 'available', '');
+
+    } catch (error) {
+      console.error(`Error updating auto-status for user ${userId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Set user status and location, but only if it has changed, then notify.
+   */
+  static async setUserStatus(user, newStatus, newLocation) {
+    try {
+      const oldStatus = user.status.current;
+      const oldLocation = user.status.location;
+
+      // Only update and notify if the status or location has actually changed.
+      if (oldStatus === newStatus && oldLocation === newLocation) {
+        return null; // No change needed
+      }
+
+      user.status.current = newStatus;
+      user.status.location = newLocation;
+      user.status.lastUpdated = new Date();
+      
+      await user.save();
+
+      // Send notification about the status change
       try {
-        await notificationService.sendStatusChangeNotification(u._id, 'in_class', newLocation);
-      } catch {}
-      setCount++;
+        await notificationService.sendStatusChangeNotification(user._id, newStatus, newLocation);
+      } catch (notifyErr) {
+        console.warn(`Failed to send status change notification for user ${user._id}:`, notifyErr.message);
+      }
+
+      return user;
+    } catch (error)
+    {
+      console.error(`Error setting user status for ${user._id}:`, error);
+      return null;
     }
   }
-  return { setCount };
-}
 
-async function clearInClassForUsersNotInSlot(currentDay, currentSlot) {
-  // Find users currently marked as 'in_class' with auto-update on.
-  const usersInClass = await User.find({ 'status.isAutoUpdate': true, 'status.current': 'in_class' })
-    .select('_id status').lean();
-  if (!usersInClass.length) return { clearedCount: 0 };
+  /**
+   * Get day name from day number (0=Sunday)
+   */
+  static getDayName(dayNumber) {
+    return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayNumber];
+  }
 
-  const userIdsInClass = usersInClass.map(u => u._id);
+  /**
+   * Parse a 12-hour time string (e.g., '08:00 AM') into total minutes from midnight.
+   */
+  static parseTimeToMinutes(time12h) {
+    const [time, ampm] = time12h.trim().split(' ');
+    const [hours, minutes] = time.split(':').map(Number);
+    let h = hours % 12;
+    if (ampm.toUpperCase() === 'PM') h += 12;
+    return h * 60 + minutes;
+  }
   
-  // Find which of these users ACTUALLY have a class in the current slot.
-  const usersWhoShouldBeInClass = await Routine.find({
-    userId: { $in: userIdsInClass },
-    day: currentDay,
-    timeSlot: currentSlot
-  }).distinct('userId');
+  /**
+   * Check if the current time falls within a given timeslot string (e.g., '08:00 AM-09:20 AM')
+   */
+  static isTimeInSlot(currentTime, timeSlot) {
+    const [startStr, endStr] = timeSlot.split('-');
+    const startMinutes = this.parseTimeToMinutes(startStr);
+    const endMinutes = this.parseTimeToMinutes(endStr);
+    
+    const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+    
+    return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+  }
 
-  const usersToKeepInClass = new Set(usersWhoShouldBeInClass.map(id => id.toString()));
-  let clearedCount = 0;
-
-  for (const u of usersInClass) {
-    // If the user is NOT in the set of users who should be in class, clear their status.
-    if (!usersToKeepInClass.has(u._id.toString())) {
-      // Double check that the status needs to be cleared before updating
-      if (u.status?.current !== 'available' || u.status?.location !== '') {
-        await User.findByIdAndUpdate(u._id, {
-          $set: {
-            'status.current': 'available',
-            'status.location': '',
-            'status.lastUpdated': new Date()
-          }
-        });
-        try {
-          await notificationService.sendStatusChangeNotification(u._id, 'available', '');
-        } catch {}
-        clearedCount++;
+  /**
+   * Update status for all users with auto-update enabled
+   */
+  static async updateAllAutoUsers() {
+    try {
+      const autoUsers = await User.find({ 'status.isAutoUpdate': true });
+      const results = [];
+      
+      for (const user of autoUsers) {
+        const result = await this.updateUserStatus(user._id);
+        if (result) {
+          results.push(result);
+        }
       }
+      
+      return results;
+    } catch (error) {
+      console.error('Error updating all auto users:', error);
+      return [];
     }
   }
-  return { clearedCount };
+
+  /**
+   * Get next class time for a user today
+   */
+  static async getNextClassTime(userId) {
+    try {
+      const currentTime = new Date();
+      const currentDay = this.getDayName(currentTime.getDay());
+      
+      const todayRoutines = await Routine.find({ userId, day: currentDay }).lean();
+      if (!todayRoutines.length) return null;
+
+      const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+      
+      let nextClass = null;
+      
+      for (const routine of todayRoutines) {
+          const [startStr, endStr] = routine.timeSlot.split('-');
+          const startMinutes = this.parseTimeToMinutes(startStr);
+          const endMinutes = this.parseTimeToMinutes(endStr);
+
+          // If currently in this class
+          if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+              return { time: endStr.trim(), course: routine.course, type: 'ongoing' };
+          }
+          
+          // If this class is in the future today
+          if (startMinutes > currentMinutes) {
+              // If we haven't found a future class yet, or if this one is earlier
+              if (!nextClass || startMinutes < this.parseTimeToMinutes(nextClass.time)) {
+                  nextClass = { time: startStr.trim(), course: routine.course, type: 'upcoming' };
+              }
+          }
+      }
+
+      return nextClass; // This will be the soonest upcoming class, or null if all are past
+    } catch (error) {
+      console.error('Error getting next class time:', error);
+      return null;
+    }
+  }
 }
 
+/**
+ * The main periodic function that triggers updates.
+ */
 async function tick() {
-  // Ensure DB is connected
-  if (mongoose.connection.readyState !== 1) return;
-
-  const day = getCurrentDayName();
-  const slot = getCurrentTimeslot();
+  if (mongoose.connection.readyState !== 1) {
+    console.warn('Auto-status tick skipped: DB not connected.');
+    return;
+  }
+  
   try {
-    if (slot) {
-      const { setCount } = await setInClassForUsers(day, slot);
-      const { clearedCount } = await clearInClassForUsersNotInSlot(day, slot);
-      if (setCount || clearedCount) {
-        // No logging
-      }
-    } else {
-      // Outside any slot: clear users auto-marked as in_class
-      const { clearedCount } = await clearInClassForUsersNotInSlot(day, null);
-      if (clearedCount) {
-        // No logging
-      }
+    const updatedUsers = await AutoStatusService.updateAllAutoUsers();
+    if (updatedUsers.length > 0) {
+      console.log(`✅ Auto-status updates completed. Updated ${updatedUsers.length} users.`);
     }
   } catch (err) {
-    // silently fail
+    console.error('❌ Error during scheduled auto-status tick:', err);
   }
 }
 
+/**
+ * Initializes and starts the scheduler for automatic status updates.
+ * @param {object} options - Configuration for the scheduler.
+ * @param {number} [options.intervalMs=300000] - The interval in milliseconds (defaults to 5 minutes).
+ */
 function startAutoStatusScheduler({ intervalMs = 5 * 60 * 1000 } = {}) {
-  // Kick once shortly after startup
-  setTimeout(() => tick(), 10 * 1000);
+  console.log(`🔄 Scheduled auto-status updates set to run every ${intervalMs / 60000} minutes.`);
+  
+  // Run once shortly after server startup
+  setTimeout(() => tick(), 15 * 1000); // 15 seconds after start
+  
   // Then run periodically
   setInterval(tick, intervalMs);
-  // No logging
 }
 
-module.exports = { startAutoStatusScheduler };
-
+module.exports = { AutoStatusService, startAutoStatusScheduler };
