@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { CheckIcon, PencilIcon, UserCircleIcon, XMarkIcon, ClockIcon, BookOpenIcon, CheckCircleIcon, WifiIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, PencilIcon, UserCircleIcon, XMarkIcon, ClockIcon, BookOpenIcon, CheckCircleIcon, WifiIcon, EyeIcon, CogIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
-import { deleteAccount, logout, verifyToken, API, updateStatus, getCurrentUserStatus } from '../api/auth';
+import { deleteAccount, logout, verifyToken, API, updateStatus, getCurrentUserStatus, updateSettings } from '../api/auth';
 
 export default function Profile() {
   const [profile, setProfile] = useState({
@@ -11,7 +11,8 @@ export default function Profile() {
     location: '',
     phone: '+880',
     preferences: { darkMode: false },
-    bracuId: ''
+    bracuId: '',
+    routineSharingEnabled: true
   });
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -21,6 +22,7 @@ export default function Profile() {
   const [avatarPreview, setAvatarPreview] = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('available');
+  const [isAutoUpdate, setIsAutoUpdate] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -39,29 +41,27 @@ export default function Profile() {
 
   const fetchProfile = async () => {
     try {
-      // Use shared API + interceptor which already attaches the token
       const response = await verifyToken();
-      
       if (response.data.user) {
-        const currentUserId = response.data.user._id;
+        const currentUser = response.data.user;
+        const currentUserId = currentUser._id;
         
         setProfile({
-          name: response.data.user.name || '',
-          email: response.data.user.email || '',
-          gender: response.data.user.gender || '',
-          location: response.data.user.location || '',
-          phone: response.data.user.phone || '+880',
-          bracuId: response.data.user.bracuId || '',
-          preferences: response.data.user.preferences || { darkMode: false }
+          name: currentUser.name || '',
+          email: currentUser.email || '',
+          gender: currentUser.gender || '',
+          location: currentUser.location || '',
+          phone: currentUser.phone || '+880',
+          bracuId: currentUser.bracuId || '',
+          preferences: currentUser.preferences || { darkMode: false },
+          routineSharingEnabled: currentUser.routineSharingEnabled ?? true
         });
         
-        // Use user-specific avatar storage
-        const userAvatarUrl = sessionStorage.getItem(`userAvatarUrl_${currentUserId}`) || response.data.user.avatarUrl || '';
+        const userAvatarUrl = sessionStorage.getItem(`userAvatarUrl_${currentUserId}`) || currentUser.avatarUrl || '';
         setAvatarPreview(userAvatarUrl);
         
-        // Update session storage with user-specific key
-        if (response.data.user.avatarUrl) {
-          sessionStorage.setItem(`userAvatarUrl_${currentUserId}`, response.data.user.avatarUrl);
+        if (currentUser.avatarUrl) {
+          sessionStorage.setItem(`userAvatarUrl_${currentUserId}`, currentUser.avatarUrl);
         }
       }
     } catch (err) {
@@ -75,8 +75,9 @@ export default function Profile() {
   const fetchCurrentStatus = async () => {
     try {
       const response = await getCurrentUserStatus();
-      if (response.data?.status?.current) {
+      if (response.data?.status) {
         setCurrentStatus(response.data.status.current);
+        setIsAutoUpdate(response.data.status.isAutoUpdate || false);
       }
     } catch (error) {
       console.error('Error fetching status:', error);
@@ -84,19 +85,52 @@ export default function Profile() {
   };
 
   const handleStatusChange = async (newStatus) => {
-    if (newStatus === currentStatus || statusLoading) return;
+    if (newStatus === currentStatus || statusLoading || isAutoUpdate) return;
     
     setStatusLoading(true);
     try {
-      await updateStatus({ status: newStatus });
+      await updateStatus({ status: newStatus, isAutoUpdate });
       setCurrentStatus(newStatus);
       setSuccess('Status updated successfully!');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Error updating status:', error);
       setError('Failed to update status');
     } finally {
       setStatusLoading(false);
     }
+  };
+
+  const handleAutoUpdateToggle = async () => {
+    const newAutoUpdateState = !isAutoUpdate;
+    setIsAutoUpdate(newAutoUpdateState);
+    setStatusLoading(true);
+
+    try {
+      await updateStatus({ status: currentStatus, isAutoUpdate: newAutoUpdateState });
+      setSuccess(`Automatic status updates ${newAutoUpdateState ? 'enabled' : 'disabled'}.`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+        console.error('Error toggling auto-update:', error);
+        setError('Failed to change setting');
+        setIsAutoUpdate(!newAutoUpdateState); // Revert on failure
+    } finally {
+        setStatusLoading(false);
+    }
+  };
+  
+  const handleSettingsChange = async (e) => {
+      const { name, checked } = e.target;
+      setProfile(prev => ({ ...prev, [name]: checked }));
+
+      try {
+          await updateSettings({ [name]: checked });
+          setSuccess('Settings updated successfully!');
+          setTimeout(() => setSuccess(''), 3000);
+      } catch (err) {
+          setError(err.response?.data?.error || 'Failed to update settings');
+          setProfile(prev => ({ ...prev, [name]: !checked }));
+      }
   };
 
   const handleSave = async () => {
@@ -120,10 +154,10 @@ export default function Profile() {
         sessionStorage.setItem('userName', profile.name);
       }
       
-      // Dispatch custom event to notify other components about the name change
       window.dispatchEvent(new CustomEvent('userNameChanged', { 
         detail: { userName: profile.name } 
       }));
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error updating profile:', err);
       setError(err.response?.data?.error || 'Failed to update profile');
@@ -136,7 +170,6 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Get current user ID for validation
     const currentUserId = sessionStorage.getItem('userId');
     if (!currentUserId) {
       setError('User session not found. Please login again.');
@@ -151,7 +184,7 @@ export default function Profile() {
     try {
       const formData = new FormData();
       formData.append('avatar', file);
-      formData.append('userId', currentUserId); // Add user ID for server validation
+      formData.append('userId', currentUserId);
       
       const res = await API.post('/users/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -159,17 +192,11 @@ export default function Profile() {
       const updatedUrl = res.data?.user?.avatarUrl;
       if (updatedUrl) {
         setAvatarPreview(updatedUrl);
-        
-        // Update session storage with user-specific key
         sessionStorage.setItem(`userAvatarUrl_${currentUserId}`, updatedUrl);
-        
-        // Update profile state
-        setProfile(prev => ({
-          ...prev,
-          avatarUrl: updatedUrl
-        }));
+        setProfile(prev => ({ ...prev, avatarUrl: updatedUrl }));
       }
       setSuccess('Profile picture updated');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Avatar upload error:', err);
       setError(err.response?.data?.error || 'Failed to upload profile picture');
@@ -401,10 +428,35 @@ export default function Profile() {
 
       {/* Status Section */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Status
-          </h2>
+        </h2>
+
+        {/* Auto-update Toggle */}
+        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 mb-6">
+            <div>
+                <h3 className="font-medium text-gray-900 dark:text-white flex items-center">
+                    <CogIcon className="w-5 h-5 mr-2" />
+                    Automatic Status (Beta)
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Automatically set your status based on your class routine.
+                </p>
+            </div>
+            <button
+                type="button"
+                onClick={handleAutoUpdateToggle}
+                disabled={statusLoading}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                    isAutoUpdate ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+            >
+                <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        isAutoUpdate ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                />
+            </button>
         </div>
 
         <div className="space-y-4">
@@ -427,8 +479,13 @@ export default function Profile() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Change Status
+              {isAutoUpdate ? 'Manual Override (disabled)' : 'Change Status'}
             </label>
+            {isAutoUpdate && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-md mb-2">
+                    Your status is being updated automatically. Disable the toggle above to change it manually.
+                </p>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {statusOptions.map((option) => {
                 const IconComponent = option.icon;
@@ -436,12 +493,12 @@ export default function Profile() {
                   <button
                     key={option.value}
                     onClick={() => handleStatusChange(option.value)}
-                    disabled={statusLoading || option.value === currentStatus}
+                    disabled={statusLoading || option.value === currentStatus || isAutoUpdate}
                     className={`p-3 rounded-lg border-2 transition-colors flex items-center space-x-2 ${
                       option.value === currentStatus
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
                         : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
-                    } ${statusLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    } ${statusLoading || isAutoUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <IconComponent className={`w-4 h-4 ${option.color}`} />
                     <span className="text-sm font-medium">{option.label}</span>
@@ -452,6 +509,35 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+        {/* Privacy Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Privacy
+            </h2>
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                    <h3 className="font-medium text-gray-900 dark:text-white">Share Routine with Friends</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Allow friends to see your free slots in their routine view.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    name="routineSharingEnabled"
+                    onClick={() => handleSettingsChange({ target: { name: 'routineSharingEnabled', checked: !profile.routineSharingEnabled } })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                        profile.routineSharingEnabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                >
+                    <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            profile.routineSharingEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                    />
+                </button>
+            </div>
+        </div>
 
       <div className="text-right">
         <button

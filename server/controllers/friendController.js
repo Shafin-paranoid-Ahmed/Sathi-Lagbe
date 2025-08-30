@@ -245,6 +245,44 @@ exports.getAcceptedFriends = async (req, res) => {
 };
 
 /**
+ * Get friends who have opted-in to routine sharing, along with their status
+ */
+exports.getFriendsWithStatus = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user.userId;
+
+        const acceptedFriendships = await Friend.find({
+            status: 'accepted',
+            $or: [
+                { user: userId },
+                { friend: userId }
+            ]
+        })
+        .populate({
+            path: 'user',
+            select: 'name email avatarUrl status routineSharingEnabled'
+        })
+        .populate({
+            path: 'friend',
+            select: 'name email avatarUrl status routineSharingEnabled'
+        });
+
+        const friends = acceptedFriendships
+            .map(friendship => {
+                const isUser = friendship.user._id.toString() === userId;
+                return isUser ? friendship.friend : friendship.user;
+            })
+            // Filter out friends who have disabled sharing
+            .filter(friend => friend.routineSharingEnabled);
+
+        res.json(friends);
+    } catch (err) {
+        console.error('Error getting friends with status:', err);
+        res.status(500).json({ error: err.message || 'Failed to get friends with status' });
+    }
+};
+
+/**
  * Remove a friend
  */
 exports.removeFriend = async (req, res) => {
