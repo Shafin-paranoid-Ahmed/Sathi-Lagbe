@@ -14,6 +14,9 @@ router.get('/requests', auth, friendController.getFriendRequests);
 router.get('/accepted', auth, friendController.getAcceptedFriends);
 router.delete('/:friendshipId', auth, friendController.removeFriend);
 
+// Get friends with routine sharing enabled and their current status
+router.get('/status', auth, friendController.getFriendsWithStatus);
+
 // User blocking
 router.post('/block', auth, friendController.blockUser);
 

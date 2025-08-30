@@ -1,7 +1,9 @@
 const Routine = require('../models/Routine');
+const Friend = require('../models/Friend');
+const User = require('../models/User');
 
 // Get all routine entries for a user
-const getUserRoutine = async (req, res) => {
+exports.getUserRoutine = async (req, res) => {
   try {
     const userId = req.user.id;
     
@@ -20,8 +22,44 @@ const getUserRoutine = async (req, res) => {
   }
 };
 
+// Get routine entries for a user's friends who have sharing enabled
+exports.getFriendsRoutines = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        // 1. Find all accepted friends
+        const friendships = await Friend.find({
+            $or: [{ user: userId }, { friend: userId }],
+            status: 'accepted'
+        }).populate('user', 'routineSharingEnabled').populate('friend', 'routineSharingEnabled');
+
+        // 2. Get friend IDs who have sharing enabled
+        const friendIds = friendships.map(friendship => {
+            const friend = friendship.user._id.toString() === userId ? friendship.friend : friendship.user;
+            if (friend && friend.routineSharingEnabled) {
+                return friend._id;
+            }
+            return null;
+        }).filter(id => id !== null);
+
+        // 3. Find all routine entries for those friends
+        const friendsRoutines = await Routine.find({ userId: { $in: friendIds } });
+        
+        res.json({
+            success: true,
+            data: friendsRoutines
+        });
+    } catch (error) {
+        console.error('Error fetching friends routines:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch friends routines'
+        });
+    }
+};
+
 // Add a new routine entry
-const addRoutineEntry = async (req, res) => {
+exports.addRoutineEntry = async (req, res) => {
   try {
     const userId = req.user.id;
     const { timeSlot, day, course } = req.body;
@@ -76,7 +114,7 @@ const addRoutineEntry = async (req, res) => {
 };
 
 // Update a routine entry
-const updateRoutineEntry = async (req, res) => {
+exports.updateRoutineEntry = async (req, res) => {
   try {
     const userId = req.user.id;
     const { entryId } = req.params;
@@ -127,7 +165,7 @@ const updateRoutineEntry = async (req, res) => {
 };
 
 // Delete a routine entry
-const deleteRoutineEntry = async (req, res) => {
+exports.deleteRoutineEntry = async (req, res) => {
   try {
     const userId = req.user.id;
     const { entryId } = req.params;
@@ -155,7 +193,7 @@ const deleteRoutineEntry = async (req, res) => {
 };
 
 // Delete all routine entries for a user
-const deleteAllUserRoutine = async (req, res) => {
+exports.deleteAllUserRoutine = async (req, res) => {
   try {
     const userId = req.user.id;
     
@@ -172,12 +210,4 @@ const deleteAllUserRoutine = async (req, res) => {
       error: 'Failed to delete routine entries'
     });
   }
-};
-
-module.exports = {
-  getUserRoutine,
-  addRoutineEntry,
-  updateRoutineEntry,
-  deleteRoutineEntry,
-  deleteAllUserRoutine
 };

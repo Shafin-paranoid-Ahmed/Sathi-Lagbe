@@ -106,6 +106,11 @@ export function deleteAccount() {
   return API.delete('/auth/delete');
 }
 
+// Settings-related functions
+export function updateSettings(settingsData) {
+    return API.put('/users/profile/settings', settingsData);
+}
+
 // Status-related functions
 export function updateStatus(statusData) {
   return API.patch('/users/status', statusData);
@@ -115,4 +120,25 @@ export function getCurrentUserStatus() {
   const userId = sessionStorage.getItem('userId');
   if (!userId) return Promise.reject('No user ID found');
   return API.get(`/users/status/${userId}`);
+}
+
+// Auto-status related functions
+export function getNextClassInfo() {
+  return API.get('/users/next-class');
+}
+
+export function triggerAutoStatusUpdate() {
+  return API.post('/users/trigger-auto-status');
+}
+
+export function getTodayRoutine() {
+  return API.get('/users/today-routine');
+}
+
+export function checkAutoStatusSetup() {
+  return API.get('/users/auto-status-setup');
+}
+
+export function debugAutoStatus() {
+  return API.get('/users/debug-auto-status');
 }
