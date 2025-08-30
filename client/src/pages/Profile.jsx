@@ -3,6 +3,7 @@ import { CheckIcon, PencilIcon, UserCircleIcon, XMarkIcon, ClockIcon, BookOpenIc
 import { useNavigate } from 'react-router-dom';
 import { deleteAccount, logout, verifyToken, API, updateStatus, getCurrentUserStatus, updateSettings } from '../api/auth';
 
+
 export default function Profile() {
   const [profile, setProfile] = useState({
     name: '',
