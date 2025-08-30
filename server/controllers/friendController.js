@@ -251,33 +251,54 @@ exports.getFriendsWithStatus = async (req, res) => {
     try {
         const userId = req.user.id || req.user.userId;
 
+        console.log('=== getFriendsWithStatus called ===');
+        console.log('User ID:', userId);
+        console.log('User object:', req.user);
+
+        if (!userId) {
+            console.log('No user ID found');
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
+        // First, just try to get basic friend data without complex population
         const acceptedFriendships = await Friend.find({
             status: 'accepted',
             $or: [
                 { user: userId },
                 { friend: userId }
             ]
-        })
-        .populate({
-            path: 'user',
-            select: 'name email avatarUrl status routineSharingEnabled'
-        })
-        .populate({
-            path: 'friend',
-            select: 'name email avatarUrl status routineSharingEnabled'
         });
 
-        const friends = acceptedFriendships
-            .map(friendship => {
-                const isUser = friendship.user._id.toString() === userId;
-                return isUser ? friendship.friend : friendship.user;
-            })
-            // Filter out friends who have disabled sharing
-            .filter(friend => friend.routineSharingEnabled);
+        console.log('Found accepted friendships:', acceptedFriendships.length);
+
+        if (acceptedFriendships.length === 0) {
+            console.log('No friendships found, returning empty array');
+            return res.json([]);
+        }
+
+        // Manually populate friends to avoid potential population issues
+        const friendIds = acceptedFriendships.map(friendship => {
+            const isUser = friendship.user.toString() === userId;
+            return isUser ? friendship.friend : friendship.user;
+        });
+
+        console.log('Friend IDs to fetch:', friendIds);
+
+        const friends = await User.find({
+            _id: { $in: friendIds },
+            routineSharingEnabled: { $ne: false } // Only get friends who allow routine sharing
+        }).select('name email avatarUrl status routineSharingEnabled');
+
+        console.log('Final friends list:', friends.length);
+        console.log('=== getFriendsWithStatus completed successfully ===');
 
         res.json(friends);
     } catch (err) {
-        console.error('Error getting friends with status:', err);
+        console.error('=== ERROR in getFriendsWithStatus ===');
+        console.error('Error message:', err.message);
+        console.error('Full error stack:', err.stack);
+        console.error('Error name:', err.name);
+        console.error('=== END ERROR ===');
         res.status(500).json({ error: err.message || 'Failed to get friends with status' });
     }
 };
