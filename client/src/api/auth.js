@@ -127,6 +127,10 @@ export function getCurrentUserStatus() {
   return API.get(`/users/status/${userId}`);
 }
 
+export function updateSettings(settingsData) {
+  return API.patch('/users/settings', settingsData);
+}
+
 // Auto-status related functions
 export function getNextClassInfo() {
   return API.get('/users/next-class');
