@@ -26,6 +26,7 @@ const userRoutes = require('./routes/userRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const ratingRoutes = require('./routes/ratingRoutes');
 const routineRoutes = require('./routes/routineRoutes');
+const statsRoutes = require('./routes/statsRoutes');
 const { startAutoStatusScheduler } = require('./services/autoStatusService');
 
 const app = express();
@@ -64,6 +65,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/routine', routineRoutes);
+app.use('/api/stats', statsRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
