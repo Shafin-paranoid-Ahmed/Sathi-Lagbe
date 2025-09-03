@@ -9,7 +9,7 @@ import {
 } from '../api/chat';
 import { getUserById } from '../api/users';
 import socketService from '../services/socketService';
-import { debugSocketConnection } from '../utils/debugSocket';
+
 import FriendList from '../components/FriendList';
 import { MessageSquareIcon, SendIcon, ArrowLeftIcon, CheckIcon, PlusIcon, UserIcon } from 'lucide-react';
 
@@ -28,9 +28,27 @@ export default function Chat() {
     }
   });
   const [selectedChat, setSelectedChat] = useState(null);
+  const [showMobileChat, setShowMobileChat] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [messages, setMessages] = useState([]);
-  const [draft, setDraft] = useState('');
+  const [messagesCache, setMessagesCache] = useState({}); // Cache messages per chat
+  const [drafts, setDrafts] = useState({}); // Per-chat drafts
   const [loading, setLoading] = useState(false);
+  
+  // Helper function to get current draft
+  const getCurrentDraft = () => {
+    return selectedChat ? (drafts[selectedChat._id] || '') : '';
+  };
+  
+  // Helper function to update current draft
+  const updateCurrentDraft = (value) => {
+    if (selectedChat) {
+      setDrafts(prev => ({
+        ...prev,
+        [selectedChat._id]: value
+      }));
+    }
+  };
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState('');
   const [error, setError] = useState(''); // General component error
@@ -66,45 +84,8 @@ export default function Chat() {
     }
   }, [location.state, chats]);
 
-  const fetchChats = useCallback(async () => {
-    if (!currentUserId) {
-      console.error("fetchChats: No currentUserId found. User might not be properly logged in.");
-      setError('Not logged in. Please log in to continue.');
-      return;
-    }
-    
-
-    if (isInitialLoad.current) setLoading(true);
-    try {
-      const res = await getAllChats();
-
-      
-      if (res.data && Array.isArray(res.data.data)) {
-
-        setChats(res.data.data);
-        // Save to localStorage for persistence, per user
-        localStorage.setItem(`chatList_${currentUserId}`, JSON.stringify(res.data.data));
-        
-        // Load profile pictures for all chat members
-        await loadUserProfiles(res.data.data);
-      } else {
-        console.warn("fetchChats: Response was not in the expected format or contained no data.", res.data);
-        setChats([]);
-        localStorage.removeItem(`chatList_${currentUserId}`);
-      }
-      
-    } catch (err) {
-      console.error('fetchChats: Failed to fetch chats.', err);
-      // It's better not to clear chats on failure, so the UI doesn't flicker.
-      // setChats([]); 
-    } finally {
-      if (isInitialLoad.current) setLoading(false);
-      isInitialLoad.current = false;
-    }
-  }, [currentUserId, setChats, setLoading, setError]);
-
   // Load profile pictures for all users in chats
-  const loadUserProfiles = async (chatsList) => {
+  const loadUserProfiles = useCallback(async (chatsList) => {
     try {
       const userIds = new Set();
       
@@ -138,22 +119,71 @@ export default function Chat() {
         }
       }
       
-      console.log('Loaded user profiles:', profiles);
       setUserProfiles(prev => ({ ...prev, ...profiles }));
     } catch (err) {
       console.error('Failed to load user profiles:', err);
     }
-  };
+  }, [currentUserId]);
+
+  const fetchChats = useCallback(async () => {
+    if (!currentUserId) {
+      setError('Not logged in. Please log in to continue.');
+      return;
+    }
+
+    if (isInitialLoad.current) setLoading(true);
+    try {
+      const res = await getAllChats();
+
+      if (res.data && Array.isArray(res.data.data)) {
+        setChats(res.data.data);
+        // Save to localStorage for persistence, per user
+        localStorage.setItem(`chatList_${currentUserId}`, JSON.stringify(res.data.data));
+        
+        // Load profile pictures for all chat members
+        await loadUserProfiles(res.data.data);
+      } else {
+        setChats([]);
+        localStorage.removeItem(`chatList_${currentUserId}`);
+      }
+      
+    } catch (err) {
+      console.error('Failed to fetch chats:', err);
+      // Don't clear chats on failure to prevent UI flicker
+      if (err.response?.status === 401) {
+        setError('Session expired. Please log in again.');
+      }
+    } finally {
+      if (isInitialLoad.current) setLoading(false);
+      isInitialLoad.current = false;
+    }
+  }, [currentUserId, loadUserProfiles]);
 
   const loadChatMessages = useCallback(async (chatId) => {
+    // Check if messages are already cached
+    if (messagesCache[chatId]) {
+      setMessages(messagesCache[chatId]);
+      setChatLoading(false);
+      setChatError('');
+      return;
+    }
+
     setChatLoading(true);
     setChatError('');
     try {
       const res = await getChatMessages(chatId);
-      setMessages(res.data.data || []);
+      const messagesData = res.data.data || [];
+      
+      // Cache the messages
+      setMessagesCache(prev => ({
+        ...prev,
+        [chatId]: messagesData
+      }));
+      
+      setMessages(messagesData);
       
       // Mark messages as read via Socket.IO
-      const unreadMessages = res.data.data?.filter(msg => !msg.read && msg.sender !== currentUserId) || [];
+      const unreadMessages = messagesData.filter(msg => !msg.read && msg.sender !== currentUserId) || [];
       if (unreadMessages.length > 0) {
         const messageIds = unreadMessages.map(msg => msg._id);
         socketService.markMessagesAsRead(chatId, messageIds);
@@ -164,7 +194,7 @@ export default function Chat() {
     } finally {
       setChatLoading(false);
     }
-  }, [currentUserId]);
+  }, [currentUserId, messagesCache]);
   
   // Define Socket.IO event handlers
   const handleNewMessage = useCallback((data) => {
@@ -198,11 +228,16 @@ export default function Chat() {
     // Add the message to the view if it's the active chat and not from the current user
     if (selectedChatRef.current && selectedChatRef.current._id === chatId && !isFromCurrentUser) {
       setMessages(prev => [...prev, message]);
+      // Also update the cache
+      setMessagesCache(prev => ({
+        ...prev,
+        [chatId]: [...(prev[chatId] || []), message]
+      }));
     }
   }, [fetchChats, currentUserId]);
 
-  const handleMessageSent = useCallback((data) => {
-    console.log('Message sent confirmation:', data);
+  const handleMessageSent = useCallback(() => {
+    // Message sent confirmation - could be used for analytics or debugging
   }, []);
 
   const handleUserTyping = useCallback((data) => {
@@ -239,40 +274,30 @@ export default function Chat() {
   // Initialize Socket.IO connection and listeners on component mount
   useEffect(() => {
     if (token) {
-      console.log('Initializing Socket.IO connection...');
       socketService.connect(token);
       
-      // Set up Socket.IO event listeners after a short delay to ensure connection
+      // Set up Socket.IO event listeners
       const setupListeners = () => {
-        console.log('Setting up Socket.IO event listeners...');
         socketService.onNewMessage(handleNewMessage);
         socketService.onMessageSent(handleMessageSent);
         socketService.onUserTyping(handleUserTyping);
         socketService.onUserStoppedTyping(handleUserStoppedTyping);
         socketService.onMessagesRead(handleMessagesRead);
-        
-        // Add connection status debug
-        setTimeout(() => {
-          debugSocketConnection();
-        }, 500);
       };
 
       setupListeners();
       
       // Cleanup on unmount
       return () => {
-        clearTimeout(typingTimeoutRef.current); // Clear any pending typing timeout
-        console.log('Cleaning up Chat.jsx socket listeners...');
+        clearTimeout(typingTimeoutRef.current);
         socketService.off('new_message');
         socketService.off('message_sent');
         socketService.off('user_typing');
         socketService.off('user_stopped_typing');
         socketService.off('messages_read');
       };
-    } else {
-      console.error('No token found for Socket.IO connection');
     }
-  }, [token, handleNewMessage, handleMessageSent, handleUserTyping, handleUserStoppedTyping, handleMessagesRead]);
+  }, [token]); // Only depend on token, not the callback functions
 
   // Fetch chats on component mount
   useEffect(() => {
@@ -285,25 +310,84 @@ export default function Chat() {
     localStorage.setItem(`chatList_${currentUserId}`, JSON.stringify(chats));
   }, [chats, currentUserId]);
 
-  // When messages load or change, instantly scroll to the bottom.
+  // Track if user has manually scrolled up
+  const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const [newMessagesCount, setNewMessagesCount] = useState(0);
+  const messagesContainerRef = useRef(null);
+
+  // Handle scroll events to detect user behavior
+  const handleScroll = useCallback(() => {
+    if (!messagesContainerRef.current) return;
+    
+    const container = messagesContainerRef.current;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    
+    // Consider "near bottom" if within 100px of bottom
+    const nearBottom = distanceFromBottom < 100;
+    setIsNearBottom(nearBottom);
+    
+    // If user scrolls up significantly, mark as user-initiated scroll
+    if (scrollTop < scrollHeight - clientHeight - 200) {
+      setUserHasScrolledUp(true);
+    } else if (nearBottom) {
+      setUserHasScrolledUp(false);
+    }
+  }, []);
+
+  // Track new messages and handle scroll behavior
+  const previousMessageCount = useRef(0);
+  
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-  }, [messages]);
-  // Also scroll to bottom when a new chat is opened
+    if (messages.length > 0) {
+      const isNewMessage = messages.length > previousMessageCount.current;
+      
+      if (isNewMessage && userHasScrolledUp) {
+        // User is scrolled up and new message arrived - increment counter
+        setNewMessagesCount(prev => prev + 1);
+      } else if (isNearBottom || !userHasScrolledUp) {
+        // User is near bottom or hasn't scrolled up - auto scroll and reset counter
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        setNewMessagesCount(0);
+      }
+      
+      previousMessageCount.current = messages.length;
+    }
+  }, [messages, isNearBottom, userHasScrolledUp]);
+
+  // When a new chat is selected, scroll to recent messages (not necessarily bottom)
   useEffect(() => {
     if (selectedChat && messages.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      // Reset scroll state for new chat
+      setUserHasScrolledUp(false);
+      setIsNearBottom(true);
+      setNewMessagesCount(0);
+      previousMessageCount.current = messages.length;
+      
+      // Scroll to bottom smoothly for new chat
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
     }
-  }, [selectedChat]);
+  }, [selectedChat, messages.length]);
+
+  // Auto-resize textarea when draft changes (e.g., when switching chats)
+  useEffect(() => {
+    const textarea = document.querySelector('textarea[placeholder="Type a message..."]');
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 128);
+      textarea.style.height = newHeight + 'px';
+    }
+  }, [getCurrentDraft()]);
 
   // Join chat room when selected chat changes
   useEffect(() => {
     if (selectedChat) {
-      console.log('Joining chat room:', selectedChat._id);
       socketService.joinChat(selectedChat._id);
 
       return () => {
-        console.log('Leaving chat room:', selectedChat._id);
         socketService.leaveChat(selectedChat._id);
       };
     }
@@ -313,7 +397,7 @@ export default function Chat() {
 
   // Handle typing input
   const handleTyping = (e) => {
-    setDraft(e.target.value);
+    updateCurrentDraft(e.target.value);
     
     if (selectedChat) {
       if (!isTyping) {
@@ -350,9 +434,10 @@ export default function Chat() {
       
   }, [selectedChat, loadChatMessages]);
 
-  // Send a message
+  // Send a message with improved error handling
   const send = async () => {
-    if (!draft.trim() || !selectedChat) return;
+    const currentDraft = getCurrentDraft();
+    if (!currentDraft.trim() || !selectedChat) return;
 
     // Stop typing indicator
     setIsTyping(false);
@@ -367,46 +452,50 @@ export default function Chat() {
       _id: tempId,
       chatId: selectedChat._id,
       sender: currentUserId,
-      text: draft,
+      text: currentDraft.trim(),
       createdAt: new Date(),
       pending: true,
       replyTo: replyTo ? { _id: replyTo._id, text: replyTo.text, sender: replyTo.sender } : undefined,
     };
 
     setMessages(prev => [...prev, newMessage]);
-    const draftCopy = draft;
-    setDraft('');
+    const draftCopy = currentDraft.trim();
+    updateCurrentDraft(''); // Clear current chat's draft
     setReplyTo(null);
 
     try {
-      // Send the message to the server via HTTP (ignore replyTo for now)
+      // Send the message to the server via HTTP
       const res = await sendNewMessage(selectedChat._id, draftCopy);
-      console.log('Message sent:', res.data);
 
       // Replace the temporary message with the real one, preserving replyTo if needed
-      setMessages(prev =>
-        prev.map(msg => {
-          if (msg._id === tempId) {
-            const realMsg = res.data.data;
-            // If backend does not return replyTo, preserve it from optimistic message
-            if (!realMsg.replyTo && msg.replyTo) {
-              return { ...realMsg, replyTo: msg.replyTo };
-            }
-            return realMsg;
+      const updatedMessages = messages.map(msg => {
+        if (msg._id === tempId) {
+          const realMsg = res.data.data;
+          // If backend does not return replyTo, preserve it from optimistic message
+          if (!realMsg.replyTo && msg.replyTo) {
+            return { ...realMsg, replyTo: msg.replyTo };
           }
-          return msg;
-        })
-      );
+          return realMsg;
+        }
+        return msg;
+      });
+      
+      setMessages(updatedMessages);
+      // Also update the cache
+      setMessagesCache(prev => ({
+        ...prev,
+        [selectedChat._id]: updatedMessages
+      }));
 
       // Refresh chats to update last message list
       fetchChats();
     } catch (err) {
       console.error('Failed to send message:', err);
-      // Mark message as failed
+      // Mark message as failed and show retry option
       setMessages(prev =>
         prev.map(msg =>
           msg._id === tempId
-            ? { ...msg, failed: true, pending: false }
+            ? { ...msg, failed: true, pending: false, error: err.response?.data?.error || 'Failed to send' }
             : msg
         )
       );
@@ -414,8 +503,63 @@ export default function Chat() {
   };
 
   const handleQuickReply = (message) => {
-    setDraft(message);
+    updateCurrentDraft(message);
     setShowWhereAreYouButton(false);
+  };
+
+  // Retry sending a failed message
+  const retryMessage = async (messageId) => {
+    const message = messages.find(msg => msg._id === messageId);
+    if (!message || !message.failed) return;
+
+    // Mark as pending again
+    const updatedMessages = messages.map(msg =>
+      msg._id === messageId
+        ? { ...msg, pending: true, failed: false, error: null }
+        : msg
+    );
+    
+    setMessages(updatedMessages);
+    // Also update the cache
+    setMessagesCache(prev => ({
+      ...prev,
+      [selectedChat._id]: updatedMessages
+    }));
+
+    try {
+      const res = await sendNewMessage(selectedChat._id, message.text);
+      
+      // Replace with real message
+      const updatedMessages = messages.map(msg => {
+        if (msg._id === messageId) {
+          return res.data.data;
+        }
+        return msg;
+      });
+      
+      setMessages(updatedMessages);
+      // Also update the cache
+      setMessagesCache(prev => ({
+        ...prev,
+        [selectedChat._id]: updatedMessages
+      }));
+
+      fetchChats();
+    } catch (err) {
+      console.error('Failed to retry message:', err);
+      const updatedMessages = messages.map(msg =>
+        msg._id === messageId
+          ? { ...msg, failed: true, pending: false, error: err.response?.data?.error || 'Failed to send' }
+          : msg
+      );
+      
+      setMessages(updatedMessages);
+      // Also update the cache
+      setMessagesCache(prev => ({
+        ...prev,
+        [selectedChat._id]: updatedMessages
+      }));
+    }
   };
 
   // Handle pressing Enter to send
@@ -455,6 +599,7 @@ export default function Chat() {
     }
     
     setSelectedChat(chat);
+    setShowMobileChat(true);
     setActiveTab('chats');
   };
 
@@ -499,19 +644,15 @@ export default function Chat() {
 
   // Get user avatar URL
   const getUserAvatar = (userId) => {
-    console.log(`getUserAvatar called for userId: ${userId}`);
-    console.log(`Current userProfiles state:`, userProfiles);
     if (!userId || !userProfiles[userId]) {
-      console.log(`No profile found for user ${userId}:`, { userId, userProfiles: userProfiles[userId] });
       return null;
     }
-    console.log(`Avatar for user ${userId}:`, userProfiles[userId].avatarUrl);
     return userProfiles[userId].avatarUrl;
   };
 
 
 
-  // Render avatar component
+  // Render avatar component with improved error handling
   const renderAvatar = (userId, name, size = 'w-10 h-10', preferredUrl = null) => {
     // Support multiple possible field names just in case (avatarUrl, avatar, profilePic)
     let normalizedPreferred = preferredUrl;
@@ -519,15 +660,28 @@ export default function Chat() {
       normalizedPreferred = preferredUrl.avatarUrl || preferredUrl.avatar || preferredUrl.profilePic || null;
     }
     let avatarUrl = normalizedPreferred || getUserAvatar(userId);
+    
     // Prefer current user's stored avatar early
     if (userId === currentUserId && !avatarUrl) {
       avatarUrl = sessionStorage.getItem(`userAvatarUrl_${userId}`);
     }
+    
     // Try cached profiles
     if (!avatarUrl && userProfiles[userId]) {
       avatarUrl = userProfiles[userId].avatarUrl || userProfiles[userId].avatar || userProfiles[userId].profilePic || null;
     }
-    // Visual fallback
+    
+    // Generate initials for fallback
+    const getInitials = (name) => {
+      if (!name || typeof name !== 'string') return 'U';
+      const words = name.trim().split(' ');
+      if (words.length >= 2) {
+        return (words[0][0] + words[1][0]).toUpperCase();
+      }
+      return name.charAt(0).toUpperCase();
+    };
+    
+    // Visual fallback with better error handling
     if (!avatarUrl && name) {
       avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&bold=true&size=128`;
     }
@@ -542,12 +696,16 @@ export default function Chat() {
             onError={(e) => {
               // Fallback to initials if image fails to load
               e.target.style.display = 'none';
-              e.target.nextSibling.style.display = 'flex';
+              const fallback = e.target.nextSibling;
+              if (fallback) {
+                fallback.style.display = 'flex';
+              }
             }}
+            loading="lazy"
           />
           {/* Fallback initials - hidden by default, shown on image error */}
           <div className={`${size} rounded-full bg-bracu-blue flex items-center justify-center text-white font-medium shadow-md absolute inset-0 hidden`}>
-            {(name || 'U').charAt(0).toUpperCase()}
+            {getInitials(name)}
           </div>
         </div>
       );
@@ -556,13 +714,13 @@ export default function Chat() {
     // Fallback to initials when no avatar URL
     return (
       <div className={`${size} rounded-full bg-bracu-blue flex items-center justify-center text-white font-medium shadow-md`}>
-        {(name || 'U').charAt(0).toUpperCase()}
+        {getInitials(name)}
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 animate-fade-in">
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 animate-fade-in overflow-hidden">
 
       {/* Show general error at the top if there is one */}
       {error && (
@@ -577,9 +735,9 @@ export default function Chat() {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-4rem)]">
-        {/* Sidebar */}
-        <div className="w-full md:w-80 bg-white dark:bg-gray-800 md:border-r dark:border-gray-700 md:fixed md:top-16 md:left-64 md:h-[calc(100vh-4rem)] z-30">
+      <div className="flex-1 flex flex-col lg:flex-row h-[calc(100vh-4rem)] overflow-hidden">
+        {/* Desktop Sidebar - Always visible on desktop */}
+        <div className="hidden lg:flex w-80 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex-shrink-0 flex-col h-full">
           {/* Tabs */}
           <div className="flex border-b dark:border-gray-700">
             <button
@@ -605,38 +763,88 @@ export default function Chat() {
           </div>
 
           {/* Content based on active tab */}
-          <div className="p-4 overflow-y-auto h-[calc(100vh-10rem)]">
+          <div className="p-4 overflow-y-auto flex-1 min-h-0">
             {activeTab === 'chats' ? (
               <div className="space-y-1">
-                <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">
-                  Recent Chats
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                    Recent Chats
+                  </h2>
+                  {chats.length > 0 && (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search chats..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full sm:w-48 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-bracu-blue transition-all duration-200"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-2 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          aria-label="Clear search"
+                          title="Clear search"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
                 
                 {loading ? (
-                  <div className="text-center text-gray-500 dark:text-gray-400 py-4 animate-pulse">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-bracu-blue mx-auto mb-2"></div>
-                    <p>Loading...</p>
+                  <div className="text-center text-gray-500 dark:text-gray-400 py-8 animate-pulse">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-bracu-blue mx-auto mb-3"></div>
+                    <p className="text-sm font-medium">Loading conversations...</p>
                   </div>
                 ) : chats.length === 0 ? (
-                  <div className="text-center text-gray-500 dark:text-gray-400 py-4 animate-fade-in">
-                    <p>No chats yet</p>
+                  <div className="text-center text-gray-500 dark:text-gray-400 py-8 animate-fade-in">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <MessageSquareIcon size={32} className="text-gray-400" />
+                    </div>
+                    <p className="text-lg font-medium mb-2">No conversations yet</p>
+                    <p className="text-sm mb-4">Start chatting with your friends</p>
                     <button
                       onClick={() => setActiveTab('friends')}
-                      className="mt-2 px-4 py-2 bg-bracu-blue text-white rounded hover:bg-blue-700 inline-flex items-center transition-all duration-200 transform hover:-translate-y-0.5 shadow hover:shadow-md"
+                      className="px-6 py-3 bg-gradient-to-r from-bracu-blue to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
                     >
-                      <PlusIcon size={16} className="mr-1" />
+                      <PlusIcon size={18} className="inline mr-2" />
                       Start a new chat
                     </button>
                   </div>
-                ) : (
-                  chats.map((chat) => (
+                ) : (() => {
+                  const filteredChats = chats.filter(chat => {
+                    if (!searchQuery) return true;
+                    const chatName = getChatName(chat).toLowerCase();
+                    const lastMessage = chat.lastMessage?.text?.toLowerCase() || '';
+                    return chatName.includes(searchQuery.toLowerCase()) || 
+                           lastMessage.includes(searchQuery.toLowerCase());
+                  });
+
+                  if (searchQuery && filteredChats.length === 0) {
+                    return (
+                      <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <MessageSquareIcon size={32} className="text-gray-400" />
+                        </div>
+                        <p className="text-lg font-medium mb-2">No chats found</p>
+                        <p className="text-sm">Try searching with a different term</p>
+                      </div>
+                    );
+                  }
+
+                  return filteredChats.map((chat) => (
                     <div
                       key={chat._id}
-                      onClick={() => setSelectedChat(chat)}
-                      className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                      onClick={() => {
+                        setSelectedChat(chat);
+                        setShowMobileChat(true);
+                      }}
+                      className={`group flex items-center p-4 rounded-xl cursor-pointer transition-all duration-300 ${
                         selectedChat && selectedChat._id === chat._id
-                          ? 'bg-blue-50 dark:bg-blue-900 shadow-md'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700 hover:shadow'
+                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 shadow-lg border border-blue-200 dark:border-blue-700 ring-2 ring-blue-200 dark:ring-blue-700'
+                          : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600 hover:shadow-md border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
                       }`}
                     >
                       {(() => {
@@ -645,30 +853,192 @@ export default function Chat() {
                         );
                         return otherMember && typeof otherMember === 'object' ? (
                           <div className="relative">
-                            {renderAvatar(otherMember._id, otherMember.name, 'w-10 h-10', otherMember)}
+                            {renderAvatar(otherMember._id, otherMember.name, 'w-12 h-12', otherMember)}
+                            {/* Online status indicator */}
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
                           </div>
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-bracu-blue flex items-center justify-center text-white font-medium">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-bracu-blue to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
                             {getChatName(chat).charAt(0).toUpperCase()}
                           </div>
                         );
                       })()}
-                      <div className="flex-1 min-w-0 ml-3">
-                        <p className="font-medium text-gray-800 dark:text-gray-200 truncate">
-                          {getChatName(chat)}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                      <div className="flex-1 min-w-0 ml-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-semibold text-gray-900 dark:text-gray-100 truncate group-hover:text-bracu-blue dark:group-hover:text-blue-400 transition-colors">
+                            {getChatName(chat)}
+                          </p>
+                          {chat.lastMessage && (
+                            <span className="text-xs text-gray-400 dark:text-gray-500 ml-2 flex-shrink-0">
+                              {new Date(chat.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
                           {chat.lastMessage?.text || 'No messages yet'}
                         </p>
                       </div>
                       {chat.unreadMessageCount > 0 && (
-                        <div className="bg-bracu-blue text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                          {chat.unreadMessageCount}
+                        <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-pulse">
+                          {chat.unreadMessageCount > 99 ? '99+' : chat.unreadMessageCount}
                         </div>
                       )}
                     </div>
-                  ))
-                )}
+                  ));
+                })()}
+              </div>
+            ) : (
+              <FriendList onSelectChat={handleSelectNewChat} />
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Sidebar - Only visible on mobile when no chat is selected */}
+        <div className={`lg:hidden w-full bg-white dark:bg-gray-800 flex-shrink-0 flex-col ${
+          showMobileChat ? 'hidden' : 'flex'
+        }`}>
+          {/* Tabs */}
+          <div className="flex border-b dark:border-gray-700">
+            <button
+              onClick={() => setActiveTab('chats')}
+              className={`flex-1 py-3 text-center font-medium transition-all duration-200 ${
+                activeTab === 'chats'
+                  ? 'text-bracu-blue border-b-2 border-bracu-blue'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-bracu-blue dark:hover:text-blue-400'
+              }`}
+            >
+              Chats
+            </button>
+            <button
+              onClick={() => setActiveTab('friends')}
+              className={`flex-1 py-3 text-center font-medium transition-all duration-200 ${
+                activeTab === 'friends'
+                  ? 'text-bracu-blue border-b-2 border-bracu-blue'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-bracu-blue dark:hover:text-blue-400'
+              }`}
+            >
+              Find Friends
+            </button>
+          </div>
+
+          {/* Content based on active tab */}
+          <div className="p-4 overflow-y-auto flex-1 min-h-0">
+            {activeTab === 'chats' ? (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                    Recent Chats
+                  </h2>
+                  {chats.length > 0 && (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search chats..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full sm:w-48 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-bracu-blue transition-all duration-200"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-2 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          aria-label="Clear search"
+                          title="Clear search"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {loading ? (
+                  <div className="text-center text-gray-500 dark:text-gray-400 py-8 animate-pulse">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-bracu-blue mx-auto mb-3"></div>
+                    <p className="text-sm font-medium">Loading conversations...</p>
+                  </div>
+                ) : chats.length === 0 ? (
+                  <div className="text-center text-gray-500 dark:text-gray-400 py-8 animate-fade-in">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <MessageSquareIcon size={32} className="text-gray-400" />
+                    </div>
+                    <p className="text-lg font-medium mb-2">No conversations yet</p>
+                    <p className="text-sm mb-4">Start chatting with your friends</p>
+                    <button
+                      onClick={() => setActiveTab('friends')}
+                      className="px-6 py-3 bg-gradient-to-r from-bracu-blue to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    >
+                      <PlusIcon size={18} className="inline mr-2" />
+                      Start a new chat
+                    </button>
+                  </div>
+                ) : (() => {
+                  const filteredChats = chats.filter(chat => {
+                    if (!searchQuery) return true;
+                    const chatName = getChatName(chat).toLowerCase();
+                    const lastMessage = chat.lastMessage?.text?.toLowerCase() || '';
+                    return chatName.includes(searchQuery.toLowerCase()) || 
+                           lastMessage.includes(searchQuery.toLowerCase());
+                  });
+
+                  if (searchQuery && filteredChats.length === 0) {
+                    return (
+                      <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <MessageSquareIcon size={32} className="text-gray-400" />
+                        </div>
+                        <p className="text-lg font-medium mb-2">No chats found</p>
+                        <p className="text-sm">Try a different search term</p>
+                      </div>
+                    );
+                  }
+
+                  return filteredChats.map((chat) => (
+                    <div
+                      key={chat._id}
+                      onClick={() => {
+                        setSelectedChat(chat);
+                        setShowMobileChat(true);
+                      }}
+                      className={`group flex items-center p-4 rounded-xl cursor-pointer transition-all duration-300 ${
+                        selectedChat && selectedChat._id === chat._id
+                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 shadow-lg border border-blue-200 dark:border-blue-700 ring-2 ring-blue-200 dark:ring-blue-700'
+                          : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600 hover:shadow-md border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      {(() => {
+                        const otherMember = chat.members?.find(m => 
+                          m && (typeof m === 'string' ? m !== currentUserId : m._id !== currentUserId)
+                        );
+                        return otherMember && typeof otherMember === 'object' ? (
+                          <div className="relative mr-4">
+                            {renderAvatar(otherMember._id, otherMember.name, 'w-12 h-12', otherMember)}
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-bracu-blue flex items-center justify-center text-white font-medium mr-4 shadow-md">
+                            {getChatName(chat).charAt(0).toUpperCase()}
+                          </div>
+                        );
+                      })()}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-semibold text-gray-900 dark:text-gray-100 truncate group-hover:text-bracu-blue dark:group-hover:text-blue-400 transition-colors">
+                            {getChatName(chat)}
+                          </p>
+                          <span className="text-xs text-gray-400 dark:text-gray-500 ml-2 flex-shrink-0">
+                            {chat.lastMessage?.createdAt ? 
+                              new Date(chat.lastMessage.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 
+                              ''
+                            }
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                          {chat.lastMessage?.text || 'No messages yet'}
+                        </p>
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             ) : (
               <FriendList onSelectChat={handleSelectNewChat} />
@@ -677,14 +1047,25 @@ export default function Chat() {
         </div>
 
         {/* Main chat area */}
-        <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 md:ml-80 h-full">
+        <div className={`flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 h-full min-w-0 ${
+          showMobileChat ? 'block lg:flex' : 'hidden lg:flex'
+        }`}>
           {selectedChat ? (
             <>
               {/* Chat header */}
-              <div className="bg-white dark:bg-gray-800 shadow-md p-4 flex items-center sticky top-0 z-10">
+              <div className="bg-white dark:bg-gray-800 shadow-lg p-4 flex items-center sticky top-0 z-30 border-b border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95">
+                {/* Desktop hint - subtle indicator that chat list is available */}
+                <div className="hidden lg:block absolute left-4 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 dark:text-gray-500 pointer-events-none animate-pulse">
+                  💬 Chat list always visible on desktop
+                </div>
                 <button
-                  onClick={() => setSelectedChat(null)}
-                  className="md:hidden p-1 mr-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                  onClick={() => {
+                    setSelectedChat(null);
+                    setShowMobileChat(false);
+                  }}
+                  className="lg:hidden p-2 mr-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-all duration-200"
+                  title="Back to chat list"
+                  aria-label="Back to chat list"
                 >
                   <ArrowLeftIcon size={20} />
                 </button>
@@ -708,7 +1089,7 @@ export default function Chat() {
                   </p>
                   {/* Typing indicator */}
                   {typingUsers.size > 0 && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                    <p className="text-sm text-blue-600 dark:text-blue-400 italic animate-pulse">
                       {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
                     </p>
                   )}
@@ -716,7 +1097,11 @@ export default function Chat() {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+              <div 
+                ref={messagesContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0 bg-gray-50 dark:bg-gray-900 max-h-[calc(100vh-12rem)] relative"
+              >
                 {chatLoading ? (
                   <div className="flex justify-center items-center h-full">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-bracu-blue"></div>
@@ -749,7 +1134,6 @@ export default function Chat() {
                          {/* Avatar for other users' messages (left side) */}
                          {!isSenderCurrentUser(msg.sender) && (
                            <div className="flex-shrink-0 mr-2">
-                             {console.log('Rendering avatar for message sender:', msg.sender)}
                              {renderAvatar(
                                (msg.sender && typeof msg.sender === 'object') ? msg.sender._id : msg.sender,
                                getSenderName(msg.sender),
@@ -774,11 +1158,11 @@ export default function Chat() {
                              </div>
                            )}
                            <div
-                             className={`px-4 py-3 rounded-lg shadow-sm ${
+                             className={`px-4 py-3 rounded-2xl shadow-md transition-all duration-200 hover:shadow-lg ${
                                isSenderCurrentUser(msg.sender)
-                                 ? 'bg-bracu-blue text-white rounded-tr-none'
-                                 : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
-                             } ${msg.pending ? 'opacity-70' : ''}`}
+                                 ? 'bg-gradient-to-r from-bracu-blue to-blue-600 text-white rounded-tr-sm'
+                                 : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-sm border border-gray-200 dark:border-gray-600'
+                             } ${msg.pending ? 'opacity-70 animate-pulse' : ''} ${msg.failed ? 'border-red-300 dark:border-red-600' : ''}`}
                            >
                              {msg.text}
                              <div className="text-xs mt-1 flex justify-between items-center">
@@ -786,7 +1170,22 @@ export default function Chat() {
                                  {msg.pending ? (
                                    <span className="opacity-70">Sending...</span>
                                  ) : msg.failed ? (
-                                   <span className="text-red-300">Failed</span>
+                                   <div className="flex items-center space-x-2">
+                                     <span className="text-red-500 dark:text-red-400 flex items-center">
+                                       <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                       </svg>
+                                       Failed
+                                     </span>
+                                     <button
+                                       onClick={() => retryMessage(msg._id)}
+                                       className="text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2 py-1 rounded hover:bg-red-200 dark:hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                                       title="Retry sending message"
+                                       aria-label="Retry sending message"
+                                     >
+                                       Retry
+                                     </button>
+                                   </div>
                                  ) : (
                                    <span className="opacity-70">
                                      {new Date(msg.createdAt).toLocaleTimeString([], {
@@ -799,13 +1198,16 @@ export default function Chat() {
                                    </span>
                                  )}
                                </span>
-                               <button
-                                 className="ml-2 text-xs text-blue-500 hover:underline focus:outline-none"
-                                 onClick={() => setReplyTo(msg)}
-                                 title="Reply"
-                               >
-                                 Reply
-                               </button>
+                               {!msg.failed && (
+                                                                 <button
+                                  className="ml-2 text-xs text-blue-500 hover:underline focus:outline-none"
+                                  onClick={() => setReplyTo(msg)}
+                                  title="Reply"
+                                  aria-label="Reply to this message"
+                                >
+                                  Reply
+                                </button>
+                               )}
                              </div>
                            </div>
                            
@@ -832,10 +1234,33 @@ export default function Chat() {
                   ))
                 )}
                 <div ref={messagesEndRef} />
+                
+                {/* Scroll to bottom button - appears when user has scrolled up */}
+                {userHasScrolledUp && (
+                  <button
+                    onClick={() => {
+                      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+                      setUserHasScrolledUp(false);
+                      setNewMessagesCount(0);
+                    }}
+                    className="fixed bottom-24 right-8 bg-bracu-blue hover:bg-blue-600 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 z-40 relative"
+                    title={newMessagesCount > 0 ? `${newMessagesCount} new message${newMessagesCount > 1 ? 's' : ''}` : "Scroll to bottom"}
+                    aria-label={newMessagesCount > 0 ? `Scroll to bottom to see ${newMessagesCount} new message${newMessagesCount > 1 ? 's' : ''}` : "Scroll to bottom of conversation"}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                    {newMessagesCount > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold animate-pulse">
+                        {newMessagesCount > 9 ? '9+' : newMessagesCount}
+                      </span>
+                    )}
+                  </button>
+                )}
               </div>
 
               {/* Input area - make sticky at bottom */}
-              <div className="bg-white dark:bg-gray-800 p-4 border-t dark:border-gray-700 shadow-inner sticky bottom-0 z-20">
+              <div className="bg-white dark:bg-gray-800 p-4 border-t dark:border-gray-700 shadow-inner sticky bottom-0 z-30 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95">
                 {replyTo && (
                   <div className="mb-2 p-2 rounded bg-blue-100 dark:bg-blue-900 text-sm flex items-center justify-between">
                     <div className="truncate">
@@ -845,6 +1270,7 @@ export default function Chat() {
                       className="ml-2 text-xs text-gray-500 hover:text-red-500 focus:outline-none"
                       onClick={() => setReplyTo(null)}
                       title="Cancel reply"
+                      aria-label="Cancel reply"
                     >
                       ✕
                     </button>
@@ -852,28 +1278,51 @@ export default function Chat() {
                 )}
                 {showWhereAreYouButton && (
                   <div className="mb-2">
-                      <button onClick={() => handleQuickReply("Where are you on campus?")} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-sm rounded-full hover:bg-gray-300 dark:hover:bg-gray-600">
+                      <button 
+                        onClick={() => handleQuickReply("Where are you on campus?")} 
+                        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-sm rounded-full hover:bg-gray-300 dark:hover:bg-gray-600"
+                        aria-label="Send quick reply: Where are you on campus?"
+                        title="Send quick reply: Where are you on campus?"
+                      >
                           Where are you on campus?
                       </button>
                   </div>
                 )}
                 <div className="flex items-end space-x-3">
-                  <textarea
-                    className="flex-1 min-h-10 max-h-32 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-bracu-blue transition-all duration-200"
-                    placeholder="Type a message..."
-                    value={draft}
-                    onChange={handleTyping}
-                    onKeyDown={handleKeyDown}
-                    rows={1}
-                  />
+                  <div className="flex-1 relative">
+                    <textarea
+                      className="w-full min-h-12 max-h-32 p-4 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-bracu-blue focus:border-transparent transition-all duration-200 shadow-sm hover:shadow-md"
+                      placeholder="Type a message..."
+                      value={getCurrentDraft()}
+                      onChange={(e) => {
+                        handleTyping(e);
+                        // Auto-resize textarea with smooth transition
+                        const textarea = e.target;
+                        textarea.style.height = 'auto';
+                        const newHeight = Math.min(textarea.scrollHeight, 128);
+                        textarea.style.height = newHeight + 'px';
+                      }}
+                      onKeyDown={handleKeyDown}
+                      rows={1}
+                      maxLength={1000}
+                      disabled={loading}
+                    />
+                    {getCurrentDraft().length > 0 && (
+                      <div className="absolute bottom-2 right-2 text-xs text-gray-400">
+                        {getCurrentDraft().length}/1000
+                      </div>
+                    )}
+                  </div>
                   <button
                     onClick={send}
-                    disabled={!draft.trim()}
-                    className={`p-3 rounded-full transition-all duration-200 ${
-                      draft.trim()
-                        ? 'bg-bracu-blue text-white hover:bg-blue-700 shadow hover:shadow-md transform hover:-translate-y-0.5'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+                    disabled={!getCurrentDraft().trim() || loading}
+                    className={`p-3 rounded-full transition-all duration-200 min-w-[48px] min-h-[48px] ${
+                      getCurrentDraft().trim() && !loading
+                        ? 'bg-gradient-to-r from-bracu-blue to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
                     }`}
+                    title={loading ? 'Sending...' : 'Send message'}
+                    aria-label={loading ? 'Sending message...' : 'Send message'}
                   >
                     <SendIcon size={20} />
                   </button>
@@ -882,21 +1331,38 @@ export default function Chat() {
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-              <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md max-w-md w-full">
-                <MessageSquareIcon size={64} className="mx-auto mb-6 text-bracu-blue opacity-90" />
-                <h2 className="text-2xl font-medium mb-3 text-gray-800 dark:text-gray-200">
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl max-w-md w-full border border-gray-200 dark:border-gray-700">
+                <div className="w-24 h-24 bg-gradient-to-br from-bracu-blue to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                  <MessageSquareIcon size={48} className="text-white" />
+                </div>
+                <h2 className="text-3xl font-bold mb-4 text-gray-800 dark:text-gray-200">
                   Welcome to Chat
                 </h2>
-                <p className="mb-6 text-gray-600 dark:text-gray-400">
-                  Select an existing conversation or start a new one by clicking on "Find Friends"
+                <p className="mb-8 text-gray-600 dark:text-gray-400 leading-relaxed">
+                  Start meaningful conversations with your friends and classmates. Select an existing chat or create a new one to get started.
                 </p>
-                <button
-                  onClick={() => setActiveTab('friends')}
-                  className="w-full py-3 bg-bracu-blue text-white rounded-lg hover:bg-blue-700 inline-flex items-center justify-center transition-all duration-200 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
-                >
-                  <PlusIcon size={18} className="mr-2" />
-                  Start a new chat
-                </button>
+                <div className="space-y-4">
+                  <button
+                    onClick={() => {
+                      setActiveTab('friends');
+                      setShowMobileChat(false);
+                    }}
+                    className="w-full py-4 bg-gradient-to-r from-bracu-blue to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 inline-flex items-center justify-center transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl font-semibold"
+                  >
+                    <PlusIcon size={20} className="mr-2" />
+                    Start a new chat
+                  </button>
+                  <div className="flex items-center justify-center space-x-6 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                      Real-time
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                      Secure
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

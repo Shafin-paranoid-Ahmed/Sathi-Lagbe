@@ -286,10 +286,10 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
             </button>
             
             {/* Logo and Brand Name */}
-            <div className="flex items-center">
+            <Link to="/home" className="flex items-center hover:opacity-80 transition-opacity">
               <img src="/bracu-logo.svg" alt="BRACU Logo" className="h-6 w-6 mr-2" />
               <span className="text-lg font-semibold text-gray-900 dark:text-white">Sathi Lagbe</span>
-            </div>
+            </Link>
           </div>
           
           <div className="flex items-center space-x-4">
