@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import { API } from '../api/auth';
 import { 
   UserGroupIcon, 
   CheckCircleIcon, 
@@ -23,7 +23,7 @@ export default function Friends() {
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('friends'); // 'friends', 'requests', 'pending', 'add'
-  const token = sessionStorage.getItem('token');
+
 
   // Helper function to get status icon and color
   const getStatusIcon = (statusValue) => {
@@ -46,9 +46,7 @@ export default function Friends() {
 
   const fetchFriends = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/friends/accepted', {
-        headers: { "Authorization": token }
-      });
+      const response = await API.get('/friends/accepted');
       // Ensure we have valid data and filter out any null entries
       const validFriends = response.data ? response.data.filter(friend => friend && friend.friend) : [];
       setFriends(validFriends);
@@ -61,9 +59,7 @@ export default function Friends() {
   const fetchFriendRequests = async () => {
     try {
       // Incoming requests to me
-      const response = await axios.get('http://localhost:5000/api/friends/requests?status=pending&scope=incoming', {
-        headers: { "Authorization": token }
-      });
+      const response = await API.get('/friends/requests?status=pending&scope=incoming');
       // Ensure we have valid data and filter out any null entries
       const validRequests = response.data ? response.data.filter(request => request && request.user) : [];
       setFriendRequests(validRequests);
@@ -76,9 +72,7 @@ export default function Friends() {
   const fetchPendingRequests = async () => {
     try {
       // Outgoing requests I sent
-      const response = await axios.get('http://localhost:5000/api/friends/requests?status=pending&scope=outgoing', {
-        headers: { "Authorization": token }
-      });
+      const response = await API.get('/friends/requests?status=pending&scope=outgoing');
       // Ensure we have valid data and filter out any null entries
       const validRequests = response.data ? response.data.filter(request => request && request.friend) : [];
       setPendingRequests(validRequests);
@@ -91,9 +85,7 @@ export default function Friends() {
   // Add function to fetch all users
   const fetchAllUsers = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/users', {
-        headers: { "Authorization": token }
-      });
+      const response = await API.get('/users');
       // Ensure we have valid data and filter out any null entries
       const validUsers = response.data ? response.data.filter(user => user) : [];
       // Sort users alphabetically by name
@@ -117,9 +109,7 @@ export default function Friends() {
 
     setSearchLoading(true);
     try {
-      const response = await axios.get(`http://localhost:5000/api/users/search?q=${encodeURIComponent(searchQuery)}`, {
-        headers: { "Authorization": token }
-      });
+      const response = await API.get(`/users/search?q=${encodeURIComponent(searchQuery)}`);
       // Ensure we have valid data and filter out any null entries
       const validResults = response.data ? response.data.filter(user => user) : [];
       setSearchResults(validResults);
@@ -133,10 +123,7 @@ export default function Friends() {
 
   const sendFriendRequest = async (userId) => {
     try {
-      await axios.post('http://localhost:5000/api/friends/request', 
-        { friendId: userId },
-        { headers: { "Authorization": token } }
-      );
+      await API.post('/friends/request', { friendId: userId });
       // Refresh pending requests
       await fetchPendingRequests();
       // Remove user from add list and search results to avoid duplicates
@@ -186,9 +173,7 @@ export default function Friends() {
 
   const handleAcceptRequest = async (requestId) => {
     try {
-      await axios.put(`http://localhost:5000/api/friends/request/${requestId}/accept`, {}, {
-        headers: { "Authorization": token }
-      });
+      await API.put(`/friends/request/${requestId}/accept`);
       // Refresh data
       await Promise.all([
         fetchFriends(),
@@ -202,9 +187,7 @@ export default function Friends() {
 
   const handleRejectRequest = async (requestId) => {
     try {
-      await axios.put(`http://localhost:5000/api/friends/request/${requestId}/reject`, {}, {
-        headers: { "Authorization": token }
-      });
+      await API.put(`/friends/request/${requestId}/reject`);
       // Refresh data
       await Promise.all([
         fetchFriends(),
@@ -218,9 +201,7 @@ export default function Friends() {
 
   const handleRemoveFriend = async (friendshipId) => {
     try {
-      await axios.delete(`http://localhost:5000/api/friends/${friendshipId}`, {
-        headers: { "Authorization": token }
-      });
+      await API.delete(`/friends/${friendshipId}`);
       await fetchFriends();
     } catch (err) {
       console.error('Error removing friend:', err);

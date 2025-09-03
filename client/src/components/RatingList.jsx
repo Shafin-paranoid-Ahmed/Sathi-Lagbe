@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaStar, FaTrash, FaEdit } from 'react-icons/fa';
-import axios from 'axios';
+import { API } from '../api/auth';
 
 const RatingList = ({ userId, isOwnRatings = false }) => {
   const [ratings, setRatings] = useState([]);
@@ -28,14 +28,10 @@ const RatingList = ({ userId, isOwnRatings = false }) => {
     try {
       setLoading(true);
       const endpoint = isOwnRatings 
-        ? `/api/ratings/given?page=${currentPage}&limit=10`
-        : `/api/ratings/user/${userId}?page=${currentPage}&limit=10&category=${category}`;
+        ? `/ratings/given?page=${currentPage}&limit=10`
+        : `/ratings/user/${userId}?page=${currentPage}&limit=10&category=${category}`;
       
-      const response = await axios.get(endpoint, {
-        headers: {
-          Authorization: localStorage.getItem('token')
-        }
-      });
+      const response = await API.get(endpoint);
 
       if (response.data.success) {
         setRatings(response.data.data.ratings);
@@ -58,11 +54,7 @@ const RatingList = ({ userId, isOwnRatings = false }) => {
     }
 
     try {
-      const response = await axios.delete(`/api/ratings/${ratingId}`, {
-        headers: {
-          Authorization: localStorage.getItem('token')
-        }
-      });
+      const response = await API.delete(`/ratings/${ratingId}`);
 
       if (response.data.success) {
         fetchRatings(); // Refresh the list
