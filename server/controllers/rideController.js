@@ -145,7 +145,7 @@ exports.getAllAvailableRides = async (req, res) => {
     const rides = await RideMatch.find({
       status: { $ne: 'completed' }
     })
-    .populate('riderId', 'name email avatarUrl')
+    .populate('riderId', 'name email avatarUrl gender')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -212,7 +212,7 @@ exports.findRideMatches = async (req, res) => {
     }
     
     const rides = await RideMatch.find(query)
-      .populate('riderId', 'name email avatarUrl')
+      .populate('riderId', 'name email avatarUrl gender')
       .sort({ departureTime: 1 })
       .lean();
 

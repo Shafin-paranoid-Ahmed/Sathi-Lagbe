@@ -19,7 +19,10 @@ class AutoStatusService {
       const currentDay = this.getDayName(currentTime.getDay());
       
       // Get all of the user's routine entries for today
-      const todayRoutines = await Routine.find({ userId, day: currentDay }).lean();
+      const todayRoutines = await Routine.find({ 
+        userId, 
+        day: new RegExp(`^${currentDay}$`, 'i') 
+      }).lean();
 
       if (!todayRoutines.length) {
         // No classes today, set status to 'available' if it's not already
@@ -139,8 +142,10 @@ class AutoStatusService {
       const currentTime = new Date();
       const currentDay = this.getDayName(currentTime.getDay());
       
-      const todayRoutines = await Routine.find({ userId, day: currentDay }).lean();
-      if (!todayRoutines.length) return null;
+      const todayRoutines = await Routine.find({ 
+        userId, 
+        day: new RegExp(`^${currentDay}$`, 'i') 
+      }).lean();      if (!todayRoutines.length) return null;
 
       const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
       
