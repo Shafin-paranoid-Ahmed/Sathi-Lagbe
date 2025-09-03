@@ -20,6 +20,21 @@ const StatusUpdate = () => {
     { value: 'studying', label: 'Studying', icon: BookOpen, color: 'text-purple-600' },
     { value: 'free', label: 'Free', icon: Coffee, color: 'text-orange-600' }
   ];
+  // Listen for status changes from other components
+  useEffect(() => {
+    const handleStatusChangeEvent = (event) => {
+      const newStatus = event.detail.status;
+      setStatus(newStatus);
+      setCurrentStatus((prev) =>
+        prev ? { ...prev, current: newStatus, lastUpdated: new Date().toISOString() } : { current: newStatus }
+      );
+    };
+
+    window.addEventListener('userStatusChanged', handleStatusChangeEvent);
+    return () => {
+      window.removeEventListener('userStatusChanged', handleStatusChangeEvent);
+    };
+  }, []);
 
   useEffect(() => {
     fetchCurrentStatus();
@@ -97,7 +112,11 @@ const StatusUpdate = () => {
       
       setCurrentStatus(response.data.status);
       alert('Status updated successfully!');
-      
+      window.dispatchEvent(
+        new CustomEvent('userStatusChanged', {
+          detail: { status: response.data.status.current }
+        })
+      );      
       // Refresh next class info if auto-update is enabled
       if (isAutoUpdate) {
         fetchNextClassInfo();
@@ -119,7 +138,11 @@ const StatusUpdate = () => {
       
       setCurrentStatus(response.data.user.status);
       alert('Status updated automatically based on your schedule!');
-      
+      window.dispatchEvent(
+        new CustomEvent('userStatusChanged', {
+          detail: { status: response.data.user.status.current }
+        })
+      );      
       // Refresh data
       fetchNextClassInfo();
       fetchTodayRoutine();
@@ -147,11 +170,21 @@ const StatusUpdate = () => {
       });
 
       setCurrentStatus(response.data.status);
+      window.dispatchEvent(
+        new CustomEvent('userStatusChanged', {
+          detail: { status: response.data.status.current }
+        })
+      );
       setIsAutoUpdate(!isAutoUpdate);
 
       if (!isAutoUpdate) {
         const autoResp = await API.post('/users/trigger-auto-status');
         setCurrentStatus(autoResp.data.user.status);
+        window.dispatchEvent(
+          new CustomEvent('userStatusChanged', {
+            detail: { status: autoResp.data.user.status.current }
+          })
+        );
         fetchNextClassInfo();
         fetchTodayRoutine();
         checkSetupStatus();

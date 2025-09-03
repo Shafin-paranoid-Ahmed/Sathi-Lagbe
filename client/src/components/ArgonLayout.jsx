@@ -125,6 +125,19 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     };
   }, []);
 
+  // Listen for status changes from other components
+  useEffect(() => {
+    const handleStatusChangeEvent = (event) => {
+      const newStatus = event.detail.status;
+      setCurrentStatus(newStatus);
+    };
+
+    window.addEventListener('userStatusChanged', handleStatusChangeEvent);
+    return () => {
+      window.removeEventListener('userStatusChanged', handleStatusChangeEvent);
+    };
+  }, []);
+
   // Ensure socket connection once user is authenticated
   useEffect(() => {
     const token = sessionStorage.getItem('token');
@@ -156,6 +169,7 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     try {
       await updateStatus({ status: newStatus });
       setCurrentStatus(newStatus);
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { detail: { status: newStatus } }));      
     } catch (error) {
       // Silent error handling
     } finally {
