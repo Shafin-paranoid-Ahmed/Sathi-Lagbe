@@ -11,7 +11,7 @@ import Signup from './pages/Signup';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import Chat from './pages/Chat';
-import Sos from './pages/Sos';
+import Sos from './pages/SOS';
 import Friends from './pages/Friends';
 import Classroom from './pages/Classroom';
 import Routine from './pages/Routine'; // Import Routine page

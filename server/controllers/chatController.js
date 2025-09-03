@@ -134,8 +134,7 @@ exports.getAllChats = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
     
-    console.log('getAllChats called for user:', userId);
-    console.log('User object:', req.user);
+    // Debug logging removed for security
     
     // Import Message model at the top if not already imported
     const Message = require('../models/Message');
@@ -146,20 +145,20 @@ exports.getAllChats = async (req, res) => {
       .sort({ updatedAt: -1 })
       .lean(); // Use lean() for better performance
     
-    console.log(`Found ${chats.length} chats for user ${userId}`);
+    // Chat count logging removed for security
     
     // Manually populate lastMessage for each chat with error handling
     const populatedChats = await Promise.all(chats.map(async (chat) => {
       try {
         if (chat.lastMessage) {
-          console.log(`Populating lastMessage ${chat.lastMessage} for chat ${chat._id}`);
+          // Message population logging removed for security
           const lastMessage = await Message.findById(chat.lastMessage)
             .populate('sender', 'name email avatarUrl')
             .lean();
           if (lastMessage) {
             chat.lastMessage = lastMessage;
           } else {
-            console.log(`Message ${chat.lastMessage} not found for chat ${chat._id}`);
+            // Message not found logging removed for security
             chat.lastMessage = null;
           }
         }

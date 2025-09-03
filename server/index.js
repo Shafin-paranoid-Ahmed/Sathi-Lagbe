@@ -39,7 +39,8 @@ app.use(cors({
 // Make sure body-parser middleware is before routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan('dev'));
+// HTTP request logging disabled for security in production
+// app.use(morgan('dev'));
 
 // Ensure uploads directory exists for multer
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -83,7 +84,7 @@ app.use((err, req, res, next) => {
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
+  .then(() => console.log('Database connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
 // Create HTTP server
@@ -116,23 +117,23 @@ io.use(authenticateSocket);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.userName} (${socket.userId})`);
+  // User connection logging removed for security
   
   // Store user's socket connection
   const userRoom = `user_${socket.userId}`;
   socket.join(userRoom);
-  console.log(`User ${socket.userName} joined room: ${userRoom}`);
+  // Room joining logging removed for security
   
   // Handle joining chat rooms
   socket.on('join_chat', (chatId) => {
     socket.join(`chat_${chatId}`);
-    console.log(`User ${socket.userName} joined chat: ${chatId}`);
+    // Chat joining logging removed for security
   });
   
   // Handle leaving chat rooms
   socket.on('leave_chat', (chatId) => {
     socket.leave(`chat_${chatId}`);
-    console.log(`User ${socket.userName} left chat: ${chatId}`);
+    // Chat leaving logging removed for security
   });
   
   // Handle new message
@@ -143,7 +144,7 @@ io.on('connection', (socket) => {
       message
     });
 
-    console.log(`Message relayed in chat ${chatId} by ${socket.userName}`);
+    // Message relay logging removed for security
   });
   
   // Handle typing indicators
@@ -197,7 +198,7 @@ io.on('connection', (socket) => {
   
   // Handle disconnection
   socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.userName} (${socket.userId})`);
+    // User disconnection logging removed for security
   });
 
   // Notify recipients that live sharing has stopped
@@ -232,8 +233,7 @@ io.on('connection', (socket) => {
 // Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Socket.IO server initialized`);
+  console.log(`Server started successfully`);
 });
 
 // Scheduled cleanup of orphaned notifications (runs every hour)
@@ -241,18 +241,16 @@ const cleanupInterval = 60 * 60 * 1000; // 1 hour in milliseconds
 
 setInterval(async () => {
   try {
-    console.log('🕐 Running scheduled notification cleanup...');
+    // Notification cleanup logging removed for security
     const rideNotificationService = require('./services/rideNotificationService');
     const deletedCount = await rideNotificationService.cleanupOrphanedNotifications();
-    if (deletedCount > 0) {
-      console.log(`🧹 Scheduled cleanup completed. Deleted ${deletedCount} orphaned notifications.`);
-    }
+    // Cleanup results logging removed for security
   } catch (error) {
     console.error('❌ Error during scheduled notification cleanup:', error);
   }
 }, cleanupInterval);
 
-console.log(`🕐 Scheduled notification cleanup set to run every ${cleanupInterval / (60 * 1000)} minutes`);
+// Notification cleanup scheduler logging removed for security
 
 // Start auto status scheduler (updates 'in_class' based on Routine and notifies friends)
 try {

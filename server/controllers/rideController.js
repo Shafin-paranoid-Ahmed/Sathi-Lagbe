@@ -77,7 +77,7 @@ exports.testGenderData = async (req, res) => {
       .limit(5)
       .select('riderName riderGender riderId createdAt');
     
-    console.log('All recent rides:', allRides);
+    // Ride data logging removed for security
     
     res.json({
       userId,
@@ -98,11 +98,9 @@ exports.testGenderData = async (req, res) => {
 exports.debugUserData = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    console.log('=== Debug User Data ===');
-    console.log('Requested user ID:', userId);
+    // User data debug logging removed for security
     
     const user = await User.findById(userId).select('name email gender');
-    console.log('User data from database:', user);
     
     res.json({
       userId,
@@ -120,27 +118,18 @@ exports.debugUserData = async (req, res) => {
  */
 exports.getAllAvailableRides = async (req, res) => {
   try {
-    console.log('=== getAllAvailableRides called ===');
+    // Ride availability logging removed for security
     
     // Run migration to ensure all rides have user data
     await migrateRidesWithUserData();
 
     // First, let's see how many total rides exist
     const totalRides = await RideMatch.countDocuments();
-    console.log('Total rides in database:', totalRides);
-
-    // Debug: Check what users exist and their gender values
-    const users = await User.find({}, 'name email gender');
-    console.log('All users in database:', users.map(u => ({
-      name: u.name,
-      email: u.email,
-      gender: u.gender,
-      genderType: typeof u.gender
-    })));
+    // Database statistics logging removed for security
 
     // Get all rides that are not completed (remove departureTime filter temporarily)
     const currentTime = new Date();
-    console.log('Current time:', currentTime);
+    // Current time logging removed for security
     
     const rides = await RideMatch.find({
       status: { $ne: 'completed' }

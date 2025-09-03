@@ -251,12 +251,10 @@ exports.getFriendsWithStatus = async (req, res) => {
     try {
         const userId = req.user.id || req.user.userId;
 
-        console.log('=== getFriendsWithStatus called ===');
-        console.log('User ID:', userId);
-        console.log('User object:', req.user);
+        // Debug logging removed for security
 
         if (!userId) {
-            console.log('No user ID found');
+            // Authentication error logging removed for security
             return res.status(401).json({ error: 'User not authenticated' });
         }
 

@@ -190,7 +190,7 @@ async function tick() {
   try {
     const updatedUsers = await AutoStatusService.updateAllAutoUsers();
     if (updatedUsers.length > 0) {
-      console.log(`✅ Auto-status updates completed. Updated ${updatedUsers.length} users.`);
+      // Auto-status update logging removed for security
     }
   } catch (err) {
     console.error('❌ Error during scheduled auto-status tick:', err);
@@ -203,7 +203,7 @@ async function tick() {
  * @param {number} [options.intervalMs=300000] - The interval in milliseconds (defaults to 5 minutes).
  */
 function startAutoStatusScheduler({ intervalMs = 5 * 60 * 1000 } = {}) {
-  console.log(`🔄 Scheduled auto-status updates set to run every ${intervalMs / 60000} minutes.`);
+  // Scheduler startup logging removed for security
   
   // Run once shortly after server startup
   setTimeout(() => tick(), 15 * 1000); // 15 seconds after start
