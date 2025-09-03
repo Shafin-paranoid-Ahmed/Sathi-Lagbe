@@ -739,9 +739,13 @@ export default function Chat() {
         {/* Desktop Sidebar - Always visible on desktop */}
         <div className="hidden lg:flex w-80 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex-shrink-0 flex-col h-full">
           {/* Tabs */}
-          <div className="flex border-b dark:border-gray-700">
+          <div className="flex border-b dark:border-gray-700" role="tablist" aria-label="Chat navigation">
             <button
               onClick={() => setActiveTab('chats')}
+              role="tab"
+              aria-selected={activeTab === 'chats'}
+              aria-controls="chats-panel"
+              id="chats-tab"
               className={`flex-1 py-3 text-center font-medium transition-all duration-200 ${
                 activeTab === 'chats'
                   ? 'text-bracu-blue border-b-2 border-bracu-blue'
@@ -752,6 +756,10 @@ export default function Chat() {
             </button>
             <button
               onClick={() => setActiveTab('friends')}
+              role="tab"
+              aria-selected={activeTab === 'friends'}
+              aria-controls="friends-panel"
+              id="friends-tab"
               className={`flex-1 py-3 text-center font-medium transition-all duration-200 ${
                 activeTab === 'friends'
                   ? 'text-bracu-blue border-b-2 border-bracu-blue'
@@ -765,7 +773,7 @@ export default function Chat() {
           {/* Content based on active tab */}
           <div className="p-4 overflow-y-auto flex-1 min-h-0">
             {activeTab === 'chats' ? (
-              <div className="space-y-1">
+              <div className="space-y-1" role="tabpanel" id="chats-panel" aria-labelledby="chats-tab">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                     Recent Chats
@@ -835,17 +843,19 @@ export default function Chat() {
                   }
 
                   return filteredChats.map((chat) => (
-                    <div
+                    <button
                       key={chat._id}
                       onClick={() => {
                         setSelectedChat(chat);
                         setShowMobileChat(true);
                       }}
-                      className={`group flex items-center p-4 rounded-xl cursor-pointer transition-all duration-300 ${
+                      className={`group flex items-center p-4 rounded-xl cursor-pointer transition-all duration-300 w-full text-left ${
                         selectedChat && selectedChat._id === chat._id
                           ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 shadow-lg border border-blue-200 dark:border-blue-700 ring-2 ring-blue-200 dark:ring-blue-700'
                           : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600 hover:shadow-md border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
                       }`}
+                      aria-label={`Open chat with ${getChatName(chat)}`}
+                      aria-describedby={`chat-${chat._id}-preview`}
                     >
                       {(() => {
                         const otherMember = chat.members?.find(m => 
@@ -874,7 +884,7 @@ export default function Chat() {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                        <p id={`chat-${chat._id}-preview`} className="text-sm text-gray-600 dark:text-gray-300 truncate">
                           {chat.lastMessage?.text || 'No messages yet'}
                         </p>
                       </div>
@@ -883,12 +893,14 @@ export default function Chat() {
                           {chat.unreadMessageCount > 99 ? '99+' : chat.unreadMessageCount}
                         </div>
                       )}
-                    </div>
+                    </button>
                   ));
                 })()}
               </div>
             ) : (
-              <FriendList onSelectChat={handleSelectNewChat} />
+              <div role="tabpanel" id="friends-panel" aria-labelledby="friends-tab">
+                <FriendList onSelectChat={handleSelectNewChat} />
+              </div>
             )}
           </div>
         </div>
@@ -898,9 +910,13 @@ export default function Chat() {
           showMobileChat ? 'hidden' : 'flex'
         }`}>
           {/* Tabs */}
-          <div className="flex border-b dark:border-gray-700">
+          <div className="flex border-b dark:border-gray-700" role="tablist" aria-label="Chat navigation">
             <button
               onClick={() => setActiveTab('chats')}
+              role="tab"
+              aria-selected={activeTab === 'chats'}
+              aria-controls="chats-panel-mobile"
+              id="chats-tab-mobile"
               className={`flex-1 py-3 text-center font-medium transition-all duration-200 ${
                 activeTab === 'chats'
                   ? 'text-bracu-blue border-b-2 border-bracu-blue'
@@ -911,6 +927,10 @@ export default function Chat() {
             </button>
             <button
               onClick={() => setActiveTab('friends')}
+              role="tab"
+              aria-selected={activeTab === 'friends'}
+              aria-controls="friends-panel-mobile"
+              id="friends-tab-mobile"
               className={`flex-1 py-3 text-center font-medium transition-all duration-200 ${
                 activeTab === 'friends'
                   ? 'text-bracu-blue border-b-2 border-bracu-blue'
@@ -924,7 +944,7 @@ export default function Chat() {
           {/* Content based on active tab */}
           <div className="p-4 overflow-y-auto flex-1 min-h-0">
             {activeTab === 'chats' ? (
-              <div className="space-y-1">
+              <div className="space-y-1" role="tabpanel" id="chats-panel-mobile" aria-labelledby="chats-tab-mobile">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                     Recent Chats
@@ -994,17 +1014,19 @@ export default function Chat() {
                   }
 
                   return filteredChats.map((chat) => (
-                    <div
+                    <button
                       key={chat._id}
                       onClick={() => {
                         setSelectedChat(chat);
                         setShowMobileChat(true);
                       }}
-                      className={`group flex items-center p-4 rounded-xl cursor-pointer transition-all duration-300 ${
+                      className={`group flex items-center p-4 rounded-xl cursor-pointer transition-all duration-300 w-full text-left ${
                         selectedChat && selectedChat._id === chat._id
                           ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 shadow-lg border border-blue-200 dark:border-blue-700 ring-2 ring-blue-200 dark:ring-blue-700'
                           : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600 hover:shadow-md border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
                       }`}
+                      aria-label={`Open chat with ${getChatName(chat)}`}
+                      aria-describedby={`chat-${chat._id}-preview`}
                     >
                       {(() => {
                         const otherMember = chat.members?.find(m => 
@@ -1032,16 +1054,18 @@ export default function Chat() {
                             }
                           </span>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                        <p id={`chat-${chat._id}-preview`} className="text-sm text-gray-600 dark:text-gray-300 truncate">
                           {chat.lastMessage?.text || 'No messages yet'}
                         </p>
                       </div>
-                    </div>
+                    </button>
                   ));
                 })()}
               </div>
             ) : (
-              <FriendList onSelectChat={handleSelectNewChat} />
+              <div role="tabpanel" id="friends-panel-mobile" aria-labelledby="friends-tab-mobile">
+                <FriendList onSelectChat={handleSelectNewChat} />
+              </div>
             )}
           </div>
         </div>
@@ -1055,9 +1079,6 @@ export default function Chat() {
               {/* Chat header */}
               <div className="bg-white dark:bg-gray-800 shadow-lg p-4 flex items-center sticky top-0 z-30 border-b border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95">
                 {/* Desktop hint - subtle indicator that chat list is available */}
-                <div className="hidden lg:block absolute left-4 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 dark:text-gray-500 pointer-events-none animate-pulse">
-                  💬 Chat list always visible on desktop
-                </div>
                 <button
                   onClick={() => {
                     setSelectedChat(null);
@@ -1097,10 +1118,17 @@ export default function Chat() {
               </div>
 
               {/* Messages */}
+              <div id="messages-description" className="sr-only">
+                Chat messages with {getChatName(selectedChat)}. New messages will be announced automatically.
+              </div>
               <div 
                 ref={messagesContainerRef}
                 onScroll={handleScroll}
                 className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0 bg-gray-50 dark:bg-gray-900 max-h-[calc(100vh-12rem)] relative"
+                role="log"
+                aria-live="polite"
+                aria-label="Chat messages"
+                aria-describedby="messages-description"
               >
                 {chatLoading ? (
                   <div className="flex justify-center items-center h-full">
@@ -1129,6 +1157,8 @@ export default function Chat() {
                       className={`flex ${
                         isSenderCurrentUser(msg.sender) ? 'justify-end' : 'justify-start'
                       } mb-4`}
+                      role="article"
+                      aria-label={`Message from ${isSenderCurrentUser(msg.sender) ? 'you' : getSenderName(msg.sender)}`}
                     >
                                              <div className={`flex ${isSenderCurrentUser(msg.sender) ? 'flex-row-reverse' : 'flex-row'} items-end max-w-xs md:max-w-md lg:max-w-lg`}>
                          {/* Avatar for other users' messages (left side) */}
@@ -1290,10 +1320,16 @@ export default function Chat() {
                 )}
                 <div className="flex items-end space-x-3">
                   <div className="flex-1 relative">
+                    <label htmlFor="message-input" className="sr-only">
+                      Type a message
+                    </label>
                     <textarea
+                      id="message-input"
                       className="w-full min-h-12 max-h-32 p-4 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-bracu-blue focus:border-transparent transition-all duration-200 shadow-sm hover:shadow-md"
                       placeholder="Type a message..."
                       value={getCurrentDraft()}
+                      aria-label="Type a message"
+                      aria-describedby="message-input-help"
                       onChange={(e) => {
                         handleTyping(e);
                         // Auto-resize textarea with smooth transition
@@ -1308,7 +1344,7 @@ export default function Chat() {
                       disabled={loading}
                     />
                     {getCurrentDraft().length > 0 && (
-                      <div className="absolute bottom-2 right-2 text-xs text-gray-400">
+                      <div id="message-input-help" className="absolute bottom-2 right-2 text-xs text-gray-400">
                         {getCurrentDraft().length}/1000
                       </div>
                     )}

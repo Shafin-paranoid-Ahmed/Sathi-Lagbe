@@ -274,10 +274,7 @@ exports.updateAvatar = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    console.log('=== AVATAR UPLOAD DEBUG ===');
-    console.log('User ID:', userId);
-    console.log('User Name:', userExists.name);
-    console.log('File:', file.originalname, file.size, file.mimetype);
+    // Avatar upload debug logging removed for security
 
     // Upload to Cloudinary
     const uploadResult = await cloudinary.uploader.upload(file.path, {
@@ -290,7 +287,7 @@ exports.updateAvatar = async (req, res) => {
     if (current?.avatarPublicId) {
       try { 
         await cloudinary.uploader.destroy(current.avatarPublicId); 
-        console.log('Previous avatar deleted:', current.avatarPublicId);
+        // Avatar deletion logging removed for security
       } catch (destroyErr) {
         console.warn('Failed to delete previous avatar:', destroyErr.message);
       }
@@ -302,8 +299,7 @@ exports.updateAvatar = async (req, res) => {
       { new: true }
     ).select('name email gender location avatarUrl');
 
-    console.log('Avatar updated successfully for user:', userId);
-    console.log('New avatar URL:', uploadResult.secure_url);
+    // Avatar update success logging removed for security
 
     // Cleanup temp file
     try { fs.unlink(file.path, () => {}); } catch {}
@@ -529,36 +525,28 @@ exports.checkAutoStatusSetup = async (req, res) => {
  */
 exports.debugAutoStatus = async (req, res) => {
   try {
-    console.log('🔍 Debug endpoint called');
+    // Debug endpoint logging removed for security
     const userId = req.user.id || req.user.userId;
-    console.log('👤 User ID:', userId);
     
     const Routine = require('../models/Routine');
     const { AutoStatusService } = require('../services/autoStatusService');
     
-    console.log('📚 Models loaded successfully');
+    // Debug logging removed for security
     
     const user = await User.findById(userId).select('status');
     if (!user) {
-      console.log('❌ User not found');
       return res.status(404).json({ error: 'User not found' });
     }
-    
-    console.log('✅ User found, status:', user.status);
     
     // Get current day using different methods
     const currentDate = new Date();
     const dayNumber = currentDate.getDay();
-    console.log('📅 Current date:', currentDate.toISOString(), 'Day number:', dayNumber);
     
     const dayNameFromService = AutoStatusService.getDayName(dayNumber);
     const dayNameFromController = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
     
-    console.log('📅 Day names - Service:', dayNameFromService, 'Controller:', dayNameFromController);
-    
     // Get all routines for the user
     const allRoutines = await Routine.find({ userId }).select('day timeSlot course');
-    console.log('📚 Total routines found:', allRoutines.length);
     
     // Check for today's routine using both methods
     const routineFromService = await Routine.findOne({
@@ -571,7 +559,7 @@ exports.debugAutoStatus = async (req, res) => {
       day: dayNameFromController
     });
     
-    console.log('📚 Routines - Service method:', routineFromService ? 'Found' : 'Not found', 'Controller method:', routineFromController ? 'Found' : 'Not found');
+    // Routine matching logging removed for security
     
     const response = {
       debug: {
@@ -596,7 +584,7 @@ exports.debugAutoStatus = async (req, res) => {
       }
     };
     
-    console.log('✅ Debug response prepared, sending...');
+    // Debug response logging removed for security
     res.json(response);
   } catch (err) {
     console.error('❌ Error in debug endpoint:', err);
