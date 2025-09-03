@@ -96,20 +96,24 @@ const Ratings = () => {
         {/* Tabs */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm mb-6">
           <div className="border-b border-gray-200 dark:border-gray-700">
-            <nav className="flex space-x-8 px-6">
+            <nav className="flex space-x-8 px-6" role="tablist" aria-label="Ratings navigation">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
+                    role="tab"
+                    aria-selected={activeTab === tab.id}
+                    aria-controls={`${tab.id}-panel`}
+                    id={`${tab.id}-tab`}
                     className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
                       activeTab === tab.id
                         ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                         : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                   >
-                    <Icon className="text-lg" />
+                    <Icon className="text-lg" aria-hidden="true" />
                     <span>{tab.label}</span>
                   </button>
                 );
@@ -120,7 +124,7 @@ const Ratings = () => {
           {/* Tab Content */}
           <div className="p-6">
             {activeTab === 'received' && (
-              <div>
+              <div role="tabpanel" id="received-panel" aria-labelledby="received-tab">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   Ratings You've Received
                 </h3>
@@ -129,7 +133,7 @@ const Ratings = () => {
             )}
 
             {activeTab === 'given' && (
-              <div>
+              <div role="tabpanel" id="given-panel" aria-labelledby="given-tab">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   Ratings You've Given
                 </h3>
@@ -138,7 +142,7 @@ const Ratings = () => {
             )}
 
             {activeTab === 'give' && (
-              <div>
+              <div role="tabpanel" id="give-panel" aria-labelledby="give-tab">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   Give a Rating
                 </h3>

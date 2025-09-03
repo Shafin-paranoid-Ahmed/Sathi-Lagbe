@@ -346,7 +346,11 @@ export default function Sos() {
 
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-200 rounded-lg border border-red-200 dark:border-red-600 animate-fade-in">
+          <div 
+            className="mb-4 p-3 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-200 rounded-lg border border-red-200 dark:border-red-600 animate-fade-in"
+            role="alert"
+            aria-live="assertive"
+          >
             {error}
           </div>
         )}
@@ -375,19 +379,29 @@ export default function Sos() {
               </select>
             ) : (
               <>
+                <label htmlFor="contact-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Contact Name
+                </label>
                 <input
+                  id="contact-name"
                   type="text"
                   placeholder="Contact Name"
                   value={newContact.name}
                   onChange={e => setNewContact({...newContact, name: e.target.value})}
                   className="w-full p-2 border rounded-lg dark:bg-gray-600 dark:text-white dark:border-gray-500 focus:ring-2 focus:ring-primary-500 transition"
+                  aria-label="Enter contact name"
                 />
+                <label htmlFor="contact-phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Phone Number
+                </label>
                 <input
+                  id="contact-phone"
                   type="tel"
                   placeholder="Phone Number"
                   value={newContact.phone}
                   onChange={e => setNewContact({...newContact, phone: e.target.value})}
                   className="w-full p-2 border rounded-lg dark:bg-gray-600 dark:text-white dark:border-gray-500 focus:ring-2 focus:ring-primary-500 transition"
+                  aria-label="Enter phone number"
                 />
               </>
             )}
@@ -452,20 +466,30 @@ export default function Sos() {
           </h2>
           
           <div className="space-y-3 mb-4">
+            <label htmlFor="emergency-location" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Your Location (optional)
+            </label>
             <input
+              id="emergency-location"
               type="text"
               placeholder="Your Location (optional)"
               value={location}
               onChange={e => setLocation(e.target.value)}
               className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-2 focus:ring-red-500 transition"
+              aria-label="Enter your current location for emergency alert"
             />
             
+            <label htmlFor="emergency-message" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Emergency Message (optional)
+            </label>
             <textarea
+              id="emergency-message"
               placeholder="Emergency Message (optional, e.g., 'I am in danger')"
               value={message}
               onChange={e => setMessage(e.target.value)}
               className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-2 focus:ring-red-500 transition"
               rows="2"
+              aria-label="Enter emergency message to send with alert"
             />
           </div>
           

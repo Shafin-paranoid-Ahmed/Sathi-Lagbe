@@ -414,12 +414,20 @@ export default function Routine() {
                              <UserGroupIcon className="h-5 w-5 text-blue-600" />
                              <div>
                                  <h3 className="text-sm font-medium text-gray-900 dark:text-white">Day Grouping</h3>
-                                 <p className="text-xs text-gray-600 dark:text-gray-400">
+                                 <p id="grouping-description" className="text-xs text-gray-600 dark:text-gray-400">
                                      {groupToggle ? 'ON: Adds/Deletes for paired days' : 'OFF: Add to single day only'}
                                  </p>
                              </div>
                          </div>
-                         <button type="button" onClick={() => setGroupToggle(!groupToggle)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${groupToggle ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}>
+                         <button 
+                             type="button" 
+                             onClick={() => setGroupToggle(!groupToggle)} 
+                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${groupToggle ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}
+                             role="switch"
+                             aria-checked={groupToggle}
+                             aria-label={`Day grouping ${groupToggle ? 'enabled' : 'disabled'}. ${groupToggle ? 'Adds/Deletes for paired days' : 'Add to single day only'}`}
+                             aria-describedby="grouping-description"
+                         >
                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${groupToggle ? 'translate-x-6' : 'translate-x-1'}`} />
                          </button>
                      </div>

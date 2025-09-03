@@ -298,18 +298,22 @@ export default function Classroom() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-2">
-        <div className="flex space-x-1">
+        <div className="flex space-x-1" role="tablist" aria-label="Classroom navigation">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`${tab.id}-panel`}
+              id={`${tab.id}-tab`}
               className={`flex items-center space-x-2 flex-1 justify-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'bg-primary-500 text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
-              <tab.icon className="h-5 w-5" />
+              <tab.icon className="h-5 w-5" aria-hidden="true" />
               <span>{tab.name}</span>
             </button>
           ))}
@@ -317,9 +321,21 @@ export default function Classroom() {
       </div>
 
       <div>
-        {activeTab === 'all' && <ClassroomAvailability />}
-        {activeTab === 'find' && <FindAvailableClassrooms />}
-        {activeTab === 'bookmarks' && <BookmarkedClassrooms />}
+        {activeTab === 'all' && (
+          <div role="tabpanel" id="all-panel" aria-labelledby="all-tab">
+            <ClassroomAvailability />
+          </div>
+        )}
+        {activeTab === 'find' && (
+          <div role="tabpanel" id="find-panel" aria-labelledby="find-tab">
+            <FindAvailableClassrooms />
+          </div>
+        )}
+        {activeTab === 'bookmarks' && (
+          <div role="tabpanel" id="bookmarks-panel" aria-labelledby="bookmarks-tab">
+            <BookmarkedClassrooms />
+          </div>
+        )}
       </div>
     </div>
   );
