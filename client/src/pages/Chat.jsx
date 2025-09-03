@@ -324,8 +324,8 @@ export default function Chat() {
     const { scrollTop, scrollHeight, clientHeight } = container;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     
-    // Consider "near bottom" if within 100px of bottom
-    const nearBottom = distanceFromBottom < 100;
+    // Consider "near bottom" if within 50px of bottom (more precise)
+    const nearBottom = distanceFromBottom < 50;
     setIsNearBottom(nearBottom);
     
     // If user scrolls up significantly, mark as user-initiated scroll
@@ -338,6 +338,7 @@ export default function Chat() {
 
   // Track new messages and handle scroll behavior
   const previousMessageCount = useRef(0);
+  const isInitialScroll = useRef(true);
   
   useEffect(() => {
     if (messages.length > 0) {
@@ -346,17 +347,21 @@ export default function Chat() {
       if (isNewMessage && userHasScrolledUp) {
         // User is scrolled up and new message arrived - increment counter
         setNewMessagesCount(prev => prev + 1);
-      } else if (isNearBottom || !userHasScrolledUp) {
-        // User is near bottom or hasn't scrolled up - auto scroll and reset counter
+      } else if (isNewMessage && isNearBottom && !userHasScrolledUp) {
+        // Only auto-scroll if it's a new message AND user is very close to bottom
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         setNewMessagesCount(0);
+      } else if (isInitialScroll.current && messages.length <= 10) {
+        // Only auto-scroll on initial load if there are few messages
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        isInitialScroll.current = false;
       }
       
       previousMessageCount.current = messages.length;
     }
   }, [messages, isNearBottom, userHasScrolledUp]);
 
-  // When a new chat is selected, scroll to recent messages (not necessarily bottom)
+  // When a new chat is selected, scroll to latest message
   useEffect(() => {
     if (selectedChat && messages.length > 0) {
       // Reset scroll state for new chat
@@ -364,8 +369,9 @@ export default function Chat() {
       setIsNearBottom(true);
       setNewMessagesCount(0);
       previousMessageCount.current = messages.length;
+      isInitialScroll.current = true; // Mark as initial load for new chat
       
-      // Scroll to bottom smoothly for new chat
+      // Scroll to latest message when opening a chat
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 100);
@@ -780,12 +786,17 @@ export default function Chat() {
                   </h2>
                   {chats.length > 0 && (
                     <div className="relative">
+                      <label htmlFor="chat-search-desktop" className="sr-only">
+                        Search chats
+                      </label>
                       <input
+                        id="chat-search-desktop"
                         type="text"
                         placeholder="Search chats..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full sm:w-48 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-bracu-blue transition-all duration-200"
+                        aria-label="Search chats by name or message content"
                       />
                       {searchQuery && (
                         <button
@@ -951,12 +962,17 @@ export default function Chat() {
                   </h2>
                   {chats.length > 0 && (
                     <div className="relative">
+                      <label htmlFor="chat-search-mobile" className="sr-only">
+                        Search chats
+                      </label>
                       <input
+                        id="chat-search-mobile"
                         type="text"
                         placeholder="Search chats..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full sm:w-48 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-bracu-blue transition-all duration-200"
+                        aria-label="Search chats by name or message content"
                       />
                       {searchQuery && (
                         <button
@@ -1290,7 +1306,7 @@ export default function Chat() {
               </div>
 
               {/* Input area - make sticky at bottom */}
-              <div className="bg-white dark:bg-gray-800 p-4 border-t dark:border-gray-700 shadow-inner sticky bottom-0 z-30 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95">
+              <div className="bg-white dark:bg-gray-800 p-4 border-t dark:border-gray-700 shadow-inner z-30 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95">
                 {replyTo && (
                   <div className="mb-2 p-2 rounded bg-blue-100 dark:bg-blue-900 text-sm flex items-center justify-between">
                     <div className="truncate">

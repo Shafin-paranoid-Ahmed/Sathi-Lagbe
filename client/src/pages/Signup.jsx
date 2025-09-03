@@ -74,7 +74,11 @@ export default function Signup() {
         </h2>
 
         {error && (
-          <div className="mb-4 p-2 bg-red-200 text-red-800 rounded">
+          <div 
+            className="mb-4 p-2 bg-red-200 text-red-800 rounded"
+            role="alert"
+            aria-live="assertive"
+          >
             {error}
           </div>
         )}

@@ -313,13 +313,21 @@ export default function Profile() {
       </div>
 
       {success && (
-        <div className="bg-green-100 dark:bg-green-900 border border-green-400 text-green-700 dark:text-green-100 px-4 py-3 rounded">
+        <div 
+          className="bg-green-100 dark:bg-green-900 border border-green-400 text-green-700 dark:text-green-100 px-4 py-3 rounded"
+          role="alert"
+          aria-live="polite"
+        >
           {success}
         </div>
       )}
 
       {error && (
-        <div className="bg-red-100 dark:bg-red-900 border border-red-400 text-red-700 dark:text-red-100 px-4 py-3 rounded">
+        <div 
+          className="bg-red-100 dark:bg-red-900 border border-red-400 text-red-700 dark:text-red-100 px-4 py-3 rounded"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </div>
       )}

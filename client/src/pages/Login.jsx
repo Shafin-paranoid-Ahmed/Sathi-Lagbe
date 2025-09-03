@@ -85,13 +85,21 @@ export default function Login({ setIsAuthenticated }) {
         </h2>
 
         {isExpired && (
-          <div className="mb-4 p-3 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded">
+          <div 
+            className="mb-4 p-3 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded"
+            role="alert"
+            aria-live="polite"
+          >
             Your session has expired. Please log in again.
           </div>
         )}
 
         {error && (
-          <div className="mb-4 p-2 bg-red-200 text-red-800 rounded">
+          <div 
+            className="mb-4 p-2 bg-red-200 text-red-800 rounded"
+            role="alert"
+            aria-live="assertive"
+          >
             {error}
           </div>
         )}

@@ -249,21 +249,30 @@ export default function NotificationBell() {
           }
         }}
         className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors transform hover:scale-110 duration-150"
+        aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+        aria-expanded={showDropdown}
+        aria-haspopup="true"
+        aria-controls="notifications-dropdown"
       >
-                 <BellIcon className={`h-6 w-6 ${unreadCount > 0 ? 'animate-bounce' : ''}`} />
+        <BellIcon className={`h-6 w-6 ${unreadCount > 0 ? 'animate-bounce' : ''}`} aria-hidden="true" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center shadow-md">
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center shadow-md" aria-hidden="true">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
       {showDropdown && (
-        <div className="absolute right-0 mt-2 w-[420px] bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-50 transform origin-top-right animate-fade-in">
+        <div 
+          id="notifications-dropdown"
+          className="absolute right-0 mt-2 w-[420px] bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-50 transform origin-top-right animate-fade-in"
+          role="dialog"
+          aria-labelledby="notifications-title"
+        >
           {/* Header */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 id="notifications-title" className="text-lg font-semibold text-gray-900 dark:text-white">
                 Notifications
               </h3>
               <div className="flex items-center space-x-2">
@@ -271,6 +280,7 @@ export default function NotificationBell() {
                   <button
                     onClick={markAllAsRead}
                     className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                    aria-label="Mark all notifications as read"
                   >
                     Mark all read
                   </button>
@@ -279,8 +289,9 @@ export default function NotificationBell() {
                   onClick={() => setShowDropdown(false)}
                   className="p-1 rounded-full text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
                   title="Close"
+                  aria-label="Close notifications"
                 >
-                  <XMarkIcon className="h-5 w-5" />
+                  <XMarkIcon className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -330,12 +341,19 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.map(notification => (
-                <div
+                <button
                   key={notification._id}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`p-4 border-l-4 ${getPriorityColor(notification.priority)} ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleNotificationClick(notification);
+                    }
+                  }}
+                  className={`w-full text-left p-4 border-l-4 ${getPriorityColor(notification.priority)} ${
                     !notification.isRead ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                  } hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer`}
+                  } hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset`}
+                  aria-label={`${notification.title || 'Notification'}${!notification.isRead ? ', unread' : ''}`}
                 >
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0">
@@ -360,6 +378,8 @@ export default function NotificationBell() {
                               deleteNotification(notification._id);
                             }}
                             className="text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+                            aria-label="Delete notification"
+                            title="Delete notification"
                           >
                             ×
                           </button>
@@ -376,6 +396,7 @@ export default function NotificationBell() {
                               markAsRead(notification._id);
                             }}
                             className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                            aria-label="Mark notification as read"
                           >
                             Mark as read
                           </button>
@@ -383,7 +404,7 @@ export default function NotificationBell() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>

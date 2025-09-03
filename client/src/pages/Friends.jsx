@@ -228,9 +228,13 @@ export default function Friends() {
 
       {/* Tab Navigation */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-2">
-        <div className="flex space-x-1">
+        <div className="flex space-x-1" role="tablist" aria-label="Friends navigation">
           <button
             onClick={() => setActiveTab('friends')}
+            role="tab"
+            aria-selected={activeTab === 'friends'}
+            aria-controls="friends-panel"
+            id="friends-tab"
             className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'friends'
                 ? 'bg-primary-500 text-white'
@@ -241,6 +245,10 @@ export default function Friends() {
           </button>
           <button
             onClick={() => setActiveTab('requests')}
+            role="tab"
+            aria-selected={activeTab === 'requests'}
+            aria-controls="requests-panel"
+            id="requests-tab"
             className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'requests'
                 ? 'bg-primary-500 text-white'
@@ -251,6 +259,10 @@ export default function Friends() {
           </button>
           <button
             onClick={() => setActiveTab('pending')}
+            role="tab"
+            aria-selected={activeTab === 'pending'}
+            aria-controls="pending-panel"
+            id="pending-tab"
             className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'pending'
                 ? 'bg-primary-500 text-white'
@@ -261,6 +273,10 @@ export default function Friends() {
           </button>
           <button
             onClick={() => setActiveTab('add')}
+            role="tab"
+            aria-selected={activeTab === 'add'}
+            aria-controls="add-panel"
+            id="add-tab"
             className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'add'
                 ? 'bg-primary-500 text-white'
@@ -274,7 +290,7 @@ export default function Friends() {
 
       {/* Friends Tab */}
       {activeTab === 'friends' && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6" role="tabpanel" id="friends-panel" aria-labelledby="friends-tab">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Your Friends
           </h2>
@@ -341,7 +357,7 @@ export default function Friends() {
 
       {/* Friend Requests Tab */}
       {activeTab === 'requests' && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6" role="tabpanel" id="requests-panel" aria-labelledby="requests-tab">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Friend Requests
           </h2>
@@ -407,7 +423,7 @@ export default function Friends() {
 
       {/* Pending Requests Tab */}
       {activeTab === 'pending' && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6" role="tabpanel" id="pending-panel" aria-labelledby="pending-tab">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Pending Requests
           </h2>
@@ -462,7 +478,7 @@ export default function Friends() {
 
       {/* Add Friends Tab */}
       {activeTab === 'add' && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6" role="tabpanel" id="add-panel" aria-labelledby="add-tab">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Add Friends
           </h2>
@@ -470,19 +486,25 @@ export default function Friends() {
           {/* Search Box */}
           <div className="mb-6">
             <div className="relative">
+              <label htmlFor="friend-search" className="sr-only">
+                Search users
+              </label>
               <input
+                id="friend-search"
                 type="text"
                 placeholder="Search users by name or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && searchUsers()}
                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                aria-label="Search users by name or email address"
               />
-              <MagnifyingGlassIcon className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+              <MagnifyingGlassIcon className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" aria-hidden="true" />
               <button
                 onClick={searchUsers}
                 disabled={searchLoading}
                 className="absolute right-2 top-2 px-4 py-1.5 bg-primary-500 text-white rounded-md hover:bg-primary-600 disabled:opacity-50"
+                aria-label={searchLoading ? 'Searching users...' : 'Search for users'}
               >
                 {searchLoading ? 'Searching...' : 'Search'}
               </button>

@@ -274,6 +274,17 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Skip Navigation Link */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-md z-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById('main-content')?.focus();
+        }}
+      >
+        Skip to main content
+      </a>
       {/* Top navbar - Fixed at the top */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
@@ -478,7 +489,7 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
 
       {/* Main content - Starts immediately below navbar */}
       <div className="lg:pl-64">
-        <main className="pt-16 min-h-[calc(100vh-4rem)]">
+        <main id="main-content" className="pt-16 min-h-[calc(100vh-4rem)]" tabIndex="-1">
           <div className="p-6">
             {children}
           </div>
