@@ -149,10 +149,22 @@ export default function RideMatchResults() {
     try {
       let res;
       
+      console.log('🔍 Frontend: Starting search with params:', searchParams);
+      console.log('🤖 Frontend: Using AI matching:', useAI);
+      
       if (useAI) {
+        console.log('🤖 Frontend: Calling AI matches API...');
         res = await getAiMatches(searchParams);
+        console.log('🤖 Frontend: AI matches response:', res.data);
+        // Debug: Check if match scores are present
+        if (res.data && res.data.length > 0) {
+          console.log('🤖 Frontend: Match scores:', res.data.map(ride => ({ id: ride._id, score: ride.matchScore })));
+          console.log('🤖 Frontend: First ride structure:', res.data[0]);
+        }
       } else {
+        console.log('🔍 Frontend: Calling regular search API...');
         res = await searchRides(searchParams);
+        console.log('🔍 Frontend: Regular search response:', res.data);
       }
       
       setMatches(res.data);
@@ -415,25 +427,36 @@ export default function RideMatchResults() {
               key={ride._id} 
               className="border border-gray-200 dark:border-gray-700 p-4 rounded-lg shadow-sm bg-gray-50 dark:bg-gray-700"
             >
-              {useAI && isSearching && (
-                <div className="mb-2">
-                  <span className="inline-block bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded text-sm">
-                    Match Score: {ride.matchScore}%
-                  </span>
+              {useAI && ride.matchScore !== undefined && (
+                <div className="mb-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900 dark:to-indigo-900 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-700">
+                      🤖 AI Match: {ride.matchScore}%
+                    </span>
+                    {ride.matchScore >= 80 && (
+                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">Excellent Match!</span>
+                    )}
+                    {ride.matchScore >= 60 && ride.matchScore < 80 && (
+                      <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">Good Match</span>
+                    )}
+                    {ride.matchScore < 60 && (
+                      <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">Fair Match</span>
+                    )}
+                  </div>
                 </div>
               )}
               
               <div className="flex items-center space-x-3 mb-3 border-b border-gray-200 dark:border-gray-600 pb-2">
                 {ride.riderId.avatarUrl ? (
-                  <img src={ride.riderId.avatarUrl} alt={ride.riderId.name} className="h-10 w-10 rounded-full object-cover" />
+                  <img src={ride.riderId.avatarUrl} alt={ride.riderId.name || 'Ride Owner'} className="h-10 w-10 rounded-full object-cover" />
                 ) : (
                   <div className="h-10 w-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-bold">
-                    {ride.riderId.name.charAt(0)}
+                    {ride.riderId.name ? ride.riderId.name.charAt(0).toUpperCase() : '?'}
                   </div>
                 )}
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {ride.riderId.name}
+                    {ride.riderId.name || 'Unknown User'}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Ride Owner
