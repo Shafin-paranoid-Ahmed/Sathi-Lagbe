@@ -382,7 +382,7 @@ exports.getBookmarks = async (req, res) => {
 exports.getNextClassInfo = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    const AutoStatusService = require('../services/autoStatusService');
+    const { AutoStatusService } = require('../services/autoStatusService');
     
     const nextClassInfo = await AutoStatusService.getNextClassTime(userId);
     
@@ -402,7 +402,7 @@ exports.getNextClassInfo = async (req, res) => {
 exports.triggerAutoStatusUpdate = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    const AutoStatusService = require('../services/autoStatusService');
+    const { AutoStatusService } = require('../services/autoStatusService');
     const Routine = require('../models/Routine');
     
     // First check if user has auto-update enabled
@@ -518,7 +518,7 @@ exports.debugAutoStatus = async (req, res) => {
     console.log('👤 User ID:', userId);
     
     const Routine = require('../models/Routine');
-    const AutoStatusService = require('../services/autoStatusService');
+    const { AutoStatusService } = require('../services/autoStatusService');
     
     console.log('📚 Models loaded successfully');
     
