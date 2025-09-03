@@ -171,11 +171,12 @@ class SocketService {
 
   disconnect() {
     if (this.socket) {
-      this.removeAllListeners();
+      this.socket.removeAllListeners(); // Important: remove all active listeners
       this.socket.disconnect();
       this.socket = null;
-
     }
+    // Also clear any listeners that were queued but never attached.
+    this.listenerQueue = [];
   }
 
   getConnectionStatus() {

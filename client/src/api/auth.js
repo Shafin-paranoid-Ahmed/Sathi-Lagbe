@@ -1,5 +1,7 @@
 // client/src/api/auth.js - Original authentication API
 import axios from 'axios';
+import socketService from '../services/socketService';
+
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -84,14 +86,15 @@ export function verifyToken() {
 }
 
 export function logout() {
+  // --- FIX: Explicitly disconnect the socket to prevent duplicate listeners ---
+  socketService.disconnect();
+
   const userId = sessionStorage.getItem('userId');
   
-  // Clear session storage
   sessionStorage.removeItem('token');
   sessionStorage.removeItem('userId');
   sessionStorage.removeItem('userName');
   
-  // Clear user-specific localStorage data
   if (userId) {
     localStorage.removeItem(`chatList_${userId}`);
     localStorage.removeItem(`userAvatarUrl_${userId}`);
