@@ -11,7 +11,7 @@ const mongoose = require('mongoose'); // Added for mongoose.Types.ObjectId
  */
 const migrateRidesWithUserData = async () => {
   try {
-    console.log('=== Starting ride migration ===');
+
     
     // Find all rides that don't have riderName or riderGender populated
     const ridesToUpdate = await RideMatch.find({
@@ -23,7 +23,7 @@ const migrateRidesWithUserData = async () => {
       ]
     });
     
-    console.log(`Found ${ridesToUpdate.length} rides to update`);
+
     
     for (const ride of ridesToUpdate) {
       try {
@@ -37,19 +37,16 @@ const migrateRidesWithUserData = async () => {
             riderGender: user.gender || ''
           });
           
-          console.log(`Updated ride ${ride._id} with user data:`, {
-            name: user.name,
-            gender: user.gender
-          });
+
         } else {
-          console.log(`User not found for ride ${ride._id}, riderId: ${ride.riderId}`);
+
         }
       } catch (err) {
         console.error(`Error updating ride ${ride._id}:`, err);
       }
     }
     
-    console.log('=== Ride migration completed ===');
+
   } catch (err) {
     console.error('Error in ride migration:', err);
   }
@@ -61,12 +58,10 @@ const migrateRidesWithUserData = async () => {
 exports.testGenderData = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    console.log('=== Testing Gender Data ===');
-    console.log('User ID:', userId);
+
     
     // Check user data
     const user = await User.findById(userId).select('name email gender');
-    console.log('User data:', user);
     
     // Check recent rides by this user
     const userRides = await RideMatch.find({ riderId: userId })
@@ -74,7 +69,7 @@ exports.testGenderData = async (req, res) => {
       .limit(5)
       .select('riderName riderGender createdAt');
     
-    console.log('User rides:', userRides);
+
     
     // Check all recent rides
     const allRides = await RideMatch.find()

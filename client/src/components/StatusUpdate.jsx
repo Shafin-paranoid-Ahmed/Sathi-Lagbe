@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, MapPin, Clock, BookOpen, Coffee, Wifi, Calendar, Zap, AlertCircle, CheckCircle, Bug } from 'lucide-react';
+import { User, MapPin, Clock, BookOpen, Coffee, Calendar, Zap, AlertCircle, CheckCircle, Bug } from 'lucide-react';
 import { API, checkAutoStatusSetup, debugAutoStatus } from '../api/auth';
 
 const StatusUpdate = () => {
@@ -20,6 +20,7 @@ const StatusUpdate = () => {
     { value: 'studying', label: 'Studying', icon: BookOpen, color: 'text-purple-600' },
     { value: 'free', label: 'Free', icon: Coffee, color: 'text-orange-600' }
   ];
+
   // Listen for status changes from other components
   useEffect(() => {
     const handleStatusChangeEvent = (event) => {
@@ -75,7 +76,7 @@ const StatusUpdate = () => {
     try {
       const response = await API.get('/users/today-routine');
       setTodayRoutine(response.data);
-    } catch (error) {
+    } catch (error)
       console.error('Error fetching today\'s routine:', error);
     }
   };
@@ -86,7 +87,6 @@ const StatusUpdate = () => {
       setSetupStatus(response.data);
     } catch (error) {
       console.error('Error checking setup status:', error);
-
     }
   };
 
@@ -112,12 +112,15 @@ const StatusUpdate = () => {
       
       setCurrentStatus(response.data.status);
       alert('Status updated successfully!');
-      window.dispatchEvent(
-        new CustomEvent('userStatusChanged', {
-          detail: { status: response.data.status.current }
-        })
-      );      
-      // Refresh next class info if auto-update is enabled
+      
+      // Dispatch event to notify other components about the status update
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+        detail: { 
+          status: response.data.status.current, 
+          isAutoUpdate: isAutoUpdate 
+        } 
+      }));
+      
       if (isAutoUpdate) {
         fetchNextClassInfo();
         fetchTodayRoutine();
@@ -138,12 +141,15 @@ const StatusUpdate = () => {
       
       setCurrentStatus(response.data.user.status);
       alert('Status updated automatically based on your schedule!');
-      window.dispatchEvent(
-        new CustomEvent('userStatusChanged', {
-          detail: { status: response.data.user.status.current }
-        })
-      );      
-      // Refresh data
+      
+      // Dispatch event to notify other components about the status update
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+        detail: { 
+          status: response.data.user.status.current, 
+          isAutoUpdate: isAutoUpdate 
+        } 
+      }));
+      
       fetchNextClassInfo();
       fetchTodayRoutine();
       checkSetupStatus();
@@ -152,7 +158,6 @@ const StatusUpdate = () => {
       const errorMessage = error.response?.data?.error || 'Failed to update status automatically';
       alert(errorMessage);
       
-      // If it's a setup issue, refresh setup status
       if (errorMessage.includes('schedule') || errorMessage.includes('routine')) {
         checkSetupStatus();
       }
@@ -160,31 +165,39 @@ const StatusUpdate = () => {
       setAutoUpdateLoading(false);
     }
   };
+  
   const toggleAutoUpdate = async () => {
+    const newAutoUpdateState = !isAutoUpdate;
     try {
       setLoading(true);
       const response = await API.patch('/users/status', {
         status,
         location,
-        isAutoUpdate: !isAutoUpdate
+        isAutoUpdate: newAutoUpdateState
       });
 
       setCurrentStatus(response.data.status);
-      window.dispatchEvent(
-        new CustomEvent('userStatusChanged', {
-          detail: { status: response.data.status.current }
-        })
-      );
-      setIsAutoUpdate(!isAutoUpdate);
+      setIsAutoUpdate(newAutoUpdateState);
 
-      if (!isAutoUpdate) {
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+        detail: { 
+          status: response.data.status.current, 
+          isAutoUpdate: newAutoUpdateState 
+        } 
+      }));
+
+      if (newAutoUpdateState) {
+        // If we just enabled auto-update, trigger it immediately
         const autoResp = await API.post('/users/trigger-auto-status');
         setCurrentStatus(autoResp.data.user.status);
-        window.dispatchEvent(
-          new CustomEvent('userStatusChanged', {
-            detail: { status: autoResp.data.user.status.current }
-          })
-        );
+        
+        window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+          detail: { 
+            status: autoResp.data.user.status.current, 
+            isAutoUpdate: newAutoUpdateState 
+          } 
+        }));
+        
         fetchNextClassInfo();
         fetchTodayRoutine();
         checkSetupStatus();
@@ -195,6 +208,8 @@ const StatusUpdate = () => {
     } catch (error) {
       console.error('Error toggling auto status:', error);
       alert(error.response?.data?.error || 'Failed to toggle auto status');
+      // Revert state on failure
+      setIsAutoUpdate(!newAutoUpdateState);
     } finally {
       setLoading(false);
     }
@@ -222,7 +237,6 @@ const StatusUpdate = () => {
         Update Status
       </h2>
 
-      {/* Current Status Display */}
       {currentStatus && (
         <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Current Status:</p>
@@ -245,7 +259,6 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Auto-Status Setup Status */}
       {isAutoUpdate && setupStatus && (
         <div className={`mb-4 p-3 rounded-lg border ${
           setupStatus.setupComplete 
@@ -281,7 +294,6 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Next Class Info (Auto Status) */}
       {isAutoUpdate && nextClassInfo && (
         <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
           <div className="flex items-center mb-2">
@@ -296,7 +308,6 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Today's Routine (Auto Status) */}
       {isAutoUpdate && todayRoutine && todayRoutine.hasRoutine && (
         <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
           <div className="flex items-center mb-2">
@@ -311,8 +322,7 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Status Selection */}
-            {!isAutoUpdate && (
+      {!isAutoUpdate && (
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             New Status
@@ -339,7 +349,6 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Location Input */}
       {!isAutoUpdate && (
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -358,7 +367,6 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Auto/Manual Toggle Button */}
       <div className="mb-4">
         <button
           onClick={toggleAutoUpdate}
@@ -377,7 +385,6 @@ const StatusUpdate = () => {
         </button>
       </div>
 
-      {/* Manual Update Button */}
       {!isAutoUpdate && (
         <button
           onClick={handleStatusUpdate}
@@ -388,7 +395,6 @@ const StatusUpdate = () => {
         </button>
       )}
 
-      {/* Auto Update Button */}
       {isAutoUpdate && (
         <button
           onClick={handleAutoStatusUpdate}
@@ -400,7 +406,6 @@ const StatusUpdate = () => {
         </button>
       )}
 
-      {/* Debug Button */}
       {isAutoUpdate && (
         <button
           onClick={handleDebug}
@@ -411,7 +416,6 @@ const StatusUpdate = () => {
         </button>
       )}
 
-      {/* Quick Location Buttons */}
       {!isAutoUpdate && (
         <div className="mt-4">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Quick locations:</p>

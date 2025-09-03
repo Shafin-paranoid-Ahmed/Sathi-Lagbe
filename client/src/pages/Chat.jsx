@@ -73,14 +73,14 @@ export default function Chat() {
       return;
     }
     
-    console.log("fetchChats: Starting for user", currentUserId);
+
     if (isInitialLoad.current) setLoading(true);
     try {
       const res = await getAllChats();
-      console.log("fetchChats: API response received.", res.data);
+
       
       if (res.data && Array.isArray(res.data.data)) {
-        console.log(`fetchChats: Found ${res.data.data.length} chats.`);
+
         setChats(res.data.data);
         // Save to localStorage for persistence, per user
         localStorage.setItem(`chatList_${currentUserId}`, JSON.stringify(res.data.data));
@@ -128,12 +128,10 @@ export default function Chat() {
       const profiles = {};
       for (const userId of userIds) {
         try {
-          console.log(`Fetching profile for user ${userId}...`);
+
           const userRes = await getUserById(userId);
-          console.log(`API response for user ${userId}:`, userRes);
           if (userRes.data) {
             profiles[userId] = userRes.data;
-            console.log(`Stored profile for user ${userId}:`, userRes.data);
           }
         } catch (err) {
           console.warn(`Failed to fetch profile for user ${userId}:`, err);

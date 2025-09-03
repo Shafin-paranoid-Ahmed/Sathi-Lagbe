@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout, verifyToken, updateStatus, getCurrentUserStatus } from '../api/auth';
-import { 
-  HomeIcon, 
-  ChatBubbleLeftRightIcon, 
-  UserGroupIcon, 
-  TruckIcon, 
+import {
+  HomeIcon,
+  ChatBubbleLeftRightIcon,
+  UserGroupIcon,
+  TruckIcon,
   ExclamationTriangleIcon,
   AcademicCapIcon,
   Bars3Icon,
@@ -23,7 +23,6 @@ import {
 } from '@heroicons/react/24/outline';
 import NotificationBell from './NotificationBell';
 import socketService from '../services/socketService';
-import { MapPinIcon } from '@heroicons/react/24/outline';
 
 const ArgonLayout = ({ children, setIsAuthenticated }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -81,14 +80,11 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
   useEffect(() => {
     const currentUserId = sessionStorage.getItem('userId');
     const name = sessionStorage.getItem('userName') || 'User';
-    
-    // Use user-specific avatar storage
     const avatar = currentUserId ? sessionStorage.getItem(`userAvatarUrl_${currentUserId}`) || '' : '';
-    
+
     setUserName(name);
     setAvatarUrl(avatar);
 
-    // Best-effort refresh
     (async () => {
       try {
         const res = await verifyToken();
@@ -107,7 +103,6 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
       }
     })();
 
-    // Fetch current status
     fetchCurrentStatus();
   }, []);
 
@@ -125,23 +120,34 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     };
   }, []);
 
-  // Listen for status changes from other components
+  // Listen for status changes from other components or browser tabs
   useEffect(() => {
     const handleStatusChangeEvent = (event) => {
       const newStatus = event.detail.status;
-      setCurrentStatus(newStatus);
+      if (newStatus) {
+        setCurrentStatus(newStatus);
+      }
+    };
+
+    // Listen for localStorage changes (for cross-tab synchronization)
+    const handleStorageChange = (event) => {
+      if (event.key === 'userCurrentStatus' && event.newValue) {
+        setCurrentStatus(event.newValue);
+      }
     };
 
     window.addEventListener('userStatusChanged', handleStatusChangeEvent);
+    window.addEventListener('storage', handleStorageChange);
+    
     return () => {
       window.removeEventListener('userStatusChanged', handleStatusChangeEvent);
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
   // Ensure socket connection once user is authenticated
   useEffect(() => {
     const token = sessionStorage.getItem('token');
-    const userId = sessionStorage.getItem('userId');
     if (token) {
       try {
         socketService.connect(token);
@@ -155,10 +161,15 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     try {
       const response = await getCurrentUserStatus();
       if (response.data?.status?.current) {
-        setCurrentStatus(response.data.status.current);
+        const newStatus = response.data.status.current;
+        setCurrentStatus(newStatus);
+        localStorage.setItem('userCurrentStatus', newStatus);
       }
     } catch (error) {
-      // Silent error handling
+      const storedStatus = localStorage.getItem('userCurrentStatus');
+      if (storedStatus) {
+        setCurrentStatus(storedStatus);
+      }
     }
   };
 
@@ -169,7 +180,13 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     try {
       await updateStatus({ status: newStatus });
       setCurrentStatus(newStatus);
-      window.dispatchEvent(new CustomEvent('userStatusChanged', { detail: { status: newStatus } }));      
+      
+      // Notify other components in the same tab
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { detail: { status: newStatus } }));
+      
+      // Store status in localStorage to notify other tabs
+      localStorage.setItem('userCurrentStatus', newStatus);
+      
     } catch (error) {
       // Silent error handling
     } finally {
@@ -185,7 +202,6 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
       document.documentElement.classList.remove('dark');
     }
     
-    // Store dark mode preference for current user
     const currentUserId = sessionStorage.getItem('userId');
     if (currentUserId) {
       localStorage.setItem(`darkMode_${currentUserId}`, JSON.stringify(darkMode));
@@ -236,7 +252,6 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
               <Bars3Icon className="h-6 w-6" />
             </button>
             
-            {/* Logo and Brand Name */}
             <div className="flex items-center">
               <img src="/bracu-logo.svg" alt="BRACU Logo" className="h-6 w-6 mr-2" />
               <span className="text-lg font-semibold text-gray-900 dark:text-white">Sathi Lagbe</span>
@@ -251,10 +266,8 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
               {darkMode ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
             </button>
 
-            {/* Notification Bell */}
             <NotificationBell />
 
-            {/* Profile Dropdown */}
             <div className="relative">
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
@@ -269,7 +282,6 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
                 <ChevronDownIcon className="h-4 w-4" />
               </button>
 
-              {/* Dropdown Menu */}
               {profileDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                   <div className="py-2">
@@ -278,7 +290,6 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
                       <p className="text-xs text-gray-500 dark:text-gray-400">Signed in</p>
                     </div>
                     
-                    {/* Status Section */}
                     <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-600">
                       <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">STATUS</p>
                       <div className="flex items-center space-x-2 mb-2">
@@ -337,12 +348,11 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
         </div>
       </div>
 
-      {/* Sidebar - Fixed below navbar */}
+      {/* Sidebar */}
       <div className={`fixed top-16 left-0 z-40 w-64 h-[calc(100vh-4rem)] bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0`}>
         <div className="flex flex-col h-full">
-          {/* Navigation */}
           <nav className="flex-1 px-3 pt-6 overflow-y-auto">
             <div className="space-y-1">
               {navigation.map((item) => {
@@ -412,7 +422,6 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
             </div>
           </nav>
 
-          {/* Bottom section */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-center">
               <button
@@ -427,7 +436,7 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
         </div>
       </div>
 
-      {/* Main content - Starts immediately below navbar */}
+      {/* Main content */}
       <div className="lg:pl-64">
         <main className="pt-16 min-h-[calc(100vh-4rem)]">
           <div className="p-6">
