@@ -76,9 +76,9 @@ const StatusUpdate = () => {
     try {
       const response = await API.get('/users/today-routine');
       setTodayRoutine(response.data);
-    } catch (error)
+    } catch (error) { // <-- ADDED {
       console.error('Error fetching today\'s routine:', error);
-    }
+    } // <-- ADDED }
   };
 
   const checkSetupStatus = async () => {
