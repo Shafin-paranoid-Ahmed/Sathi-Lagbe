@@ -65,27 +65,16 @@ export default function App() {
     checkAuth();
   }, []);
 
-  // Global event listener for debugging status sync
+  // Global event listener for status sync
   useEffect(() => {
     const handleGlobalStatusEvent = (event) => {
-      console.log('App: Global status event received:', event.type, event.detail);
+      // Global status event handler - can be used for analytics or debugging if needed
     };
 
     window.addEventListener('userStatusChanged', handleGlobalStatusEvent);
-    window.addEventListener('testStatusSync', handleGlobalStatusEvent);
-    
-    // Add global test function
-    window.testStatusSync = () => {
-      console.log('Testing status sync...');
-      window.dispatchEvent(new CustomEvent('userStatusChanged', { 
-        detail: { status: 'busy', source: 'manual-test' } 
-      }));
-    };
     
     return () => {
       window.removeEventListener('userStatusChanged', handleGlobalStatusEvent);
-      window.removeEventListener('testStatusSync', handleGlobalStatusEvent);
-      delete window.testStatusSync;
     };
   }, []);
 

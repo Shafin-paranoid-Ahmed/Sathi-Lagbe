@@ -27,6 +27,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler,
 } from 'chart.js';
 import StatusUpdate from '../components/StatusUpdate';
 import { getDashboardStats } from '../api/stats';
@@ -39,7 +40,8 @@ ChartJS.register(
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
 const Home = () => {
