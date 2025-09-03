@@ -59,8 +59,13 @@ export default function RideMatchResults() {
     if (genderFilter === 'all') {
       setFilteredMatches(matches);
     } else {
-      // Directly filter using the consistent riderGender field
-      setFilteredMatches(matches.filter(ride => ride.riderGender === genderFilter));
+      const filtered = matches.filter(ride => {
+        // Get the gender from the populated riderId object first, as it's the most "live" data.
+        // Fall back to the riderGender field saved with the ride if the first is not available.
+        const gender = ride.riderId?.gender || ride.riderGender;
+        return gender === genderFilter;
+      });
+      setFilteredMatches(filtered);
     }
   }, [matches, genderFilter]);
 
