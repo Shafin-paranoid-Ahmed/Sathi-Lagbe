@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, MapPin, Clock, BookOpen, Coffee, Wifi, Calendar, Zap, AlertCircle, CheckCircle, Bug } from 'lucide-react';
+import { User, MapPin, Clock, BookOpen, Coffee, Calendar, Zap, AlertCircle, CheckCircle, Bug } from 'lucide-react';
 import { API, checkAutoStatusSetup, debugAutoStatus, getCurrentUserStatus, updateStatus } from '../api/auth';
 
 const StatusUpdate = () => {
-  const [status, setStatus] = useState(() => {
-    // Initialize from localStorage if available
-    const storedStatus = localStorage.getItem('userCurrentStatus');
-    console.log('StatusUpdate: Component initialized with status:', storedStatus || 'available');
-    return storedStatus || 'available';
-  });
+  const [status, setStatus] = useState(() => localStorage.getItem('userCurrentStatus') || 'available');
   const [location, setLocation] = useState('');
   const [isAutoUpdate, setIsAutoUpdate] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -26,6 +21,37 @@ const StatusUpdate = () => {
     { value: 'free', label: 'Free', icon: Coffee, color: 'text-orange-600' }
   ];
 
+  // Combined effect for listening to status changes from any source
+  useEffect(() => {
+    // Handles events from within the same browser tab
+    const handleStatusChangeEvent = (event) => {
+      const { status: newStatus, isAutoUpdate: newIsAutoUpdate } = event.detail;
+      if (newStatus) {
+        setStatus(newStatus);
+        setCurrentStatus((prev) => prev ? { ...prev, current: newStatus } : { current: newStatus });
+      }
+      if (typeof newIsAutoUpdate === 'boolean') {
+        setIsAutoUpdate(newIsAutoUpdate);
+      }
+    };
+
+    // Handles events from other browser tabs via localStorage
+    const handleStorageChange = (event) => {
+      if (event.key === 'userCurrentStatus' && event.newValue) {
+        setStatus(event.newValue);
+      }
+    };
+
+    window.addEventListener('userStatusChanged', handleStatusChangeEvent);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('userStatusChanged', handleStatusChangeEvent);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+  
+  // Effect for fetching data when component mounts or auto-update is toggled
   useEffect(() => {
     fetchCurrentStatus();
     if (isAutoUpdate) {
@@ -35,53 +61,21 @@ const StatusUpdate = () => {
     }
   }, [isAutoUpdate]);
 
-  // Listen for status changes from ArgonLayout
-  useEffect(() => {
-    const handleStatusChange = (event) => {
-      const newStatus = event.detail.status;
-      setStatus(newStatus);
-      // Update localStorage for persistence
-      localStorage.setItem('userCurrentStatus', newStatus);
-    };
-
-    // Listen for localStorage changes (for cross-tab synchronization)
-    const handleStorageChange = (event) => {
-      if (event.key === 'userCurrentStatus' && event.newValue) {
-        setStatus(event.newValue);
-      }
-    };
-
-    window.addEventListener('userStatusChanged', handleStatusChange);
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('userStatusChanged', handleStatusChange);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
-
   const fetchCurrentStatus = async () => {
     try {
-      // Use the same API function as ArgonLayout for consistency
       const response = await getCurrentUserStatus();
-      
       if (response.data?.status) {
         const userStatus = response.data.status;
         setCurrentStatus(userStatus);
         setStatus(userStatus.current);
         setLocation(userStatus.location || '');
         setIsAutoUpdate(userStatus.isAutoUpdate || false);
-        
-        // Store in localStorage for persistence
         localStorage.setItem('userCurrentStatus', userStatus.current);
       }
     } catch (error) {
       console.error('Error fetching current status:', error);
-      // Fallback to localStorage if API fails
       const storedStatus = localStorage.getItem('userCurrentStatus');
-      if (storedStatus) {
-        setStatus(storedStatus);
-      }
+      if (storedStatus) setStatus(storedStatus);
     }
   };
 
@@ -109,7 +103,6 @@ const StatusUpdate = () => {
       setSetupStatus(response.data);
     } catch (error) {
       console.error('Error checking setup status:', error);
-
     }
   };
 
@@ -117,62 +110,34 @@ const StatusUpdate = () => {
     try {
       const response = await debugAutoStatus();
       console.log('🔍 Debug Info:', response.data);
-      alert('Debug info logged to console. Check browser console for details.');
+      alert('Debug info logged to console.');
     } catch (error) {
       console.error('Error getting debug info:', error);
-      alert('Failed to get debug info. Check console for error.');
+      alert('Failed to get debug info.');
     }
   };
 
   const handleStatusUpdate = async () => {
-    console.log('StatusUpdate: handleStatusUpdate function called');
-    console.log('StatusUpdate: Current status:', status);
-    console.log('StatusUpdate: Current location:', location);
-    console.log('StatusUpdate: Current isAutoUpdate:', isAutoUpdate);
-    
     try {
       setLoading(true);
-      // Use the same API function as ArgonLayout for consistency
       const response = await updateStatus({
         status,
         location,
         isAutoUpdate
       });
       
-      console.log('StatusUpdate: API response:', response.data);
-      setCurrentStatus(response.data.status);
       const updatedStatus = response.data.status.current;
-      console.log('StatusUpdate: Updated status from API:', updatedStatus);
-      setStatus(updatedStatus); // Update the local status state as well
+      setCurrentStatus(response.data.status);
+      setStatus(updatedStatus);
       alert('Status updated successfully!');
       
-      // Store status in localStorage for persistence
       localStorage.setItem('userCurrentStatus', updatedStatus);
-      
-      // Dispatch event to notify other components about the status update
-      console.log('StatusUpdate: Dispatching userStatusChanged event with status:', updatedStatus);
-      const event = new CustomEvent('userStatusChanged', { 
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { 
         detail: { 
           status: updatedStatus, 
           isAutoUpdate: isAutoUpdate 
         } 
-      });
-      console.log('StatusUpdate: Event object:', event);
-      window.dispatchEvent(event);
-      
-      // Trigger a custom storage event for same-tab synchronization
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'userCurrentStatus',
-        newValue: updatedStatus,
-        oldValue: localStorage.getItem('userCurrentStatus')
       }));
-      
-      // Refresh next class info if auto-update is enabled
-      if (isAutoUpdate) {
-        fetchNextClassInfo();
-        fetchTodayRoutine();
-        checkSetupStatus();
-      }
     } catch (error) {
       console.error('Error updating status:', error);
       alert(error.response?.data?.error || 'Failed to update status');
@@ -186,15 +151,12 @@ const StatusUpdate = () => {
       setAutoUpdateLoading(true);
       const response = await API.post('/users/trigger-auto-status');
       
-      setCurrentStatus(response.data.user.status);
       const newStatus = response.data.user.status.current;
+      setCurrentStatus(response.data.user.status);
       setStatus(newStatus);
       alert('Status updated automatically based on your schedule!');
       
-      // Store status in localStorage for persistence
       localStorage.setItem('userCurrentStatus', newStatus);
-      
-      // Dispatch event to notify other components about the status update
       window.dispatchEvent(new CustomEvent('userStatusChanged', { 
         detail: { 
           status: newStatus, 
@@ -202,14 +164,6 @@ const StatusUpdate = () => {
         } 
       }));
       
-      // Trigger a custom storage event for same-tab synchronization
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'userCurrentStatus',
-        newValue: newStatus,
-        oldValue: localStorage.getItem('userCurrentStatus')
-      }));
-      
-      // Refresh data
       fetchNextClassInfo();
       fetchTodayRoutine();
       checkSetupStatus();
@@ -217,8 +171,6 @@ const StatusUpdate = () => {
       console.error('Error triggering auto-status update:', error);
       const errorMessage = error.response?.data?.error || 'Failed to update status automatically';
       alert(errorMessage);
-      
-      // If it's a setup issue, refresh setup status
       if (errorMessage.includes('schedule') || errorMessage.includes('routine')) {
         checkSetupStatus();
       }
@@ -226,75 +178,63 @@ const StatusUpdate = () => {
       setAutoUpdateLoading(false);
     }
   };
+
   const toggleAutoUpdate = async () => {
+    const newAutoUpdateState = !isAutoUpdate;
     try {
       setLoading(true);
-      // Use the same API function as ArgonLayout for consistency
       const response = await updateStatus({
         status,
         location,
-        isAutoUpdate: !isAutoUpdate
+        isAutoUpdate: newAutoUpdateState
       });
 
+      const updatedStatus = response.data.status.current;
       setCurrentStatus(response.data.status);
-      setIsAutoUpdate(!isAutoUpdate);
+      setIsAutoUpdate(newAutoUpdateState);
+      setStatus(updatedStatus); // Keep status in sync
 
-      if (!isAutoUpdate) {
+      localStorage.setItem('userCurrentStatus', updatedStatus);
+      
+      // Dispatch the combined state update
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+        detail: { 
+          status: updatedStatus, 
+          isAutoUpdate: newAutoUpdateState
+        } 
+      }));
+
+      if (newAutoUpdateState) {
         const autoResp = await API.post('/users/trigger-auto-status');
+        const autoStatus = autoResp.data.user.status.current;
+        
         setCurrentStatus(autoResp.data.user.status);
-        const newStatus = autoResp.data.user.status.current;
-        setStatus(newStatus);
+        setStatus(autoStatus);
+        localStorage.setItem('userCurrentStatus', autoStatus);
+        
+        window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+          detail: { 
+            status: autoStatus, 
+            isAutoUpdate: newAutoUpdateState 
+          } 
+        }));
+        
         fetchNextClassInfo();
         fetchTodayRoutine();
         checkSetupStatus();
         alert('Auto status enabled and updated!');
-        
-        // Store status in localStorage for persistence
-        localStorage.setItem('userCurrentStatus', newStatus);
-        
-        // Dispatch event to notify other components about the status update
-        window.dispatchEvent(new CustomEvent('userStatusChanged', { 
-          detail: { 
-            status: newStatus, 
-            isAutoUpdate: !isAutoUpdate 
-          } 
-        }));
-        
-        // Trigger a custom storage event for same-tab synchronization
-        window.dispatchEvent(new StorageEvent('storage', {
-          key: 'userCurrentStatus',
-          newValue: newStatus,
-          oldValue: localStorage.getItem('userCurrentStatus')
-        }));
       } else {
         alert('Auto status disabled. You can now update manually.');
-        
-        // Store status in localStorage for persistence
-        localStorage.setItem('userCurrentStatus', response.data.status.current);
-        
-        // Dispatch event to notify other components about the status update
-        window.dispatchEvent(new CustomEvent('userStatusChanged', { 
-          detail: { 
-            status: response.data.status.current, 
-            isAutoUpdate: !isAutoUpdate 
-          } 
-        }));
-        
-        // Trigger a custom storage event for same-tab synchronization
-        window.dispatchEvent(new StorageEvent('storage', {
-          key: 'userCurrentStatus',
-          newValue: response.data.status.current,
-          oldValue: localStorage.getItem('userCurrentStatus')
-        }));
       }
     } catch (error) {
       console.error('Error toggling auto status:', error);
       alert(error.response?.data?.error || 'Failed to toggle auto status');
+      setIsAutoUpdate(!newAutoUpdateState); // Revert on failure
     } finally {
       setLoading(false);
     }
   };
-
+  
   const getStatusIcon = (statusValue) => {
     const option = statusOptions.find(opt => opt.value === statusValue);
     return option ? option.icon : User;
@@ -310,8 +250,6 @@ const StatusUpdate = () => {
     return timeString.replace(' AM', ' AM').replace(' PM', ' PM');
   };
 
-  console.log('StatusUpdate: Component rendering with status:', status);
-  
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 max-w-md mx-auto border border-gray-200 dark:border-gray-700">
       <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-white">
@@ -319,7 +257,6 @@ const StatusUpdate = () => {
         Update Status
       </h2>
 
-      {/* Current Status Display */}
       {currentStatus && (
         <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Current Status:</p>
@@ -342,7 +279,6 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Auto-Status Setup Status */}
       {isAutoUpdate && setupStatus && (
         <div className={`mb-4 p-3 rounded-lg border ${
           setupStatus.setupComplete 
@@ -378,7 +314,6 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Next Class Info (Auto Status) */}
       {isAutoUpdate && nextClassInfo && (
         <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
           <div className="flex items-center mb-2">
@@ -393,7 +328,6 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Today's Routine (Auto Status) */}
       {isAutoUpdate && todayRoutine && todayRoutine.hasRoutine && (
         <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
           <div className="flex items-center mb-2">
@@ -408,8 +342,7 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Status Selection */}
-            {!isAutoUpdate && (
+      {!isAutoUpdate && (
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             New Status
@@ -420,10 +353,7 @@ const StatusUpdate = () => {
               return (
                 <button
                   key={option.value}
-                  onClick={() => {
-                    console.log('StatusUpdate: Status button clicked:', option.value);
-                    setStatus(option.value);
-                  }}
+                  onClick={() => setStatus(option.value)}
                   className={`p-3 rounded-lg border-2 transition-colors flex items-center justify-center ${
                     status === option.value
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
@@ -439,7 +369,6 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Location Input */}
       {!isAutoUpdate && (
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -458,7 +387,6 @@ const StatusUpdate = () => {
         </div>
       )}
 
-      {/* Auto/Manual Toggle Button */}
       <div className="mb-4">
         <button
           onClick={toggleAutoUpdate}
@@ -477,13 +405,9 @@ const StatusUpdate = () => {
         </button>
       </div>
 
-      {/* Manual Update Button */}
       {!isAutoUpdate && (
         <button
-          onClick={() => {
-            console.log('StatusUpdate: Manual update button clicked');
-            handleStatusUpdate();
-          }}
+          onClick={handleStatusUpdate}
           disabled={loading}
           className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-2"
         >
@@ -491,7 +415,6 @@ const StatusUpdate = () => {
         </button>
       )}
 
-      {/* Auto Update Button */}
       {isAutoUpdate && (
         <button
           onClick={handleAutoStatusUpdate}
@@ -503,7 +426,6 @@ const StatusUpdate = () => {
         </button>
       )}
 
-      {/* Debug Button */}
       {isAutoUpdate && (
         <button
           onClick={handleDebug}
@@ -514,7 +436,6 @@ const StatusUpdate = () => {
         </button>
       )}
 
-      {/* Quick Location Buttons */}
       {!isAutoUpdate && (
         <div className="mt-4">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Quick locations:</p>

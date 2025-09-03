@@ -382,7 +382,7 @@ exports.getBookmarks = async (req, res) => {
 exports.getNextClassInfo = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    const AutoStatusService = require('../services/autoStatusService');
+    const { AutoStatusService } = require('../services/autoStatusService');
     
     const nextClassInfo = await AutoStatusService.getNextClassTime(userId);
     
@@ -402,10 +402,9 @@ exports.getNextClassInfo = async (req, res) => {
 exports.triggerAutoStatusUpdate = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    const AutoStatusService = require('../services/autoStatusService');
+    const { AutoStatusService } = require('../services/autoStatusService');
     const Routine = require('../models/Routine');
     
-    // First check if user has auto-update enabled
     const user = await User.findById(userId).select('status');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -413,28 +412,28 @@ exports.triggerAutoStatusUpdate = async (req, res) => {
     
     if (!user.status.isAutoUpdate) {
       return res.status(400).json({ 
-        error: 'Auto-status update is not enabled. Please enable it first in your status settings.' 
+        error: 'Auto-status update is not enabled. Please enable it first.' 
       });
     }
     
-    // Check if user has any routine entries
-    const hasRoutine = await Routine.exists({ userId });
-    if (!hasRoutine) {
+    const totalRoutines = await Routine.countDocuments({ userId });
+    if (totalRoutines === 0) {
       return res.status(400).json({ 
-        error: 'No class schedule found. Please add your class routine first before using auto-status updates.' 
+        error: 'No class schedule found. Please add your class routine before using auto-status.' 
       });
     }
     
     const updatedUser = await AutoStatusService.updateUserStatus(userId);
     
     if (!updatedUser) {
+      // This now specifically means there was no routine for TODAY.
       return res.status(400).json({ 
-        error: 'Auto-status update failed. Please check if you have a class schedule set up for today.' 
+        error: 'No class schedule found for today. Your status remains unchanged.' 
       });
     }
     
     res.json({
-      message: 'Status updated automatically',
+      message: 'Status updated automatically based on your schedule.',
       user: updatedUser
     });
   } catch (err) {
@@ -518,7 +517,7 @@ exports.debugAutoStatus = async (req, res) => {
     console.log('👤 User ID:', userId);
     
     const Routine = require('../models/Routine');
-    const AutoStatusService = require('../services/autoStatusService');
+    const { AutoStatusService } = require('../services/autoStatusService');
     
     console.log('📚 Models loaded successfully');
     
