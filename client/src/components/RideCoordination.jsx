@@ -5,7 +5,7 @@ import MapView from './MapView';
 import { API } from '../api/auth';
 
 export default function RideCoordination() {
-  console.log('🚀 RideCoordination: Component rendering');
+
   const { rideId } = useParams();
   const navigate = useNavigate();
   const [ride, setRide] = useState(null);
@@ -22,34 +22,17 @@ export default function RideCoordination() {
   const isConfirmedPassenger = !!(ride && currentUserId && ride.confirmedRiders && ride.confirmedRiders.some(cr => (cr.user?._id || cr.user) === currentUserId));
 
   useEffect(() => {
-    console.log('🔄 RideCoordination: Component mounted');
-    console.log('🔄 RideCoordination: URL params - rideId:', rideId);
-    console.log('🔄 RideCoordination: Current URL:', window.location.href);
-    console.log('🔄 RideCoordination: User ID from session:', currentUserId);
+
     
     const fetchRide = async () => {
       try {
         setLoading(true);
         setError('');
         
-        console.log('🔄 RideCoordination: Making API call to /rides/' + rideId);
         const res = await API.get(`/rides/${rideId}`);
-        
-        console.log('✅ RideCoordination: Ride fetched successfully:', res.data);
-        console.log('✅ RideCoordination: Ride structure:', {
-          id: res.data._id,
-          riderId: res.data.riderId,
-          startLocation: res.data.startLocation,
-          endLocation: res.data.endLocation,
-          requestedRiders: res.data.requestedRiders?.length || 0,
-          confirmedRiders: res.data.confirmedRiders?.length || 0
-        });
         setRide(res.data);
       } catch (e) {
-        console.error('🛑 RideCoordination: fetchRide error:', e);
-        console.error('🛑 RideCoordination: Error response:', e.response);
-        console.error('🛑 RideCoordination: Error status:', e.response?.status);
-        console.error('🛑 RideCoordination: Error data:', e.response?.data);
+        console.error('Error fetching ride:', e);
         
         if (e.response?.status === 404) {
           setError('Ride not found. It may have been deleted or the ID is invalid.');
@@ -75,18 +58,14 @@ export default function RideCoordination() {
   }, [rideId, navigate, currentUserId]);
 
   const handleConfirm = async (userId, requestId) => {
-    console.log('🔍 handleConfirm called with userId:', userId);
-    console.log('🔍 requestId:', requestId);
-    console.log('🔍 rideId:', rideId);
-    console.log('🔍 Current ride data:', ride);
-    console.log('🔍 requestedRiders:', ride?.requestedRiders);
+
     
     setActionsDisabled(prev => ({ ...prev, [userId]: true }));
     try {
       const payload = { rideId, userId };
       if (requestId) payload.requestId = requestId;
       const res = await API.post('/rides/confirm', payload);
-      console.log('✅ Confirmation successful:', res.data);
+
       // Update state with the fresh data from the server response
       setRide(res.data.ride);
     } catch (e) {
@@ -98,13 +77,12 @@ export default function RideCoordination() {
   };
 
   const handleDeny = async (userId) => {
-    console.log('🔍 handleDeny called with userId:', userId);
-    console.log('🔍 rideId:', rideId);
+
     
     setActionsDisabled(prev => ({ ...prev, [userId]: true }));
     try {
       const res = await API.post('/rides/deny', { rideId, userId });
-      console.log('✅ Denial successful:', res.data);
+
       // Update state with the fresh data from the server response
       setRide(res.data.ride);
     } catch (e) {
@@ -148,7 +126,7 @@ export default function RideCoordination() {
   };
 
   if (loading) {
-    console.log('🔄 RideCoordination: Rendering loading state');
+
     return (
       <div className="max-w-xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
         <div className="text-center py-8">
@@ -160,7 +138,7 @@ export default function RideCoordination() {
   }
 
   if (error) {
-    console.log('❌ RideCoordination: Rendering error state:', error);
+
     return (
       <div className="max-w-xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
         <div className="text-center py-8">
@@ -190,7 +168,7 @@ export default function RideCoordination() {
     );
   }
 
-  console.log('✅ RideCoordination: Rendering main content');
+
   return (
     <div className="max-w-xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow space-y-6 border border-gray-200 dark:border-gray-700">
       <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Ride Coordination</h2>

@@ -65,6 +65,30 @@ export default function App() {
     checkAuth();
   }, []);
 
+  // Global event listener for debugging status sync
+  useEffect(() => {
+    const handleGlobalStatusEvent = (event) => {
+      console.log('App: Global status event received:', event.type, event.detail);
+    };
+
+    window.addEventListener('userStatusChanged', handleGlobalStatusEvent);
+    window.addEventListener('testStatusSync', handleGlobalStatusEvent);
+    
+    // Add global test function
+    window.testStatusSync = () => {
+      console.log('Testing status sync...');
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+        detail: { status: 'busy', source: 'manual-test' } 
+      }));
+    };
+    
+    return () => {
+      window.removeEventListener('userStatusChanged', handleGlobalStatusEvent);
+      window.removeEventListener('testStatusSync', handleGlobalStatusEvent);
+      delete window.testStatusSync;
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">

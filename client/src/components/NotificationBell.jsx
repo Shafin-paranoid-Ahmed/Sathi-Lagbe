@@ -75,11 +75,7 @@ export default function NotificationBell() {
       }
       setShowDropdown(false);
     } else if (notification.data?.rideId) {
-        console.log('🔔 NotificationBell: Ride notification clicked');
-        console.log('🔔 NotificationBell: Notification data:', notification.data);
-        console.log('🔔 NotificationBell: Ride ID from notification:', notification.data.rideId);
-        console.log('🔔 NotificationBell: Ride ID type:', typeof notification.data.rideId);
-        console.log('🔔 NotificationBell: Navigating to:', `/rides/${notification.data.rideId}/manage`);
+
         setShowDropdown(false);
         navigate(`/rides/${notification.data.rideId}/manage`);
     }

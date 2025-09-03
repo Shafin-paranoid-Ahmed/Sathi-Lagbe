@@ -98,9 +98,22 @@ const Home = () => {
     });
   }
 
+  // Generate last 6 months dynamically
+  const getLastSixMonths = () => {
+    const months = [];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const now = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(monthNames[date.getMonth()]);
+    }
+    return months;
+  };
+
   // Process user growth data for chart
   const userGrowthData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    labels: getLastSixMonths(),
     datasets: [
       {
         label: 'New Users',
@@ -114,10 +127,13 @@ const Home = () => {
 
   // Update user growth data when stats are loaded
   if (stats.userGrowth && stats.userGrowth.length > 0) {
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    stats.userGrowth.forEach((item, index) => {
-      if (index < 6) {
-        userGrowthData.datasets[0].data[index] = item.count;
+    const currentMonths = getLastSixMonths();
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    stats.userGrowth.forEach((item) => {
+      const monthIndex = currentMonths.indexOf(monthNames[item._id.month - 1]);
+      if (monthIndex !== -1) {
+        userGrowthData.datasets[0].data[monthIndex] = item.count;
       }
     });
   }

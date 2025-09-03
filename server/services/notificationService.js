@@ -8,20 +8,18 @@ class NotificationService {
   // Send SOS notification to specific recipients with location data
   async sendSosNotification({ recipientIds, senderId, location, latitude, longitude, message }) {
     try {
-      console.log('=== SOS NOTIFICATION SERVICE DEBUG ===');
-      console.log('Recipient IDs:', recipientIds);
-      console.log('Sender ID:', senderId);
+
       
       const sender = await User.findById(senderId);
       if (!sender) {
         console.error('Sender not found for ID:', senderId);
         throw new Error('Sender not found');
       }
-      console.log('Sender found:', sender.name, sender.email);
+
 
       const notifications = [];
       for (const recipientId of recipientIds) {
-        console.log('Creating notification for recipient:', recipientId);
+
         const notification = new Notification({
           recipient: recipientId,
           sender: senderId,

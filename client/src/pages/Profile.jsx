@@ -60,12 +60,37 @@ export default function Profile() {
   // Listen for status changes from other components
   useEffect(() => {
     const handleStatusChangeEvent = (event) => {
+      console.log('Profile: Received status change event:', event.detail);
       setCurrentStatus(event.detail.status);
+      // Also update isAutoUpdate if it's provided in the event
+      if (event.detail.isAutoUpdate !== undefined) {
+        setIsAutoUpdate(event.detail.isAutoUpdate);
+      }
     };
 
+    // Listen for localStorage changes (for cross-tab synchronization)
+    const handleStorageChange = (event) => {
+      if (event.key === 'userCurrentStatus' && event.newValue) {
+        console.log('Profile: Received localStorage status change:', event.newValue);
+        setCurrentStatus(event.newValue);
+      }
+    };
+
+    console.log('Profile: Setting up event listener for userStatusChanged');
     window.addEventListener('userStatusChanged', handleStatusChangeEvent);
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Test: Also listen for test events
+    const handleTestEvent = (event) => {
+      console.log('Profile: Received test event:', event.detail);
+    };
+    window.addEventListener('testStatusSync', handleTestEvent);
+    
     return () => {
+      console.log('Profile: Removing event listener for userStatusChanged');
       window.removeEventListener('userStatusChanged', handleStatusChangeEvent);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testStatusSync', handleTestEvent);
     };
   }, []);
 
@@ -109,9 +134,16 @@ export default function Profile() {
       if (response.data?.status) {
         setCurrentStatus(response.data.status.current);
         setIsAutoUpdate(response.data.status.isAutoUpdate || false);
+        // Store in localStorage for persistence
+        localStorage.setItem('userCurrentStatus', response.data.status.current);
       }
     } catch (error) {
       console.error('Error fetching status:', error);
+      // Fallback to localStorage if API fails
+      const storedStatus = localStorage.getItem('userCurrentStatus');
+      if (storedStatus) {
+        setCurrentStatus(storedStatus);
+      }
     }
   };
 
@@ -123,7 +155,18 @@ export default function Profile() {
       await updateStatus({ status: newStatus, isAutoUpdate });
       setCurrentStatus(newStatus);
       setSuccess('Status updated successfully!');
+      console.log('Profile: Dispatching status change event:', { status: newStatus });
       window.dispatchEvent(new CustomEvent('userStatusChanged', { detail: { status: newStatus } }));
+      
+      // Store status in localStorage for persistence across page navigation
+      localStorage.setItem('userCurrentStatus', newStatus);
+      
+      // Trigger a custom storage event for same-tab synchronization
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'userCurrentStatus',
+        newValue: newStatus,
+        oldValue: currentStatus
+      }));
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Error updating status:', error);
@@ -141,6 +184,8 @@ export default function Profile() {
     try {
       await updateStatus({ status: currentStatus, isAutoUpdate: newAutoUpdateState });
       setSuccess(`Automatic status updates ${newAutoUpdateState ? 'enabled' : 'disabled'}.`);
+      // Dispatch event to notify other components about the status update
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { detail: { status: currentStatus, isAutoUpdate: newAutoUpdateState } }));
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Error toggling auto-update:', error);
