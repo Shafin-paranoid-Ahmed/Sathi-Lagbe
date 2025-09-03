@@ -55,7 +55,7 @@ export default function RideCoordination() {
       setError('No ride ID provided');
       setLoading(false);
     }
-  }, [rideId, token, navigate]);
+  }, [rideId, navigate]);
 
   const handleConfirm = async (userId, requestId) => {
     console.log('🔍 handleConfirm called with userId:', userId);
@@ -116,11 +116,7 @@ export default function RideCoordination() {
       return;
     }
     try {
-      await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/rides/rate`,
-        { rideId, riderId: userId, score: Number(score), comment },
-        { headers: { "Authorization": `Bearer ${token}` } }
-      );
+      await API.post('/rides/rate', { rideId, riderId: userId, score: Number(score), comment });
       setRatingStatus(prev => ({ ...prev, [userId]: 'Rating submitted!' }));
       setRatingInputs(prev => ({ ...prev, [userId]: {} }));
       // Clear the rating status after a delay to show success message

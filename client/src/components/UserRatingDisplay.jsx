@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaStar, FaStarHalfAlt } from 'react-icons/fa';
-import axios from 'axios';
+import { API } from '../api/auth';
 
 const UserRatingDisplay = ({ userId, showDetails = false }) => {
   const [ratingData, setRatingData] = useState(null);
@@ -14,7 +14,7 @@ const UserRatingDisplay = ({ userId, showDetails = false }) => {
   const fetchRatingData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/ratings/user/${userId}/average`);
+      const response = await API.get(`/ratings/user/${userId}/average`);
       
       if (response.data.success) {
         setRatingData(response.data.data);

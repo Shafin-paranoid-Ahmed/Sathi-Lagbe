@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FaStar } from 'react-icons/fa';
-import axios from 'axios';
+import { API } from '../api/auth';
 
 const RatingForm = ({ 
   rateeId, 
@@ -36,18 +36,13 @@ const RatingForm = ({
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post('/api/ratings', {
+      const response = await API.post('/ratings', {
         rateeId,
         rideId,
         rating,
         comment,
         category,
         isRiderRating
-      }, {
-        headers: {
-          Authorization: token
-        }
       });
 
       if (response.data.success) {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FaClock, FaTimes, FaCheck } from 'react-icons/fa';
-import axios from 'axios';
+import { API } from '../api/auth';
 
 const RideEtaUpdate = ({ ride, isOpen, onClose, onEtaUpdated }) => {
   const [newEta, setNewEta] = useState('');
@@ -19,7 +19,7 @@ const RideEtaUpdate = ({ ride, isOpen, onClose, onEtaUpdated }) => {
       setIsSubmitting(true);
       setError('');
 
-      await axios.patch(`/api/rides/${ride._id}/eta`, {
+      await API.patch(`/rides/${ride._id}/eta`, {
         newEta: newEta.trim()
       });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { API } from '../api/auth';
 import { BellIcon, FilterIcon, TrashIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 export default function RideNotificationCenter() {
@@ -13,7 +13,7 @@ export default function RideNotificationCenter() {
     isRead: 'all'
   });
   const [showFilters, setShowFilters] = useState(false);
-  const token = sessionStorage.getItem('token');
+
 
   useEffect(() => {
     fetchCategories();
@@ -47,10 +47,7 @@ export default function RideNotificationCenter() {
       if (filters.priority !== 'all') params.priority = filters.priority;
       if (filters.isRead !== 'all') params.isRead = filters.isRead === 'unread';
 
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      const response = await API.get('/notifications', { params });
       setNotifications(response.data);
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -61,9 +58,7 @@ export default function RideNotificationCenter() {
 
   const markAsRead = async (notificationId) => {
     try {
-      await axios.patch(`${import.meta.env.VITE_API_URL}/api/notifications/${notificationId}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await API.patch(`/notifications/${notificationId}/read`);
       
       setNotifications(prev => 
         prev.map(notif => 
@@ -81,10 +76,7 @@ export default function RideNotificationCenter() {
       const params = {};
       if (filters.category !== 'all') params.category = filters.category;
       
-      await axios.patch(`${import.meta.env.VITE_API_URL}/api/notifications/mark-all-read`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      await API.patch('/notifications/mark-all-read', {}, { params });
       
       setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
       fetchStats();
@@ -95,9 +87,7 @@ export default function RideNotificationCenter() {
 
   const deleteNotification = async (notificationId) => {
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/notifications/${notificationId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await API.delete(`/notifications/${notificationId}`);
       
       setNotifications(prev => prev.filter(notif => notif._id !== notificationId));
       fetchStats();

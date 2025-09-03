@@ -3,7 +3,7 @@ import { FaStar, FaPlus, FaEye, FaEdit } from 'react-icons/fa';
 import RatingForm from '../components/RatingForm';
 import RatingList from '../components/RatingList';
 import UserRatingDisplay from '../components/UserRatingDisplay';
-import axios from 'axios';
+import { API } from '../api/auth';
 
 const Ratings = () => {
   const [activeTab, setActiveTab] = useState('received');
@@ -20,10 +20,7 @@ const Ratings = () => {
 
   const fetchUserData = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/users/profile', {
-        headers: { Authorization: token }
-      });
+      const response = await API.get('/users/profile');
       setCurrentUser(response.data.user);
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -33,10 +30,7 @@ const Ratings = () => {
   const fetchUserRides = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/rides/my-rides', {
-        headers: { Authorization: token }
-      });
+      const response = await API.get('/rides/my-rides');
       
       // Filter completed rides that can be rated
       const completedRides = response.data.filter(ride => 
