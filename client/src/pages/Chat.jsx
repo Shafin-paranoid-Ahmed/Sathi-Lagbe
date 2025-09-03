@@ -741,18 +741,19 @@ export default function Chat() {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col lg:flex-row h-[calc(100vh-4rem)] overflow-hidden">
-        {/* Desktop Sidebar - Always visible on desktop */}
-        <div className="hidden lg:flex w-80 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex-shrink-0 flex-col h-full">
-          {/* Tabs */}
-          <div className="flex border-b dark:border-gray-700" role="tablist" aria-label="Chat navigation">
+      {/* 8-pt Grid Layout - Full Height Two Column Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] h-[calc(100vh-4rem)] overflow-hidden">
+        {/* Desktop Sidebar - Fixed 320px width (40 * 8pt) */}
+        <div className="hidden lg:flex bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-col h-full">
+          {/* Tabs - 8pt grid spacing */}
+          <div className="flex border-b border-gray-200 dark:border-gray-700" role="tablist" aria-label="Chat navigation">
             <button
               onClick={() => setActiveTab('chats')}
               role="tab"
               aria-selected={activeTab === 'chats'}
               aria-controls="chats-panel"
               id="chats-tab"
-              className={`flex-1 py-3 text-center font-medium transition-all duration-200 ${
+              className={`flex-1 py-4 px-4 text-center font-medium transition-all duration-200 ${
                 activeTab === 'chats'
                   ? 'text-bracu-blue border-b-2 border-bracu-blue'
                   : 'text-gray-600 dark:text-gray-300 hover:text-bracu-blue dark:hover:text-blue-400'
@@ -766,7 +767,7 @@ export default function Chat() {
               aria-selected={activeTab === 'friends'}
               aria-controls="friends-panel"
               id="friends-tab"
-              className={`flex-1 py-3 text-center font-medium transition-all duration-200 ${
+              className={`flex-1 py-4 px-4 text-center font-medium transition-all duration-200 ${
                 activeTab === 'friends'
                   ? 'text-bracu-blue border-b-2 border-bracu-blue'
                   : 'text-gray-600 dark:text-gray-300 hover:text-bracu-blue dark:hover:text-blue-400'
@@ -776,10 +777,10 @@ export default function Chat() {
             </button>
           </div>
 
-          {/* Content based on active tab */}
+          {/* Content based on active tab - 8pt grid spacing */}
           <div className="p-4 overflow-y-auto flex-1 min-h-0">
             {activeTab === 'chats' ? (
-              <div className="space-y-1" role="tabpanel" id="chats-panel" aria-labelledby="chats-tab">
+              <div className="space-y-2" role="tabpanel" id="chats-panel" aria-labelledby="chats-tab">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                     Recent Chats
@@ -1086,14 +1087,14 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Main chat area */}
-        <div className={`flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 h-full min-w-0 ${
+        {/* Main chat area - Grid column 2 */}
+        <div className={`flex flex-col bg-gray-50 dark:bg-gray-900 h-full min-w-0 ${
           showMobileChat ? 'block lg:flex' : 'hidden lg:flex'
         }`}>
           {selectedChat ? (
             <>
-              {/* Chat header */}
-              <div className="bg-white dark:bg-gray-800 shadow-lg p-4 flex items-center sticky top-0 z-30 border-b border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95">
+              {/* Chat header - 8pt grid spacing */}
+              <div className="bg-white dark:bg-gray-800 shadow-sm p-4 flex items-center sticky top-0 z-30 border-b border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95 flex-shrink-0 h-16">
                 {/* Desktop hint - subtle indicator that chat list is available */}
                 <button
                   onClick={() => {
@@ -1140,7 +1141,7 @@ export default function Chat() {
               <div 
                 ref={messagesContainerRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0 bg-gray-50 dark:bg-gray-900 max-h-[calc(100vh-12rem)] relative"
+                className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-gray-50 dark:bg-gray-900 max-h-[calc(100vh-12rem)] relative"
                 role="log"
                 aria-live="polite"
                 aria-label="Chat messages"
@@ -1305,8 +1306,8 @@ export default function Chat() {
                 )}
               </div>
 
-              {/* Input area - make sticky at bottom */}
-              <div className="bg-white dark:bg-gray-800 p-4 border-t dark:border-gray-700 shadow-inner z-30 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95">
+              {/* Input area - 8pt grid spacing, fixed at bottom */}
+              <div className="bg-white dark:bg-gray-800 p-4 border-t border-gray-200 dark:border-gray-700 shadow-sm z-30 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95 flex-shrink-0">
                 {replyTo && (
                   <div className="mb-2 p-2 rounded bg-blue-100 dark:bg-blue-900 text-sm flex items-center justify-between">
                     <div className="truncate">
@@ -1341,7 +1342,7 @@ export default function Chat() {
                     </label>
                     <textarea
                       id="message-input"
-                      className="w-full min-h-12 max-h-32 p-4 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-bracu-blue focus:border-transparent transition-all duration-200 shadow-sm hover:shadow-md"
+                      className="w-full min-h-12 max-h-32 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-bracu-blue focus:border-transparent transition-all duration-200 shadow-sm hover:shadow-md"
                       placeholder="Type a message..."
                       value={getCurrentDraft()}
                       aria-label="Type a message"
@@ -1368,7 +1369,7 @@ export default function Chat() {
                   <button
                     onClick={send}
                     disabled={!getCurrentDraft().trim() || loading}
-                    className={`p-3 rounded-full transition-all duration-200 min-w-[48px] min-h-[48px] ${
+                    className={`p-3 rounded-lg transition-all duration-200 min-w-12 min-h-12 ${
                       getCurrentDraft().trim() && !loading
                         ? 'bg-gradient-to-r from-bracu-blue to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
