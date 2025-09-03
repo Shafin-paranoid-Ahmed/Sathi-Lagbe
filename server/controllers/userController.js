@@ -170,39 +170,52 @@ exports.updateSettings = async (req, res) => {
 exports.updateStatus = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    const { status, location, isAutoUpdate = false } = req.body;
-    
-    if (!status) {
-      return res.status(400).json({ error: 'Status is required' });
+    const { status, location, isAutoUpdate } = req.body;
+
+    if (!status && typeof isAutoUpdate !== 'boolean') {
+      return res.status(400).json({ error: 'Status or isAutoUpdate flag is required' });
     }
     
-    const validStatuses = ['available', 'busy', 'in_class', 'studying', 'free'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
+    // Find the user to check their old status first
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
+    const oldStatus = user.status.current;
+
+    // Prepare the updates
+    const updates = { 'status.lastUpdated': new Date() };
+    if (status) {
+      const validStatuses = ['available', 'busy', 'in_class', 'studying', 'free'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Invalid status' });
+      }
+      updates['status.current'] = status;
+    }
+    if (location !== undefined) updates['status.location'] = location;
+    if (typeof isAutoUpdate === 'boolean') updates['status.isAutoUpdate'] = isAutoUpdate;
     
-    const user = await User.findByIdAndUpdate(
+    // Apply the updates to the database
+    const updatedUser = await User.findByIdAndUpdate(
       userId,
-      {
-        $set: {
-          'status.current': status,
-          'status.location': location || '',
-          'status.lastUpdated': new Date(),
-          'status.isAutoUpdate': isAutoUpdate
-        }
-      },
+      { $set: updates },
       { new: true }
     ).select('name email status');
-    
-    // Send notification to friends for any status change
-    try {
+
+    // --- THIS IS THE CORE FIX ---
+    // Only send a notification if the actual status text has changed.
+    // This prevents notifications when just toggling the auto-update switch.
+    const newStatus = updatedUser.status.current;
+    if (status && oldStatus !== newStatus) {
+      try {
         const notificationService = require('../services/notificationService');
-        await notificationService.sendStatusChangeNotification(userId, status, location);
-    } catch (notifyErr) {
-      // silently fail
+        await notificationService.sendStatusChangeNotification(userId, newStatus, updatedUser.status.location);
+      } catch (notifyErr) {
+        console.warn('Failed to send status change notification from controller:', notifyErr.message);
+      }
     }
     
-    res.json(user);
+    res.json(updatedUser);
   } catch (err) {
     console.error('Error updating status:', err);
     res.status(500).json({ error: err.message || 'Failed to update status' });
@@ -404,34 +417,39 @@ exports.triggerAutoStatusUpdate = async (req, res) => {
     const userId = req.user.id || req.user.userId;
     const { AutoStatusService } = require('../services/autoStatusService');
     const Routine = require('../models/Routine');
-    
-    const user = await User.findById(userId).select('status');
+
+    // 1. Find the user
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
+    // 2. Check if the user has ANY routine entries at all. This is a prerequisite.
+    const hasAnyRoutine = await Routine.exists({ userId });
+    if (!hasAnyRoutine) {
+      return res.status(400).json({
+        error: 'No class schedule found. Please add your routine before enabling auto-status.'
+      });
+    }
+
+    // --- THIS IS THE CORE FIX ---
+    // 3. If auto-update is not enabled, enable it now and save the change.
     if (!user.status.isAutoUpdate) {
-      return res.status(400).json({ 
-        error: 'Auto-status update is not enabled. Please enable it first.' 
-      });
+      user.status.isAutoUpdate = true;
+      await user.save(); // Save the change BEFORE proceeding. This is crucial.
     }
-    
-    const totalRoutines = await Routine.countDocuments({ userId });
-    if (totalRoutines === 0) {
-      return res.status(400).json({ 
-        error: 'No class schedule found. Please add your class routine before using auto-status.' 
-      });
-    }
-    
+
+    // 4. Now, with auto-update guaranteed to be on, run the status update logic.
     const updatedUser = await AutoStatusService.updateUserStatus(userId);
-    
+
+    // 5. Handle the case where the user has a routine, but not for today.
     if (!updatedUser) {
-      // This now specifically means there was no routine for TODAY.
-      return res.status(400).json({ 
-        error: 'No class schedule found for today. Your status remains unchanged.' 
+      return res.status(400).json({
+        error: 'Auto-status is enabled, but no class schedule was found for today. Your status remains unchanged.'
       });
     }
-    
+
+    // 6. Success!
     res.json({
       message: 'Status updated automatically based on your schedule.',
       user: updatedUser
@@ -441,7 +459,6 @@ exports.triggerAutoStatusUpdate = async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to trigger auto-status update' });
   }
 };
-
 /**
  * Get user's routine for today
  */

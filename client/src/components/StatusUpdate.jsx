@@ -181,60 +181,59 @@ const StatusUpdate = () => {
 
   const toggleAutoUpdate = async () => {
     const newAutoUpdateState = !isAutoUpdate;
+    setLoading(true);
+
     try {
-      setLoading(true);
-      const response = await updateStatus({
-        status,
-        location,
-        isAutoUpdate: newAutoUpdateState
-      });
-
-      const updatedStatus = response.data.status.current;
-      setCurrentStatus(response.data.status);
-      setIsAutoUpdate(newAutoUpdateState);
-      setStatus(updatedStatus); // Keep status in sync
-
-      localStorage.setItem('userCurrentStatus', updatedStatus);
-      
-      // Dispatch the combined state update
-      window.dispatchEvent(new CustomEvent('userStatusChanged', { 
-        detail: { 
-          status: updatedStatus, 
-          isAutoUpdate: newAutoUpdateState
-        } 
-      }));
+      let finalUserStatus;
 
       if (newAutoUpdateState) {
-        const autoResp = await API.post('/users/trigger-auto-status');
-        const autoStatus = autoResp.data.user.status.current;
-        
-        setCurrentStatus(autoResp.data.user.status);
-        setStatus(autoStatus);
-        localStorage.setItem('userCurrentStatus', autoStatus);
-        
-        window.dispatchEvent(new CustomEvent('userStatusChanged', { 
-          detail: { 
-            status: autoStatus, 
-            isAutoUpdate: newAutoUpdateState 
-          } 
-        }));
-        
+        // --- ENABLING AUTO-STATUS ---
+        // Call our new "one-click" endpoint. It will enable the flag AND run the update.
+        const response = await API.post('/users/trigger-auto-status');
+        finalUserStatus = response.data.user.status;
+        alert('Auto status enabled and updated!');
+
+      } else {
+        // --- DISABLING AUTO-STATUS ---
+        // Just send a simple request to turn the flag off.
+        const response = await updateStatus({
+          status: status, // Keep the current status text
+          isAutoUpdate: false,
+        });
+        finalUserStatus = response.data.status;
+        alert('Auto status disabled. You can now update manually.');
+      }
+
+      // --- SYNCHRONIZE UI ---
+      // Update the entire component's state from the single source of truth: the server's response.
+      setCurrentStatus(finalUserStatus);
+      setIsAutoUpdate(finalUserStatus.isAutoUpdate);
+      setStatus(finalUserStatus.current);
+      localStorage.setItem('userCurrentStatus', finalUserStatus.current);
+
+      // Notify all other components (like ArgonLayout) of the change.
+      window.dispatchEvent(new CustomEvent('userStatusChanged', {
+        detail: {
+          status: finalUserStatus.current,
+          isAutoUpdate: finalUserStatus.isAutoUpdate
+        }
+      }));
+
+      // If we just enabled the feature, refresh the info panels.
+      if (newAutoUpdateState) {
         fetchNextClassInfo();
         fetchTodayRoutine();
         checkSetupStatus();
-        alert('Auto status enabled and updated!');
-      } else {
-        alert('Auto status disabled. You can now update manually.');
       }
     } catch (error) {
       console.error('Error toggling auto status:', error);
-      alert(error.response?.data?.error || 'Failed to toggle auto status');
-      setIsAutoUpdate(!newAutoUpdateState); // Revert on failure
+      // Display the specific error message from the backend.
+      alert(error.response?.data?.error || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
   };
-  
+
   const getStatusIcon = (statusValue) => {
     const option = statusOptions.find(opt => opt.value === statusValue);
     return option ? option.icon : User;

@@ -57,7 +57,7 @@ class AutoStatusService {
 
       // Only update and notify if the status or location has actually changed.
       if (oldStatus === newStatus && oldLocation === newLocation) {
-        return null; // No change needed
+        return user; // No change needed
       }
 
       user.status.current = newStatus;
