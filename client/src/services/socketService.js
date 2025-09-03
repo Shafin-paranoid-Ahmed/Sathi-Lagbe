@@ -9,7 +9,7 @@ class SocketService {
 
   connect(token) {
     if (this.socket && this.socket.connected) {
-      console.log('Socket already connected');
+
       return;
     }
 
@@ -29,13 +29,13 @@ class SocketService {
     });
     
     this.socket.on('connect', () => {
-      console.log('Socket connected:', this.socket.id);
+
       // Process any queued listeners
       this.processListenerQueue();
     });
     
     this.socket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason);
+
     });
 
     this.socket.on('connect_error', (err) => {
@@ -49,7 +49,7 @@ class SocketService {
       this.socket.on(eventName, callback);
     });
     this.listenerQueue = []; // Clear the queue
-    console.log('Processed listener queue');
+
   }
 
   setupEventListeners() {
@@ -64,7 +64,7 @@ class SocketService {
     }
     
     this.socket.emit('join_chat', chatId);
-    console.log('Joined chat room:', chatId);
+
   }
 
   leaveChat(chatId) {
@@ -73,7 +73,7 @@ class SocketService {
     }
     
     this.socket.emit('leave_chat', chatId);
-    console.log('Left chat room:', chatId);
+
   }
 
   sendMessage(chatId, message) {
@@ -137,7 +137,7 @@ class SocketService {
     if (this.socket && this.socket.connected) {
       this.socket.on(eventName, callback);
     } else {
-      console.log(`Socket not connected. Queuing listener for '${eventName}'`);
+
       this.listenerQueue.push({ eventName, callback });
     }
   }
@@ -174,7 +174,7 @@ class SocketService {
       this.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
-      console.log('Socket disconnected');
+
     }
   }
 

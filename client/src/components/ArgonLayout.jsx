@@ -125,6 +125,42 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     };
   }, []);
 
+  // Listen for status changes from Profile component
+  useEffect(() => {
+    const handleStatusChange = (event) => {
+      console.log('ArgonLayout: Received status change event:', event.detail);
+      const newStatus = event.detail.status;
+      setCurrentStatus(newStatus);
+      // Note: ArgonLayout doesn't need to track isAutoUpdate, but we could add it if needed
+    };
+
+    // Listen for localStorage changes (for cross-tab synchronization)
+    const handleStorageChange = (event) => {
+      if (event.key === 'userCurrentStatus' && event.newValue) {
+        console.log('ArgonLayout: Received localStorage status change:', event.newValue);
+        setCurrentStatus(event.newValue);
+      }
+    };
+
+    console.log('ArgonLayout: Setting up event listener for userStatusChanged');
+    window.addEventListener('userStatusChanged', handleStatusChange);
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Test if the listener is actually working
+    setTimeout(() => {
+      console.log('ArgonLayout: Testing event listener by dispatching test event');
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+        detail: { status: 'test', source: 'ArgonLayout-setup' } 
+      }));
+    }, 1000);
+    
+    return () => {
+      console.log('ArgonLayout: Removing event listener for userStatusChanged');
+      window.removeEventListener('userStatusChanged', handleStatusChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   // Ensure socket connection once user is authenticated
   useEffect(() => {
     const token = sessionStorage.getItem('token');
@@ -143,9 +179,16 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
       const response = await getCurrentUserStatus();
       if (response.data?.status?.current) {
         setCurrentStatus(response.data.status.current);
+        // Store in localStorage for persistence
+        localStorage.setItem('userCurrentStatus', response.data.status.current);
       }
     } catch (error) {
       // Silent error handling
+      // Fallback to localStorage if API fails
+      const storedStatus = localStorage.getItem('userCurrentStatus');
+      if (storedStatus) {
+        setCurrentStatus(storedStatus);
+      }
     }
   };
 
@@ -156,6 +199,22 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     try {
       await updateStatus({ status: newStatus });
       setCurrentStatus(newStatus);
+      // Dispatch event to notify other components (like Profile page)
+      console.log('ArgonLayout: Dispatching status change event:', { status: newStatus });
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { detail: { status: newStatus } }));
+      
+      // Test: Also dispatch a simple test event
+      window.dispatchEvent(new CustomEvent('testStatusSync', { detail: { status: newStatus, source: 'ArgonLayout' } }));
+      
+      // Store status in localStorage for persistence across page navigation
+      localStorage.setItem('userCurrentStatus', newStatus);
+      
+      // Trigger a custom storage event for same-tab synchronization
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'userCurrentStatus',
+        newValue: newStatus,
+        oldValue: currentStatus
+      }));
     } catch (error) {
       // Silent error handling
     } finally {
