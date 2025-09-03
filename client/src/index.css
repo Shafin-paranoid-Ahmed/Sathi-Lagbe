@@ -3,6 +3,98 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global layout fixes */
+/* Removed body overflow hidden - only apply to chat page */
+
+/* Chat page specific overflow control */
+.chat-page {
+  overflow: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+}
+
+/* Same padding everywhere */
+.recentList, .messages, .composer {
+  padding-inline: 24px;
+}
+
+/* Kill any gap under header */
+.content {
+  gap: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* Only inner panes scroll */
+.recentList, .messages {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Align bottoms with composer */
+.recentList {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Continuous column dividers */
+.list {
+  border-left: 1px solid #e5e7eb;
+}
+.thread {
+  border-left: 1px solid #e5e7eb;
+}
+
+/* Composer belongs to thread, fixed height */
+.composer {
+  height: calc(72px + env(safe-area-inset-bottom, 0px));
+  padding-block: 8px env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Stretch inputs/cards */
+input, .card, .search {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Equal message top/bottom padding */
+.messages {
+  padding-block: 16px;
+}
+
+/* Align status chips with bubble baseline */
+.messageRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.statusChip {
+  align-self: flex-end;
+  margin-left: 8px;
+}
+
+/* Selected chat row fills width, consistent radius/shadow */
+.chatRow.active {
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+.chatRow {
+  margin-inline: 0; /* no random side gaps */
+}
+
+/* Welcome card only when no thread open */
+.threadEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 24px;
+}
+
 /* CSS Variables for Argon Dashboard colors */
 :root {
   --primary-50: #eff6ff;
