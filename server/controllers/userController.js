@@ -414,38 +414,43 @@ exports.triggerAutoStatusUpdate = async (req, res) => {
     const { AutoStatusService } = require('../services/autoStatusService');
     const Routine = require('../models/Routine');
 
-    // 1. Find the user
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const oldStatus = user.status.current; // Capture the status BEFORE any changes.
 
-    // 2. Check if the user has ANY routine entries at all. This is a prerequisite.
     const hasAnyRoutine = await Routine.exists({ userId });
     if (!hasAnyRoutine) {
-      return res.status(400).json({
-        error: 'No class schedule found. Please add your routine before enabling auto-status.'
-      });
+      return res.status(400).json({ error: 'No class schedule found. Please add your routine first.' });
     }
 
-    // --- THIS IS THE CORE FIX ---
-    // 3. If auto-update is not enabled, enable it now and save the change.
     if (!user.status.isAutoUpdate) {
       user.status.isAutoUpdate = true;
-      await user.save(); // Save the change BEFORE proceeding. This is crucial.
+      await user.save();
     }
 
-    // 4. Now, with auto-update guaranteed to be on, run the status update logic.
     const updatedUser = await AutoStatusService.updateUserStatus(userId);
 
-    // 5. Handle the case where the user has a routine, but not for today.
     if (!updatedUser) {
-      return res.status(400).json({
-        error: 'Auto-status is enabled, but no class schedule was found for today. Your status remains unchanged.'
-      });
+      return res.status(400).json({ error: 'No class schedule found for today.' });
     }
 
-    // 6. Success!
+    // --- NOTIFICATION LOGIC FIX ---
+    // Only send a notification if the status has meaningfully changed.
+    const newStatus = updatedUser.status.current;
+    if (oldStatus !== newStatus) {
+      try {
+        const notificationService = require('../services/notificationService');
+        await notificationService.sendStatusChangeNotification(
+          updatedUser._id,
+          newStatus,
+          updatedUser.status.location
+        );
+      } catch (notifyErr) {
+        // Silently fail
+      }
+    }
+
     res.json({
       message: 'Status updated automatically based on your schedule.',
       user: updatedUser

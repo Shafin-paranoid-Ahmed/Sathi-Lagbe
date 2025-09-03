@@ -90,10 +90,10 @@ class NotificationService {
       }
 
       // Save all notifications
-      await Notification.insertMany(notifications);
-
-      // Send real-time notifications via socket
-      this.sendRealtimeNotifications(notifications);
+      if (notifications.length > 0) {
+        await Notification.insertMany(notifications);
+        this.sendRealtimeNotifications(notifications);
+      }
 
       return notifications;
     } catch (error) {
@@ -630,14 +630,20 @@ class NotificationService {
       
       // Extract the friend users (not the requesting user)
       const friends = friendRelationships.map(relationship => {
-        if (relationship.user._id.toString() === userId) {
+        if (relationship.user?._id.toString() === userId) {
           return relationship.friend;
         } else {
           return relationship.user;
         }
       });
       
-      return friends;
+      // --- FIX: Ensure the final list is clean ---
+      // 1. filter(Boolean) removes any null/undefined entries from failed populates (e.g., deleted users).
+      // 2. The second filter removes the original user to prevent self-notification.
+      return friends
+        .filter(Boolean)
+        .filter(friend => friend._id.toString() !== userId);
+
     } catch (error) {
       console.error('Error getting user friends:', error);
       return [];
@@ -648,19 +654,9 @@ class NotificationService {
   sendRealtimeNotifications(notifications) {
     try {
       const io = getIO();
-      console.log('=== REALTIME NOTIFICATION DEBUG ===');
       
       notifications.forEach(notification => {
         const room = `user_${notification.recipient.toString()}`;
-        console.log('Emitting to room:', room);
-        console.log('Notification data:', {
-          id: notification._id,
-          type: notification.type,
-          title: notification.title,
-          message: notification.message
-        });
-        
-        // Emit minimal, but include sender for deep-linking to chat on client
         io.to(room).emit('new_notification', {
           id: notification._id,
           type: notification.type,
@@ -673,7 +669,6 @@ class NotificationService {
           isRead: false,
           createdAt: notification.createdAt
         });
-        console.log('Notification emitted to room:', room);
       });
     } catch (error) {
       console.error('Error sending realtime notifications:', error);
