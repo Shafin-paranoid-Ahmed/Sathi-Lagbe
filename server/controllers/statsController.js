@@ -166,15 +166,14 @@ async function getFriendActivities(userId) {
       }
     });
     
-    // Get recent notifications related to friends
-    const recentNotifications = await Notification.find({
-      recipient: userId,
-      type: { $in: ['ride_request', 'friend_request', 'status_change'] },
-      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-    })
-    .populate('sender', 'name avatarUrl')
-    .sort({ createdAt: -1 })
-    .limit(5);
+         // Get recent notifications related to friends (last 7 days)
+     const recentNotifications = await Notification.find({
+       recipient: userId,
+       createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Last 7 days
+     })
+     .populate('sender', 'name avatarUrl')
+     .sort({ createdAt: -1 })
+     .limit(10);
     
     recentNotifications.forEach(notification => {
       if (notification.sender) {
@@ -190,14 +189,37 @@ async function getFriendActivities(userId) {
       }
     });
     
-    // Sort all activities by time and return the most recent 10
-    return activities
-      .sort((a, b) => new Date(b.time) - new Date(a.time))
-      .slice(0, 10)
-      .map(activity => ({
-        ...activity,
-        time: formatTimeAgo(activity.time)
-      }));
+         // If no friend activities, get general notifications for the user
+     if (activities.length === 0) {
+       const generalNotifications = await Notification.find({
+         recipient: userId,
+         createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+       })
+       .populate('sender', 'name avatarUrl')
+       .sort({ createdAt: -1 })
+       .limit(10);
+       
+       generalNotifications.forEach(notification => {
+         activities.push({
+           id: `notification_${notification._id}`,
+           type: 'notification',
+           message: notification.title || notification.message,
+           time: notification.createdAt,
+           user: notification.sender?.name || 'System',
+           userAvatar: notification.sender?.avatarUrl || null,
+           data: notification.data
+         });
+       });
+     }
+     
+     // Sort all activities by time and return the most recent 10
+     return activities
+       .sort((a, b) => new Date(b.time) - new Date(a.time))
+       .slice(0, 10)
+       .map(activity => ({
+         ...activity,
+         time: formatTimeAgo(activity.time)
+       }));
     
   } catch (err) {
     console.error('Error getting friend activities:', err);

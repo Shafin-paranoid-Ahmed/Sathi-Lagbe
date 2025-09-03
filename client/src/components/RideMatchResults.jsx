@@ -8,7 +8,7 @@ import LocationAutocomplete from './LocationAutocomplete';
 import CustomDateTimePicker from './CustomDateTimePicker';
 
 export default function RideMatchResults() {
-  console.log('RideMatchResults component rendering...');
+
   
   const [searchParams, setSearchParams] = useState({
     startLocation: '',
@@ -37,17 +37,13 @@ export default function RideMatchResults() {
 
   // Load all available rides on component mount
   useEffect(() => {
-    console.log('RideMatchResults useEffect triggered - loading all rides');
+
     
     // Check authentication first
     const token = sessionStorage.getItem('token');
     const userId = sessionStorage.getItem('userId');
     
-    console.log('=== RideMatchResults Auth Check ===');
-    console.log('Token exists:', !!token);
-    console.log('UserId exists:', !!userId);
-    console.log('Token length:', token?.length || 0);
-    console.log('UserId:', userId);
+
     
     if (!token || !userId) {
       setErrors({ api: 'Please log in to view available rides. Your session may have expired.' });
@@ -69,7 +65,7 @@ export default function RideMatchResults() {
   }, [matches, genderFilter]);
 
   const loadAllRides = async () => {
-    console.log('loadAllRides function called');
+
     setLoading(true);
     setErrors({});
     setSuccess('');
@@ -86,18 +82,14 @@ export default function RideMatchResults() {
     }
     
     try {
-      console.log('=== Frontend: Calling getAllAvailableRides ===');
       const res = await getAllAvailableRides();
-      console.log('=== Frontend: API Response ===', res);
-      console.log('=== Frontend: Response data ===', res.data);
-      console.log('=== Frontend: Number of rides received ===', res.data?.length || 0);
       
       setMatches(res.data || []);
       if (res.data && res.data.length === 0) {
         setSuccess('No rides available at the moment.');
       }
     } catch (err) {
-      console.error('=== Frontend: Error fetching rides ===', err);
+      console.error('Error fetching rides:', err);
       
       // Handle authentication errors specifically
       if (err.response?.status === 401) {
@@ -149,22 +141,12 @@ export default function RideMatchResults() {
     try {
       let res;
       
-      console.log('🔍 Frontend: Starting search with params:', searchParams);
-      console.log('🤖 Frontend: Using AI matching:', useAI);
+
       
       if (useAI) {
-        console.log('🤖 Frontend: Calling AI matches API...');
         res = await getAiMatches(searchParams);
-        console.log('🤖 Frontend: AI matches response:', res.data);
-        // Debug: Check if match scores are present
-        if (res.data && res.data.length > 0) {
-          console.log('🤖 Frontend: Match scores:', res.data.map(ride => ({ id: ride._id, score: ride.matchScore })));
-          console.log('🤖 Frontend: First ride structure:', res.data[0]);
-        }
       } else {
-        console.log('🔍 Frontend: Calling regular search API...');
         res = await searchRides(searchParams);
-        console.log('🔍 Frontend: Regular search response:', res.data);
       }
       
       setMatches(res.data);
@@ -229,16 +211,9 @@ export default function RideMatchResults() {
     setFeedbackData(null);
   };
 
-  console.log('RideMatchResults render state:', { loading, matches: matches.length, errors, success });
+
   
-  // Debug: Log the first ride to see what data we're getting
-  if (matches.length > 0) {
-    console.log('First ride data:', matches[0]);
-    console.log('First ride riderId:', matches[0].riderId);
-    console.log('First ride riderId type:', typeof matches[0].riderId);
-    console.log('First ride riderId gender:', matches[0].riderId?.gender);
-    console.log('First ride riderId gender type:', typeof matches[0].riderId?.gender);
-  }
+
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg space-y-6 border border-gray-200 dark:border-gray-700">

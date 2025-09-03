@@ -98,6 +98,14 @@ const StatusUpdate = () => {
       setCurrentStatus(response.data.status);
       alert('Status updated successfully!');
       
+      // Dispatch event to notify other components about the status update
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+        detail: { 
+          status: response.data.status.current, 
+          isAutoUpdate: isAutoUpdate 
+        } 
+      }));
+      
       // Refresh next class info if auto-update is enabled
       if (isAutoUpdate) {
         fetchNextClassInfo();
@@ -119,6 +127,14 @@ const StatusUpdate = () => {
       
       setCurrentStatus(response.data.user.status);
       alert('Status updated automatically based on your schedule!');
+      
+      // Dispatch event to notify other components about the status update
+      window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+        detail: { 
+          status: response.data.user.status.current, 
+          isAutoUpdate: isAutoUpdate 
+        } 
+      }));
       
       // Refresh data
       fetchNextClassInfo();
@@ -156,8 +172,24 @@ const StatusUpdate = () => {
         fetchTodayRoutine();
         checkSetupStatus();
         alert('Auto status enabled and updated!');
+        
+        // Dispatch event to notify other components about the status update
+        window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+          detail: { 
+            status: autoResp.data.user.status.current, 
+            isAutoUpdate: !isAutoUpdate 
+          } 
+        }));
       } else {
         alert('Auto status disabled. You can now update manually.');
+        
+        // Dispatch event to notify other components about the status update
+        window.dispatchEvent(new CustomEvent('userStatusChanged', { 
+          detail: { 
+            status: response.data.status.current, 
+            isAutoUpdate: !isAutoUpdate 
+          } 
+        }));
       }
     } catch (error) {
       console.error('Error toggling auto status:', error);
