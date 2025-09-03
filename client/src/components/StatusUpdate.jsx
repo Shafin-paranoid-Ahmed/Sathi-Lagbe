@@ -24,11 +24,21 @@ const StatusUpdate = () => {
   // Listen for status changes from other components
   useEffect(() => {
     const handleStatusChangeEvent = (event) => {
-      const newStatus = event.detail.status;
-      setStatus(newStatus);
-      setCurrentStatus((prev) =>
-        prev ? { ...prev, current: newStatus, lastUpdated: new Date().toISOString() } : { current: newStatus }
-      );
+      const { status: newStatus, isAutoUpdate: newIsAutoUpdate } = event.detail;
+
+      // Update the status string if it's provided in the event
+      if (newStatus) {
+        setStatus(newStatus);
+        setCurrentStatus((prev) =>
+          prev ? { ...prev, current: newStatus, lastUpdated: new Date().toISOString() } : { current: newStatus }
+        );
+      }
+
+      // --- THIS IS THE CRITICAL FIX ---
+      // Update the isAutoUpdate flag if it's provided in the event
+      if (typeof newIsAutoUpdate === 'boolean') {
+        setIsAutoUpdate(newIsAutoUpdate);
+      }
     };
 
     window.addEventListener('userStatusChanged', handleStatusChangeEvent);
