@@ -836,28 +836,23 @@ exports.getAiMatches = async (req, res) => {
   try {
     const { startLocation, endLocation, departureTime } = req.body;
     
-    console.log('🎯 AI Match request received:', { startLocation, endLocation, departureTime });
-    
     if (!startLocation || !departureTime) {
-      console.log('❌ Missing required parameters');
       return res.status(400).json({ error: 'Missing match parameters' });
     }
-    
-    // Debug: Check what's in the database
-    const totalRides = await RideMatch.countDocuments();
-    const pendingRides = await RideMatch.countDocuments({ status: 'pending' });
-    console.log(`📊 Database stats: ${totalRides} total rides, ${pendingRides} pending rides`);
+
+    // Get the current user's ID from the authenticated request
+    const userId = req.user.id || req.user.userId;
     
     const matches = await aiMatch({
       startLocation,
       endLocation: endLocation || '',
-      departureTime
+      departureTime,
+      userId // Pass the user's ID to the matcher
     });
     
-    console.log(`✅ AI Match completed: ${matches.length} matches found`);
     res.json(matches);
   } catch (err) {
-    console.error('❌ AI match error:', err);
+    console.error('AI match error:', err);
     res.status(500).json({ error: err.message || 'Failed to generate AI matches' });
   }
 };
