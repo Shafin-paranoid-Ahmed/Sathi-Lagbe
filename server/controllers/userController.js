@@ -416,8 +416,6 @@ exports.triggerAutoStatusUpdate = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
-    const oldStatus = user.status.current; // Capture the status BEFORE any changes.
 
     const hasAnyRoutine = await Routine.exists({ userId });
     if (!hasAnyRoutine) {
@@ -436,19 +434,17 @@ exports.triggerAutoStatusUpdate = async (req, res) => {
     }
 
     // --- NOTIFICATION LOGIC FIX ---
-    // Only send a notification if the status has meaningfully changed.
-    const newStatus = updatedUser.status.current;
-    if (oldStatus !== newStatus) {
-      try {
-        const notificationService = require('../services/notificationService');
-        await notificationService.sendStatusChangeNotification(
-          updatedUser._id,
-          newStatus,
-          updatedUser.status.location
-        );
-      } catch (notifyErr) {
-        // Silently fail
-      }
+    // The conditional check has been removed. A notification will now ALWAYS be sent
+    // after a successful manual trigger, confirming the action to friends.
+    try {
+      const notificationService = require('../services/notificationService');
+      await notificationService.sendStatusChangeNotification(
+        updatedUser._id,
+        updatedUser.status.current,
+        updatedUser.status.location
+      );
+    } catch (notifyErr) {
+      // Silently fail if notification fails, but the main action succeeded.
     }
 
     res.json({

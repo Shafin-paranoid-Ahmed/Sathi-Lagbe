@@ -16,36 +16,27 @@ export default function NotificationBell() {
   useEffect(() => {
     fetchUnreadCount();
     fetchCategories();
-    
-    // Set up real-time notifications
-    // Prefer socket if connected; fallback to SSE if needed
-    const disconnect = socketService.onNewNotification((notification) => {
+
+    // --- THIS IS THE CRITICAL FIX for the "4 -> 8" bug ---
+    // 1. Define the event handler function with a stable name.
+    const handleNewNotification = (notification) => {
       setUnreadCount(prev => prev + 1);
-      setNotifications(prev => [notification, ...prev]);
-    });
+      // To avoid duplicates in the dropdown list, only add if it's not already there
+      setNotifications(prev => {
+        if (prev.find(n => n._id === notification._id)) {
+          return prev;
+        }
+        return [notification, ...prev];
+      });
+    };
 
-    // Fallback SSE for environments without sockets
-    let eventSource;
-    try {
-      const token = sessionStorage.getItem('token');
-      if (token) {
-        eventSource = new EventSource(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/stream?token=${token}`);
-        eventSource.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          // Ignore SSE keep-alive messages
-          if (data.type === 'ping' || data.type === 'connected') {
-            return;
-          }
-          const notification = data;
-          setUnreadCount(prev => prev + 1);
-          setNotifications(prev => [notification, ...prev]);
-        };
-      }
-    } catch (_) {}
+    // 2. Attach the specific handler to the socket service.
+    socketService.onNewNotification(handleNewNotification);
 
+    // 3. Return a cleanup function that REMOVES the specific handler.
+    // This is the industry-standard way to prevent duplicate listeners in React.
     return () => {
-      if (disconnect) disconnect();
-      if (eventSource) eventSource.close();
+      socketService.off('new_notification', handleNewNotification);
     };
   }, []);
 
