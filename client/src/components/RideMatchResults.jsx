@@ -59,8 +59,14 @@ export default function RideMatchResults() {
     if (genderFilter === 'all') {
       setFilteredMatches(matches);
     } else {
-      // Now we can trust that riderGender is the single source of truth.
-      setFilteredMatches(matches.filter(ride => ride.riderGender === genderFilter));
+      const filtered = matches.filter(ride => {
+        // --- THIS IS THE FIX ---
+        // 1. Use the now-reliable `riderGender` field from the backend.
+        // 2. Use `?.toLowerCase()` to make the comparison case-insensitive.
+        // This prevents bugs if data is ever "Female" or "MALE".
+        return (ride.riderGender?.toLowerCase() || '') === genderFilter;
+      });
+      setFilteredMatches(filtered);
     }
   }, [matches, genderFilter]);
 
