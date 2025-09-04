@@ -620,7 +620,6 @@ class NotificationService {
   // Get all friends of a user
   async getUserFriends(userId) {
     try {
-      // Get all accepted friend relationships where the user is either the user or the friend
       const friendRelationships = await Friend.find({
         $or: [
           { user: userId, status: 'accepted' },
@@ -628,7 +627,6 @@ class NotificationService {
         ]
       }).populate('user', 'name email').populate('friend', 'name email');
       
-      // Extract the friend users (not the requesting user)
       const friends = friendRelationships.map(relationship => {
         if (relationship.user?._id.toString() === userId) {
           return relationship.friend;
@@ -637,11 +635,9 @@ class NotificationService {
         }
       });
       
-      // --- FIX: Ensure the final list is clean ---
-      // 1. filter(Boolean) removes any null/undefined entries from failed populates (e.g., deleted users).
-      // 2. The second filter removes the original user to prevent self-notification.
+      // --- FIX: Ensure the final list is clean and does not contain the original user ---
       return friends
-        .filter(Boolean)
+        .filter(Boolean) // This removes any null/undefined entries (e.g., from deleted users)
         .filter(friend => friend._id.toString() !== userId);
 
     } catch (error) {
