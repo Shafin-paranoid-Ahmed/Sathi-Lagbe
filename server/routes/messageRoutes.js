@@ -5,12 +5,12 @@ const messageController = require('../controllers/messageController');
 const auth = require('../middleware/auth');
 
 // Send a new message
-router.post('/new-message', auth, messageController.sendNewMessage);
+router.post('/newmessage', auth, messageController.sendNewMessage);
 
 // Get all messages for a specific chat
-router.get('/get-all-messages/:chatId', auth, messageController.getAllMessages);
+router.get('/getallmessages/:chatId', auth, messageController.getAllMessages);
 
 // Mark messages as read
-router.post('/mark-read', auth, messageController.markMessagesAsRead);
+router.post('/markread', auth, messageController.markMessagesAsRead);
 
 module.exports = router;
