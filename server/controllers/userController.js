@@ -277,9 +277,14 @@ exports.updateAvatar = async (req, res) => {
     // Avatar upload debug logging removed for security
 
     // Upload to Cloudinary
-    const uploadResult = await cloudinary.uploader.upload(file.path, {
-      folder: 'sathi-lagbe/avatars',
-      transformation: [{ width: 256, height: 256, crop: 'thumb', gravity: 'face' }]
+    const uploadResult = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream({
+        folder: 'sathi-lagbe/avatars',
+        transformation: [{ width: 256, height: 256, crop: 'thumb', gravity: 'face' }]
+      }, (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      }).end(file.buffer);
     });
 
     // Delete previous avatar if exists
@@ -300,9 +305,6 @@ exports.updateAvatar = async (req, res) => {
     ).select('name email gender location avatarUrl');
 
     // Avatar update success logging removed for security
-
-    // Cleanup temp file
-    try { fs.unlink(file.path, () => {}); } catch {}
 
     res.json({ 
       message: 'Avatar updated successfully', 

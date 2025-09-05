@@ -8,8 +8,6 @@ const http = require('http');
 const morgan = require('morgan');
 const jwt = require('jsonwebtoken');
 const { initSocket } = require('./utils/socket');
-const fs = require('fs');
-const path = require('path');
 
 
 // Import routes
@@ -33,7 +31,9 @@ const app = express();
 
 // Middleware - ORDER IS IMPORTANT
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173'],
+  origin: process.env.NODE_ENV === 'production' 
+    ? [process.env.FRONTEND_URL, process.env.CLIENT_URL].filter(Boolean)
+    : ['http://localhost:3000', 'http://localhost:5173'],
   credentials: true
 }));
 // Make sure body-parser middleware is before routes
@@ -42,15 +42,7 @@ app.use(express.urlencoded({ extended: true }));
 // HTTP request logging disabled for security in production
 // app.use(morgan('dev'));
 
-// Ensure uploads directory exists for multer
-const uploadsDir = path.join(__dirname, 'uploads');
-try {
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-} catch (e) {
-  console.warn('Could not create uploads directory:', e?.message);
-}
+// Note: File uploads now use memory storage for serverless compatibility
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -232,29 +224,37 @@ io.on('connection', (socket) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server started successfully`);
-});
 
-// Scheduled cleanup of orphaned notifications (runs every hour)
-const cleanupInterval = 60 * 60 * 1000; // 1 hour in milliseconds
+// Only start server if not in Vercel environment
+if (process.env.VERCEL !== '1') {
+  server.listen(PORT, () => {
+    console.log(`Server started successfully on port ${PORT}`);
+  });
+} else {
+  // For Vercel, export the app instead of starting the server
+  module.exports = app;
+}
 
-setInterval(async () => {
+// Scheduled tasks only run in non-Vercel environments
+if (process.env.VERCEL !== '1') {
+  // Scheduled cleanup of orphaned notifications (runs every hour)
+  const cleanupInterval = 60 * 60 * 1000; // 1 hour in milliseconds
+
+  setInterval(async () => {
+    try {
+      // Notification cleanup logging removed for security
+      const rideNotificationService = require('./services/rideNotificationService');
+      const deletedCount = await rideNotificationService.cleanupOrphanedNotifications();
+      // Cleanup results logging removed for security
+    } catch (error) {
+      console.error('❌ Error during scheduled notification cleanup:', error);
+    }
+  }, cleanupInterval);
+
+  // Start auto status scheduler (updates 'in_class' based on Routine and notifies friends)
   try {
-    // Notification cleanup logging removed for security
-    const rideNotificationService = require('./services/rideNotificationService');
-    const deletedCount = await rideNotificationService.cleanupOrphanedNotifications();
-    // Cleanup results logging removed for security
-  } catch (error) {
-    console.error('❌ Error during scheduled notification cleanup:', error);
+    startAutoStatusScheduler({ intervalMs: 5 * 60 * 1000 }); // every 5 minutes
+  } catch (e) {
+    console.warn('Failed to start auto status scheduler:', e?.message);
   }
-}, cleanupInterval);
-
-// Notification cleanup scheduler logging removed for security
-
-// Start auto status scheduler (updates 'in_class' based on Routine and notifies friends)
-try {
-  startAutoStatusScheduler({ intervalMs: 5 * 60 * 1000 }); // every 5 minutes
-} catch (e) {
-  console.warn('Failed to start auto status scheduler:', e?.message);
 }
