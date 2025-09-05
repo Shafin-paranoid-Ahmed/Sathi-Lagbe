@@ -12,19 +12,19 @@ const { initSocket } = require('./utils/socket');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
-const chatRoutes = require('./routes/chatRoutes');
-const messageRoutes = require('./routes/messageRoutes');
-const sosRoutes = require('./routes/sosRoutes');
-const rideRoutes = require('./routes/rideRoutes');
-const friendRoutes = require('./routes/friendRoutes');
-const classroomRoutes = require('./routes/classroomRoutes');
-const feedbackRoutes = require('./routes/feedbackRoutes');
-const freeRoutes = require('./routes/freeRoutes');
-const userRoutes = require('./routes/userRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
-const ratingRoutes = require('./routes/ratingRoutes');
-const routineRoutes = require('./routes/routineRoutes');
-const statsRoutes = require('./routes/statsRoutes');
+// const chatRoutes = require('./routes/chatRoutes');
+// const messageRoutes = require('./routes/messageRoutes');
+// const sosRoutes = require('./routes/sosRoutes');
+// const rideRoutes = require('./routes/rideRoutes');
+// const friendRoutes = require('./routes/friendRoutes');
+// const classroomRoutes = require('./routes/classroomRoutes');
+// const feedbackRoutes = require('./routes/feedbackRoutes');
+// const freeRoutes = require('./routes/freeRoutes');
+// const userRoutes = require('./routes/userRoutes');
+// const notificationRoutes = require('./routes/notificationRoutes');
+// const ratingRoutes = require('./routes/ratingRoutes');
+// const routineRoutes = require('./routes/routineRoutes');
+// const statsRoutes = require('./routes/statsRoutes');
 const { startAutoStatusScheduler } = require('./services/autoStatusService');
 
 const app = express();
