@@ -18,6 +18,6 @@ router.get('/getallchats', auth, chatController.getAllChats); // Compatibility
 router.post('/clearunreadmessage', auth, chatController.clearUnreadMessages);
 
 // Get messages for a chat - This must be after other specific GET routes to avoid conflicts
-// router.get('/:chatId', auth, chatController.getMessages);
+router.get('/:chatId', auth, chatController.getMessages);
 
 module.exports = router;
