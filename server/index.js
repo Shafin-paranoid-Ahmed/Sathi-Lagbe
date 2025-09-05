@@ -31,32 +31,32 @@ const app = express();
 
 // Middleware - ORDER IS IMPORTANT
 // CORS configuration for Vercel deployment
-const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? [
-      process.env.FRONTEND_URL, 
-      process.env.CLIENT_URL,
-      'https://sathi-lagbe-pcg3.vercel.app',
-      'https://sathi-lagbe-lovat.vercel.app'
-    ].filter(Boolean)
-  : ['http://localhost:3000', 'http://localhost:5173'];
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.CLIENT_URL,
+  'https://sathi-lagbe-pcg3.vercel.app',
+  'https://sathi-lagbe-lovat.vercel.app'
+].filter(Boolean);
 
-app.use(cors({
-  origin: function (origin, callback) {
+const corsOptions = {
+  origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, origin || true);
     }
+
+    console.log('CORS blocked origin:', origin);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   optionsSuccessStatus: 200
-}));
+};
+
+// Apply CORS middleware and ensure all preflight requests are handled
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 // Make sure body-parser middleware is before routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -79,6 +79,9 @@ app.use((req, res, next) => {
   console.log(`${req.method} ${req.url} - Origin: ${req.get('Origin')}`);
   next();
 });
+
+
+// Routes
 
 // Manual CORS handler as backup for Vercel
 app.use((req, res, next) => {
@@ -122,6 +125,21 @@ try {
   console.error('❌ Error loading routes:', error);
   console.error('Error stack:', error.stack);
 }
+app.use('/api/auth', authRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/message', messageRoutes);
+app.use('/api/sos', sosRoutes);
+app.use('/api/rides', rideRoutes);
+app.use('/api/friends', friendRoutes);
+app.use('/api/classrooms', classroomRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/free', freeRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/ratings', ratingRoutes);
+app.use('/api/routine', routineRoutes);
+app.use('/api/stats', statsRoutes);
+
 
 // Health check route
 app.get('/', (req, res) => {
