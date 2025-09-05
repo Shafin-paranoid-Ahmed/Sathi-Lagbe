@@ -199,7 +199,6 @@ const mongoOptions = {
   connectTimeoutMS: 30000,         // 30 seconds
   socketTimeoutMS: 30000,          // 30 seconds
   maxPoolSize: 10,                 // Maintain up to 10 socket connections
-  serverSelectionRetryDelayMS: 5000, // Keep trying to send operations for 5 seconds
   heartbeatFrequencyMS: 10000,     // Send a ping every 10 seconds
   retryWrites: true,
   w: 'majority'
