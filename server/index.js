@@ -36,6 +36,7 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   'https://sathi-lagbe-pcg3.vercel.app',
   'https://sathi-lagbe-lovat.vercel.app',
+  'https://sathi-lagbe-alpha.vercel.app',  // Your actual frontend URL
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:4173'
