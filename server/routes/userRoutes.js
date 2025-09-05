@@ -36,11 +36,11 @@ router.post('/bookmarks/:classroomId', auth, userController.addBookmark);
 router.delete('/bookmarks/:classroomId', auth, userController.removeBookmark);
 
 // Auto-status related routes
-router.get('/next-class', auth, userController.getNextClassInfo);
-router.post('/trigger-auto-status', auth, userController.triggerAutoStatusUpdate);
-router.get('/today-routine', auth, userController.getTodayRoutine);
-router.get('/auto-status-setup', auth, userController.checkAutoStatusSetup);
-router.get('/debug-auto-status', auth, userController.debugAutoStatus);
+router.get('/nextclass', auth, userController.getNextClassInfo);
+router.post('/triggerautostatus', auth, userController.triggerAutoStatusUpdate);
+router.get('/todayroutine', auth, userController.getTodayRoutine);
+router.get('/autostatussetup', auth, userController.checkAutoStatusSetup);
+router.get('/debugautostatus', auth, userController.debugAutoStatus);
 
 // Get user profile by ID (keep AFTER specific routes)
 router.get('/:id', auth, userController.getUserProfile);

@@ -81,7 +81,7 @@ const StatusUpdate = () => {
 
   const fetchNextClassInfo = async () => {
     try {
-      const response = await API.get('/users/next-class');
+      const response = await API.get('/users/nextclass');
       setNextClassInfo(response.data.nextClass);
     } catch (error) {
       console.error('Error fetching next class info:', error);
@@ -90,7 +90,7 @@ const StatusUpdate = () => {
 
   const fetchTodayRoutine = async () => {
     try {
-      const response = await API.get('/users/today-routine');
+      const response = await API.get('/users/todayroutine');
       setTodayRoutine(response.data);
     } catch (error) {
       console.error('Error fetching today\'s routine:', error);
@@ -149,7 +149,7 @@ const StatusUpdate = () => {
   const handleAutoStatusUpdate = async () => {
     try {
       setAutoUpdateLoading(true);
-      const response = await API.post('/users/trigger-auto-status');
+      const response = await API.post('/users/triggerautostatus');
       
       const newStatus = response.data.user.status.current;
       setCurrentStatus(response.data.user.status);
@@ -189,7 +189,7 @@ const StatusUpdate = () => {
       if (newAutoUpdateState) {
         // --- ENABLING AUTO-STATUS ---
         // Call our new "one-click" endpoint. It will enable the flag AND run the update.
-        const response = await API.post('/users/trigger-auto-status');
+        const response = await API.post('/users/triggerautostatus');
         finalUserStatus = response.data.user.status;
         alert('Auto status enabled and updated!');
 
