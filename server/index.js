@@ -47,9 +47,27 @@ const corsOptions = {
     console.log('Allowed origins:', allowedOrigins);
     
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.includes(origin)) {
-      console.log('CORS: Allowing origin:', origin);
-      return callback(null, origin || true);
+    if (!origin) {
+      console.log('CORS: Allowing request with no origin');
+      return callback(null, true);
+    }
+    
+    // Allow if in allowed origins list
+    if (allowedOrigins.includes(origin)) {
+      console.log('CORS: Allowing origin from list:', origin);
+      return callback(null, origin);
+    }
+    
+    // Allow any Vercel app domain
+    if (origin.includes('vercel.app')) {
+      console.log('CORS: Allowing Vercel origin:', origin);
+      return callback(null, origin);
+    }
+    
+    // Allow localhost for development
+    if (origin.includes('localhost')) {
+      console.log('CORS: Allowing localhost origin:', origin);
+      return callback(null, origin);
     }
 
     console.log('CORS blocked origin:', origin);
