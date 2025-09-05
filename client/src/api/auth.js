@@ -3,7 +3,7 @@ import axios from 'axios';
 import socketService from '../services/socketService';
 
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const BASE = import.meta.env.VITE_API_URL || 'https://sathi-lagbe-backend.vercel.app';
 // Ensure no trailing slash to prevent double slashes
 const cleanBase = BASE.replace(/\/$/, '');
 
