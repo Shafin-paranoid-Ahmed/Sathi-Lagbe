@@ -80,7 +80,51 @@ app.use((req, res, next) => {
   next();
 });
 
+
 // Routes
+
+// Manual CORS handler as backup for Vercel
+app.use((req, res, next) => {
+  const origin = req.get('Origin');
+  
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  next();
+});
+
+// Routes - Load with error handling
+try {
+  app.use('/api/auth', authRoutes);
+  app.use('/api/chat', chatRoutes);
+  app.use('/api/message', messageRoutes);
+  app.use('/api/sos', sosRoutes);
+  app.use('/api/rides', rideRoutes);
+  app.use('/api/friends', friendRoutes);
+  app.use('/api/classrooms', classroomRoutes);
+  app.use('/api/feedback', feedbackRoutes);
+  app.use('/api/free', freeRoutes);
+  app.use('/api/users', userRoutes);
+  app.use('/api/notifications', notificationRoutes);
+  app.use('/api/ratings', ratingRoutes);
+  app.use('/api/routine', routineRoutes);
+  app.use('/api/stats', statsRoutes);
+  console.log('✅ All routes loaded successfully');
+} catch (error) {
+  console.error('❌ Error loading routes:', error);
+  console.error('Error stack:', error.stack);
+}
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/message', messageRoutes);
@@ -95,6 +139,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/routine', routineRoutes);
 app.use('/api/stats', statsRoutes);
+
 
 // Health check route
 app.get('/', (req, res) => {
