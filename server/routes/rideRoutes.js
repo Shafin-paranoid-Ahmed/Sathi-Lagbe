@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const rideController = require('../controllers/rideController');
 const auth = require('../middleware/auth');
+const RideMatch = require('../models/RideMatch');
 
 // Debug endpoint
 router.get('/debug/user', auth, rideController.debugUserData);
@@ -15,8 +16,8 @@ router.get('/available', auth, rideController.getAllAvailableRides);
 
 // Search routes
 router.get('/search', rideController.findRideMatches);
-router.post('/ai-match', auth, rideController.getAiMatches);
-router.get('/ai-stream', auth, rideController.streamAiMatches);
+router.post('/aimatch', auth, rideController.getAiMatches);
+router.get('/aistream', auth, rideController.streamAiMatches);
 
 // Create routes
 router.post('/offer', auth, rideController.createRideOffer);
@@ -44,7 +45,7 @@ router.patch('/:rideId/cancel', auth, rideController.cancelRide);
 router.patch('/:rideId/complete', auth, rideController.completeRide);
 
 // Cleanup orphaned notifications (admin/maintenance route)
-router.post('/cleanup-notifications', auth, async (req, res) => {
+router.post('/cleanupnotifications', auth, async (req, res) => {
   try {
     const rideNotificationService = require('../services/rideNotificationService');
     const deletedCount = await rideNotificationService.cleanupOrphanedNotifications();

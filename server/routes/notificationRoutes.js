@@ -19,10 +19,10 @@ router.patch('/:notificationId/read', auth, notificationController.markAsRead);
 router.delete('/:notificationId', auth, notificationController.deleteNotification);
 
 // Get unread notification count (with optional category filter)
-router.get('/unread-count', auth, notificationController.getUnreadCount);
+router.get('/unreadcount', auth, notificationController.getUnreadCount);
 
 // Mark all notifications as read (with optional category filter)
-router.patch('/mark-all-read', auth, notificationController.markAllAsRead);
+router.patch('/markallread', auth, notificationController.markAllAsRead);
 
 // Get notification stream (for real-time updates)
 router.get('/stream', auth, notificationController.getNotificationStream);

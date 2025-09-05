@@ -8,7 +8,7 @@ const auth = require('../middleware/auth');
 router.get('/', auth, classroomController.getAvailableClassrooms);
 router.get('/all', auth, classroomController.getAllClassrooms);
 router.put('/status', auth, classroomController.updateStatus);
-router.put('/status/set-all-available', auth, classroomController.setAllClassroomsAvailable);
+router.put('/status/setallavailable', auth, classroomController.setAllClassroomsAvailable);
 
 // ========== MODULE 3: Enhanced Classroom Availability Routes ==========
 
