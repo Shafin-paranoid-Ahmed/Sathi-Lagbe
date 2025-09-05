@@ -33,22 +33,22 @@ router.post('/deny', auth, rideController.denyRideRequest);
 router.post('/rate', auth, rideController.submitRating);
 
 // CRUD operations - order matters
-router.get('/owner/:ownerId', auth, rideController.getRidesByOwner); // specific first
+// router.get('/owner/:ownerId', auth, rideController.getRidesByOwner); // specific first
 router.get('/mine/combined', auth, rideController.getMyRidesCombined);
 router.get('/myrides', auth, rideController.getMyRidesCombined); // alias for compatibility
-router.get('/:rideId', auth, rideController.getRideById); // generic after
-router.put('/:rideId', auth, rideController.updateRide);
-router.delete('/:rideId', auth, rideController.deleteRide);
+// router.get('/:rideId', auth, rideController.getRideById); // generic after
+// router.put('/:rideId', auth, rideController.updateRide);
+// router.delete('/:rideId', auth, rideController.deleteRide);
 
 // Notification-related operations
-router.patch('/:rideId/eta', auth, rideController.updateEta);
-router.patch('/:rideId/cancel', auth, rideController.cancelRide);
-router.patch('/:rideId/complete', auth, rideController.completeRide);
+// router.patch('/:rideId/eta', auth, rideController.updateEta);
+// router.patch('/:rideId/cancel', auth, rideController.cancelRide);
+// router.patch('/:rideId/complete', auth, rideController.completeRide);
 
 // Cleanup orphaned notifications (admin/maintenance route)
 router.post('/cleanupnotifications', auth, rideController.cleanupNotifications);
 
 // Debug endpoint to test ride ID validation
-router.get('/debug/:rideId', auth, rideController.getRideById);
+// router.get('/debug/:rideId', auth, rideController.getRideById);
 
 module.exports = router;
