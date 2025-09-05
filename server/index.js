@@ -30,15 +30,28 @@ const { startAutoStatusScheduler } = require('./services/autoStatusService');
 const app = express();
 
 // Middleware - ORDER IS IMPORTANT
+// CORS configuration for Vercel deployment
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? [
+      process.env.FRONTEND_URL, 
+      process.env.CLIENT_URL,
+      'https://sathi-lagbe-pcg3.vercel.app',
+      'https://sathi-lagbe-lovat.vercel.app'
+    ].filter(Boolean)
+  : ['http://localhost:3000', 'http://localhost:5173'];
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [
-        process.env.FRONTEND_URL, 
-        process.env.CLIENT_URL,
-        'https://sathi-lagbe-pcg3.vercel.app',
-        'https://sathi-lagbe-lovat.vercel.app'
-      ].filter(Boolean)
-    : ['http://localhost:3000', 'http://localhost:5173'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -61,21 +74,31 @@ app.use((req, res, next) => {
   next();
 });
 
-// Debug middleware for CORS issues (only in development)
-if (process.env.NODE_ENV !== 'production') {
-  app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url} - Origin: ${req.get('Origin')}`);
-    next();
-  });
-}
+// Debug middleware for CORS issues
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url} - Origin: ${req.get('Origin')}`);
+  next();
+});
 
-// Handle preflight OPTIONS requests explicitly
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.get('Origin') || '*');
+// Manual CORS handler as backup for Vercel
+app.use((req, res, next) => {
+  const origin = req.get('Origin');
+  
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
+  res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.status(200).end();
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  next();
 });
 
 // Routes
@@ -97,6 +120,15 @@ app.use('/api/stats', statsRoutes);
 // Health check route
 app.get('/', (req, res) => {
   res.json({ message: 'API is running' });
+});
+
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.json({ 
+    message: 'CORS test successful',
+    origin: req.get('Origin'),
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Error handling middleware
