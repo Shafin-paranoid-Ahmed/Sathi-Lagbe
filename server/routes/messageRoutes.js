@@ -8,7 +8,7 @@ const auth = require('../middleware/auth');
 router.post('/newmessage', auth, messageController.sendNewMessage);
 
 // Get all messages for a specific chat
-router.get('/getallmessages/:chatId', auth, messageController.getAllMessages);
+// router.get('/getallmessages/:chatId', auth, messageController.getAllMessages);
 
 // Mark messages as read
 router.post('/markread', auth, messageController.markMessagesAsRead);
