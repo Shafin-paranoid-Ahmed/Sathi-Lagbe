@@ -25,15 +25,15 @@ router.put('/profile/settings', auth, userController.updateSettings);
 router.patch('/status', auth, userController.updateStatus);
 
 // Get user status
-// router.get('/status/:userId', auth, userController.getUserStatus);
+router.get('/status/:userId', auth, userController.getUserStatus);
 
 // Update avatar
 router.post('/avatar', auth, upload.single('avatar'), userController.updateAvatar);
 
 // Classroom bookmarks (place BEFORE dynamic ':id' route)
 router.get('/bookmarks', auth, userController.getBookmarks);
-// router.post('/bookmarks/:classroomId', auth, userController.addBookmark);
-// router.delete('/bookmarks/:classroomId', auth, userController.removeBookmark);
+router.post('/bookmarks/:classroomId', auth, userController.addBookmark);
+router.delete('/bookmarks/:classroomId', auth, userController.removeBookmark);
 
 // Auto-status related routes
 router.get('/nextclass', auth, userController.getNextClassInfo);
@@ -43,6 +43,6 @@ router.get('/autostatussetup', auth, userController.checkAutoStatusSetup);
 router.get('/debugautostatus', auth, userController.debugAutoStatus);
 
 // Get user profile by ID (keep AFTER specific routes)
-// router.get('/:id', auth, userController.getUserProfile);
+router.get('/:id', auth, userController.getUserProfile);
 
 module.exports = router;
