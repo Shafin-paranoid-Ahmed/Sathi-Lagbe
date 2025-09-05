@@ -3,17 +3,17 @@ import { API } from './auth';
 
 // Get all chats for the current user
 export function getAllChats() {
-  return API.get('/chat/get-all-chats');
+  return API.get('/chat/getallchats');
 }
 
 // Get messages for a specific chat
 export function getChatMessages(chatId) {
-  return API.get(`/message/get-all-messages/${chatId}`);
+  return API.get(`/message/getallmessages/${chatId}`);
 }
 
 // Create a new chat with selected users
 export function createChat(members) {
-  return API.post('/chat/create-new-chat', { members });
+  return API.post('/chat/createnewchat', { members });
 }
 
 // Send a new message with optional image
@@ -25,7 +25,7 @@ export function sendNewMessage(chatId, text, image = null) {
     formData.append('text', text);
     formData.append('image', image);
     
-    return API.post('/message/new-message', formData, {
+    return API.post('/message/newmessage', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
@@ -33,7 +33,7 @@ export function sendNewMessage(chatId, text, image = null) {
   } 
   
   // For text-only messages, use JSON
-  return API.post('/message/new-message', {
+  return API.post('/message/newmessage', {
     chatId,
     text
   });
@@ -41,10 +41,10 @@ export function sendNewMessage(chatId, text, image = null) {
 
 // Clear unread message count
 export function clearUnreadMessages(chatId) {
-  return API.post('/chat/clear-unread-message', { chatId });
+  return API.post('/chat/clearunreadmessage', { chatId });
 }
 
 // Mark messages as read
 export function markMessagesAsRead(chatId, messageIds) {
-  return API.post('/message/mark-read', { chatId, messageIds });
+  return API.post('/message/markread', { chatId, messageIds });
 }

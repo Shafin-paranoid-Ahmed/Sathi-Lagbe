@@ -30,7 +30,7 @@ const Ratings = () => {
   const fetchUserRides = async () => {
     try {
       setLoading(true);
-      const response = await API.get('/rides/my-rides');
+      const response = await API.get('/rides/myrides');
       
       // Filter completed rides that can be rated
       const completedRides = response.data.filter(ride => 
