@@ -1,10 +1,10 @@
-// server/routes/authRoutes.js - Merged implementation
+// server/routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
 const { registerUser, loginUser, verifyToken, logoutUser, deleteAccount } = require('../controllers/authController');
 const auth = require('../middleware/auth');
 
-// Registration routes - support both naming conventions for compatibility
+// Registration routes 
 router.post('/register', registerUser);
 router.post('/signup', registerUser);
 

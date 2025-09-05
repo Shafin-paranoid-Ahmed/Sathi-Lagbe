@@ -440,7 +440,8 @@ export default function Routine() {
                             id="time" 
                             value={newEntry.timeSlot} 
                             onChange={e => setNewEntry({...newEntry, timeSlot: e.target.value})} 
-                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-200 hover:border-blue-400"
+                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md dark:
+                            bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-200 hover:border-blue-400"
                         >
                             {timeSlots.map(slot => <option key={slot} value={slot}>{slot}</option>)}
                         </select>
@@ -451,7 +452,8 @@ export default function Routine() {
                             id="day" 
                             value={newEntry.day} 
                             onChange={e => setNewEntry({...newEntry, day: e.target.value})} 
-                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-200 hover:border-blue-400"
+                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md dark:
+                            bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-200 hover:border-blue-400"
                         >
                             {getDropdownDays().map(option => (
                                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -466,13 +468,15 @@ export default function Routine() {
                             value={newEntry.course} 
                             onChange={e => setNewEntry({...newEntry, course: e.target.value})} 
                             placeholder="e.g., CSE110" 
-                            className="mt-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-200 hover:border-blue-400" 
+                            className="mt-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md dark:
+                            bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-200 hover:border-blue-400" 
                         />
                     </div>
                     <button 
                         type="submit" 
                         disabled={submitting}
-                        className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-2 rounded-lg hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transform transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95"
+                        className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-2 rounded-lg hover:
+                        from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transform transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95"
                     >
                         {submitting ? (
                             <div className="flex items-center justify-center space-x-2">
