@@ -24,7 +24,9 @@ class SocketService {
     }
     
     const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    this.socket = io(BASE_URL, {
+    // Ensure no trailing slash to prevent double slashes
+    const cleanBase = BASE_URL.replace(/\/$/, '');
+    this.socket = io(cleanBase, {
       auth: { token }
     });
     

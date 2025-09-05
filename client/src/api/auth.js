@@ -4,9 +4,11 @@ import socketService from '../services/socketService';
 
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Ensure no trailing slash to prevent double slashes
+const cleanBase = BASE.replace(/\/$/, '');
 
 export const API = axios.create({
-  baseURL: `${BASE}/api`,
+  baseURL: `${cleanBase}/api`,
 });
 
 // Flag to prevent multiple redirects
