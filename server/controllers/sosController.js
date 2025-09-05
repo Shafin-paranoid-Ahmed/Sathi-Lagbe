@@ -225,10 +225,6 @@ exports.triggerSOS = async (req, res) => {
     
     await emergency.save();
 
-    console.log('=== SOS TRIGGER DEBUG ===');
-    console.log('User ID:', userId);
-    console.log('Contacts to use:', JSON.stringify(contactsToUse, null, 2));
-
     // Send in-app notifications to contacts who are app users (have userId)
     const recipientIds = contactsToUse
       .filter(c => c.userId)
