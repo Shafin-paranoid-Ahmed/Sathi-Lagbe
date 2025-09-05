@@ -1025,3 +1025,17 @@ exports.getMyRidesCombined = async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to fetch rides' });
   }
 };
+
+/**
+ * Cleanup orphaned notifications
+ */
+exports.cleanupNotifications = async (req, res) => {
+  try {
+    const rideNotificationService = require('../services/rideNotificationService');
+    const deletedCount = await rideNotificationService.cleanupOrphanedNotifications();
+    res.json({ message: `Cleanup complete. Deleted ${deletedCount} orphaned notifications.` });
+  } catch (error) {
+    console.error('Error during notification cleanup:', error);
+    res.status(500).json({ error: 'Failed to cleanup notifications' });
+  }
+};
