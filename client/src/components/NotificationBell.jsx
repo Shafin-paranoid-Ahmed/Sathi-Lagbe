@@ -74,7 +74,7 @@ export default function NotificationBell() {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await API.get('/notifications/unread-count');
+      const response = await API.get('/notifications/unreadcount');
       setUnreadCount(response.data.count);
     } catch (error) {
       // Silently fail
@@ -129,7 +129,7 @@ export default function NotificationBell() {
         params.category = activeCategory;
       }
       
-      await API.patch('/notifications/mark-all-read', {}, { params });
+      await API.patch('/notifications/markallread', {}, { params });
       
       setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
       setUnreadCount(0);
