@@ -35,13 +35,20 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.CLIENT_URL,
   'https://sathi-lagbe-pcg3.vercel.app',
-  'https://sathi-lagbe-lovat.vercel.app'
+  'https://sathi-lagbe-lovat.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:4173'
 ].filter(Boolean);
 
 const corsOptions = {
   origin: (origin, callback) => {
+    console.log('CORS request from origin:', origin);
+    console.log('Allowed origins:', allowedOrigins);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
+      console.log('CORS: Allowing origin:', origin);
       return callback(null, origin || true);
     }
 
@@ -57,6 +64,23 @@ const corsOptions = {
 // Apply CORS middleware and ensure all preflight requests are handled
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+// Additional CORS fallback for Vercel
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  console.log('Request origin:', origin);
+  
+  // If origin is not in allowed list but looks like a Vercel app, allow it
+  if (origin && origin.includes('vercel.app') && !allowedOrigins.includes(origin)) {
+    console.log('Allowing Vercel origin:', origin);
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
+  }
+  
+  next();
+});
 // Make sure body-parser middleware is before routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
