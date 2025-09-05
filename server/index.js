@@ -107,19 +107,19 @@ app.use((req, res, next) => {
 // Routes - Load with error handling
 try {
   app.use('/api/auth', authRoutes);
-  app.use('/api/chat', chatRoutes);
-  app.use('/api/message', messageRoutes);
-  app.use('/api/sos', sosRoutes);
-  app.use('/api/rides', rideRoutes);
-  app.use('/api/friends', friendRoutes);
-  app.use('/api/classrooms', classroomRoutes);
-  app.use('/api/feedback', feedbackRoutes);
-  app.use('/api/free', freeRoutes);
-  app.use('/api/users', userRoutes);
-  app.use('/api/notifications', notificationRoutes);
-  app.use('/api/ratings', ratingRoutes);
-  app.use('/api/routine', routineRoutes);
-  app.use('/api/stats', statsRoutes);
+  // app.use('/api/chat', chatRoutes);
+  // app.use('/api/message', messageRoutes);
+  // app.use('/api/sos', sosRoutes);
+  // app.use('/api/rides', rideRoutes);
+  // app.use('/api/friends', friendRoutes);
+  // app.use('/api/classrooms', classroomRoutes);
+  // app.use('/api/feedback', feedbackRoutes);
+  // app.use('/api/free', freeRoutes);
+  // app.use('/api/users', userRoutes);
+  // app.use('/api/notifications', notificationRoutes);
+  // app.use('/api/ratings', ratingRoutes);
+  // app.use('/api/routine', routineRoutes);
+  // app.use('/api/stats', statsRoutes);
   console.log('✅ All routes loaded successfully');
 } catch (error) {
   console.error('❌ Error loading routes:', error);
