@@ -23,7 +23,7 @@ class SocketService {
       this.socket.disconnect();
     }
     
-    const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const BASE_URL = import.meta.env.VITE_API_URL || 'https://sathi-lagbe-backend.vercel.app';
     // Ensure no trailing slash to prevent double slashes
     const cleanBase = BASE_URL.replace(/\/$/, '');
     this.socket = io(cleanBase, {
