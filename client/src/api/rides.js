@@ -18,7 +18,7 @@ export function searchRides(params) {
 
 // Get AI-based ride matches
 export function getAiMatches(criteria) {
-  return API.post('/rides/ai-match', criteria);
+  return API.post('/rides/aimatch', criteria);
 }
 
 // Get all available rides (without search parameters)

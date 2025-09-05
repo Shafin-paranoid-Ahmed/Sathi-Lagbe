@@ -35,7 +35,7 @@ export const updateClassroomStatus = (id, status) => {
 
 // Set all classrooms to available
 export const setAllClassroomsAvailable = () => {
-  return axios.put(`${API_BASE_URL}/classrooms/status/set-all-available`, {}, {
+  return axios.put(`${API_BASE_URL}/classrooms/status/setallavailable`, {}, {
     headers: getAuthHeaders()
   });
 };

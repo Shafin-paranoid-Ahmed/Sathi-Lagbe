@@ -56,9 +56,11 @@ const corsOptions = {
 
 // Apply CORS middleware and ensure all preflight requests are handled
 app.use(cors(corsOptions));
+
 // Express 5 no longer allows '*' as a route pattern, so use a RegExp to
 // match all paths for OPTIONS requests to properly handle CORS preflights
 app.options(/.*/, cors(corsOptions));
+
 // Make sure body-parser middleware is before routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -82,7 +84,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes
+
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/message', messageRoutes);
@@ -97,6 +99,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/routine', routineRoutes);
 app.use('/api/stats', statsRoutes);
+
 
 // Health check route
 app.get('/', (req, res) => {

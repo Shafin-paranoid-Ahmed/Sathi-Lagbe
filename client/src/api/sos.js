@@ -3,12 +3,12 @@ import { API } from './auth';
 
 // Fetch the user's SOS contacts
 export function getContacts() {
-  return API.get('/sos/contacts');
+  return API.get('/sos/getcontacts');
 }
 
 // Save SOS contacts
 export function saveContacts(contacts) {
-  return API.post('/sos/save-contacts', { contacts });
+  return API.post('/sos/savecontacts', { contacts });
 }
 
 // Trigger an SOS alert to all contacts

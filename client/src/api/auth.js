@@ -129,21 +129,21 @@ export function getCurrentUserStatus() {
 
 // Auto-status related functions
 export function getNextClassInfo() {
-  return API.get('/users/next-class');
+  return API.get('/users/nextclass');
 }
 
 export function triggerAutoStatusUpdate() {
-  return API.post('/users/trigger-auto-status');
+  return API.post('/users/triggerautostatus');
 }
 
 export function getTodayRoutine() {
-  return API.get('/users/today-routine');
+  return API.get('/users/todayroutine');
 }
 
 export function checkAutoStatusSetup() {
-  return API.get('/users/auto-status-setup');
+  return API.get('/users/autostatussetup');
 }
 
 export function debugAutoStatus() {
-  return API.get('/users/debug-auto-status');
+  return API.get('/users/debugautostatus');
 }

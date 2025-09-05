@@ -76,7 +76,7 @@ export default function RideNotificationCenter() {
       const params = {};
       if (filters.category !== 'all') params.category = filters.category;
       
-      await API.patch('/notifications/mark-all-read', {}, { params });
+      await API.patch('/notifications/markallread', {}, { params });
       
       setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
       fetchStats();
