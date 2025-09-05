@@ -6,8 +6,8 @@ const auth = require('../middleware/auth');
 
 
 router.get('/contacts', auth, sosController.getContacts);
-router.get('/get-contacts', auth, sosController.getContacts); 
-router.post('/save-contacts', auth, sosController.saveContacts);
+router.get('/getcontacts', auth, sosController.getContacts); 
+router.post('/savecontacts', auth, sosController.saveContacts);
 
 // Trigger SOS alert - support multiple endpoint names for compatibility
 router.post('/trigger', auth, sosController.triggerSOS);
