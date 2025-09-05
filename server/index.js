@@ -125,20 +125,6 @@ try {
   console.error('❌ Error loading routes:', error);
   console.error('Error stack:', error.stack);
 }
-app.use('/api/auth', authRoutes);
-app.use('/api/chat', chatRoutes);
-app.use('/api/message', messageRoutes);
-app.use('/api/sos', sosRoutes);
-app.use('/api/rides', rideRoutes);
-app.use('/api/friends', friendRoutes);
-app.use('/api/classrooms', classroomRoutes);
-app.use('/api/feedback', feedbackRoutes);
-app.use('/api/free', freeRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/ratings', ratingRoutes);
-app.use('/api/routine', routineRoutes);
-app.use('/api/stats', statsRoutes);
 
 
 // Health check route
