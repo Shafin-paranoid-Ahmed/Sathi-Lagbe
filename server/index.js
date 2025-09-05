@@ -192,10 +192,51 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('Database connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// Connect to MongoDB with Vercel-optimized settings
+const mongoOptions = {
+  serverSelectionTimeoutMS: 30000, // 30 seconds
+  connectTimeoutMS: 30000,         // 30 seconds
+  socketTimeoutMS: 30000,          // 30 seconds
+  maxPoolSize: 10,                 // Maintain up to 10 socket connections
+  serverSelectionRetryDelayMS: 5000, // Keep trying to send operations for 5 seconds
+  heartbeatFrequencyMS: 10000,     // Send a ping every 10 seconds
+  retryWrites: true,
+  w: 'majority'
+};
+
+// MongoDB connection with retry logic
+const connectWithRetry = async () => {
+  try {
+    console.log('🔄 Attempting to connect to MongoDB...');
+    await mongoose.connect(process.env.MONGO_URI, mongoOptions);
+    console.log('✅ Database connected successfully');
+    console.log('MongoDB connection state:', mongoose.connection.readyState);
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err);
+    console.error('Error code:', err.code);
+    console.error('Error name:', err.name);
+    
+    // Retry connection after 5 seconds
+    console.log('🔄 Retrying MongoDB connection in 5 seconds...');
+    setTimeout(connectWithRetry, 5000);
+  }
+};
+
+// Handle connection events
+mongoose.connection.on('connected', () => {
+  console.log('✅ Mongoose connected to MongoDB');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ Mongoose connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ Mongoose disconnected from MongoDB');
+});
+
+// Start connection
+connectWithRetry();
 
 // Create HTTP server
 const server = http.createServer(app);
