@@ -13,10 +13,10 @@ router.get('/categories', auth, notificationController.getNotificationCategories
 router.get('/stats', auth, notificationController.getNotificationStats);
 
 // Mark notification as read
-router.patch('/:notificationId/read', auth, notificationController.markAsRead);
+// router.patch('/:notificationId/read', auth, notificationController.markAsRead);
 
 // Delete a notification
-router.delete('/:notificationId', auth, notificationController.deleteNotification);
+// router.delete('/:notificationId', auth, notificationController.deleteNotification);
 
 // Get unread notification count (with optional category filter)
 router.get('/unreadcount', auth, notificationController.getUnreadCount);

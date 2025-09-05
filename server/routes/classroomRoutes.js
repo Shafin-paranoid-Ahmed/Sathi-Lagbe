@@ -19,7 +19,7 @@ router.get('/filtered', auth, classroomController.getFilteredClassrooms);
 router.get('/availability', auth, classroomController.getAvailabilityForTimeslot);
 
 // Update classroom timetable
-router.put('/:id/timetable', auth, classroomController.updateTimetable);
+// router.put('/:id/timetable', auth, classroomController.updateTimetable);
 
 // Bulk update timetables from university data
 router.put('/timetables/bulk', auth, classroomController.bulkUpdateTimetables);

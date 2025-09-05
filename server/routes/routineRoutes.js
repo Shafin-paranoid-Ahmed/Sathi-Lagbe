@@ -16,10 +16,10 @@ router.get('/friends', routineController.getFriendsRoutines);
 router.post('/', routineController.addRoutineEntry);
 
 // Update routine entry
-router.put('/:entryId', routineController.updateRoutineEntry);
+// router.put('/:entryId', routineController.updateRoutineEntry);
 
 // Delete routine entry
-router.delete('/:entryId', routineController.deleteRoutineEntry);
+// router.delete('/:entryId', routineController.deleteRoutineEntry);
 
 // Delete all routine entries for user
 router.delete('/', routineController.deleteAllUserRoutine);
