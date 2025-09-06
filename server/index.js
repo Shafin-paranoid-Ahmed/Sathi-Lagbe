@@ -39,23 +39,23 @@ app.use(helmet({
 }));
 app.use(compression());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api/', limiter);
+// Rate limiting (disabled for development to avoid CORS issues)
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 100, // limit each IP to 100 requests per windowMs
+//   message: 'Too many requests from this IP, please try again later.',
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
+// app.use('/api/', limiter);
 
-// Stricter rate limiting for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
-  message: 'Too many authentication attempts, please try again later.',
-});
-app.use('/api/auth/', authLimiter);
+// Stricter rate limiting for auth endpoints (disabled for development)
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 5, // limit each IP to 5 requests per windowMs
+//   message: 'Too many authentication attempts, please try again later.',
+// });
+// app.use('/api/auth/', authLimiter);
 
 // Middleware - ORDER IS IMPORTANT
 // CORS configuration for Vercel deployment
@@ -110,7 +110,15 @@ const corsOptions = {
 
 // Apply CORS middleware and ensure all preflight requests are handled
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+
+// Handle preflight requests for all routes
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.status(200).end();
+});
 
 // Additional CORS fallback for Vercel
 app.use((req, res, next) => {
