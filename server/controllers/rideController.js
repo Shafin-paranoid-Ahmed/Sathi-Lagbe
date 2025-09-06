@@ -4,6 +4,7 @@ const { aiMatch } = require('../services/aiMatcher');
 const { validateRideOffer, validateRecurringRide } = require('../utils/validate');
 const User = require('../models/User'); // Add this import
 const rideNotificationService = require('../services/rideNotificationService');
+const cacheService = require('../services/cacheService');
 const mongoose = require('mongoose'); // Added for mongoose.Types.ObjectId
 
 /**
@@ -118,12 +119,21 @@ exports.debugUserData = async (req, res) => {
  */
 exports.getAllAvailableRides = async (req, res) => {
   try {
+    // Check cache first
+    const cacheKey = cacheService.getRidesKey({ status: 'available' });
+    const cachedRides = await cacheService.get(cacheKey);
+    
+    if (cachedRides) {
+      return res.json(cachedRides);
+    }
+
     await migrateRidesWithUserData();
     
     const rides = await RideMatch.find({ status: { $ne: 'completed' } })
       .populate('riderId', 'name email avatarUrl gender')
       .sort({ createdAt: -1 })
-      .lean();
+      .lean()
+      .limit(100); // Limit results for better performance
 
     const validRides = rides.filter(ride => ride.riderId);
 
@@ -143,6 +153,9 @@ exports.getAllAvailableRides = async (req, res) => {
         seatsRemaining: Math.max(0, seatsRemaining)
       };
     });
+
+    // Cache the results for 5 minutes
+    await cacheService.set(cacheKey, finalRides, 300);
 
     res.json(finalRides);
   } catch (err) {
@@ -236,6 +249,9 @@ exports.createRideOffer = async (req, res) => {
     console.log('=== Ride saved successfully ===');
     console.log('Saved ride riderName:', newRide.riderName);
     console.log('Saved ride riderGender:', newRide.riderGender);
+    
+    // Invalidate rides cache when new ride is created
+    await cacheService.invalidateRides();
     
     res.status(201).json(newRide);
   } catch (err) {

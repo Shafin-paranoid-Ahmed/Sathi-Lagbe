@@ -24,4 +24,9 @@ const MessageSchema = new mongoose.Schema({
   }
 });
 
+// Add indexes for better query performance
+MessageSchema.index({ chatId: 1, createdAt: -1 }); // For chat message queries
+MessageSchema.index({ sender: 1, createdAt: -1 }); // For user message queries
+MessageSchema.index({ read: 1, chatId: 1 }); // For unread message queries
+
 module.exports = mongoose.model('Message', MessageSchema);

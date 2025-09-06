@@ -75,7 +75,14 @@ const rideMatchSchema = new mongoose.Schema({
   ]
 }, { timestamps: true });
 
-const RideMatch = mongoose.model('RideMatch', rideMatchSchema);
+// Add indexes for better query performance
+rideMatchSchema.index({ status: 1, departureTime: 1 }); // For finding available rides
+rideMatchSchema.index({ riderId: 1, status: 1 }); // For user's rides
+rideMatchSchema.index({ startLocation: 1, endLocation: 1 }); // For location-based searches
+rideMatchSchema.index({ departureTime: 1, status: 1 }); // For time-based queries
+rideMatchSchema.index({ createdAt: -1 }); // For recent rides sorting
+rideMatchSchema.index({ 'recurring.days': 1 }); // For recurring ride queries
 
+const RideMatch = mongoose.model('RideMatch', rideMatchSchema);
 
 module.exports = RideMatch;

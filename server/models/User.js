@@ -55,4 +55,12 @@ const UserSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Add indexes for better query performance
+UserSchema.index({ email: 1 }); // Unique index for email lookups
+UserSchema.index({ bracuId: 1 }); // Unique index for BRACU ID lookups
+UserSchema.index({ 'status.current': 1 }); // For status-based queries
+UserSchema.index({ name: 1 }); // For name-based searches
+UserSchema.index({ 'bookmarkedClassrooms': 1 }); // For classroom bookmark queries
+UserSchema.index({ averageRating: -1 }); // For rating-based sorting
+
 module.exports = mongoose.model('User', UserSchema);

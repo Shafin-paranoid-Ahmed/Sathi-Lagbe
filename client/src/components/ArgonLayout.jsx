@@ -23,6 +23,7 @@ import {
 } from '@heroicons/react/24/outline';
 import NotificationBell from './NotificationBell';
 import socketService from '../services/socketService';
+import LazyImage from './LazyImage';
 import { MapPinIcon } from '@heroicons/react/24/outline';
 
 const ArgonLayout = ({ children, setIsAuthenticated }) => {
@@ -298,7 +299,12 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
             
             {/* Logo and Brand Name */}
             <Link to="/home" className="flex items-center hover:opacity-80 transition-opacity">
-              <img src="/bracu-logo.svg" alt="BRACU Logo" className="h-6 w-6 mr-2" />
+              <LazyImage 
+                src="/bracu-logo.svg" 
+                alt="BRACU Logo" 
+                className="h-6 w-6 mr-2"
+                placeholder={<div className="w-6 h-6 bg-blue-100 rounded"></div>}
+              />
               <span className="text-lg font-semibold text-gray-900 dark:text-white">Sathi Lagbe</span>
             </Link>
           </div>
@@ -321,7 +327,13 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
                 className="flex items-center space-x-2 p-2 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shadow-sm hover:shadow-md"
               >
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="h-6 w-6 rounded-full object-cover" />
+                  <LazyImage 
+                    src={avatarUrl} 
+                    alt="Avatar" 
+                    className="h-6 w-6 rounded-full object-cover"
+                    placeholder={<UserCircleIcon className="h-5 w-5" />}
+                    fallback={<UserCircleIcon className="h-5 w-5" />}
+                  />
                 ) : (
                   <UserCircleIcon className="h-5 w-5" />
                 )}
