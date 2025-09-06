@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout, verifyToken, updateStatus, getCurrentUserStatus } from '../api/auth';
 import { 
@@ -54,7 +54,7 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
   };
   const [openDropdown, setOpenDropdown] = useState(getInitialDropdown);
 
-  const navigation = [
+  const navigation = useMemo(() => [
     { name: 'Home', href: '/home', icon: HomeIcon },
     { name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon },
     { name: 'Friends', href: '/friends', icon: UserGroupIcon },
@@ -71,15 +71,15 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     { name: 'Classrooms', href: '/classrooms', icon: AcademicCapIcon },
     { name: 'Routine', href: '/routine', icon: AcademicCapIcon },
     { name: 'Ratings', href: '/ratings', icon: StarIcon },
-  ];
+  ], []);
 
-  const statusOptions = [
+  const statusOptions = useMemo(() => [
     { value: 'available', label: 'Available', icon: WifiIcon, color: 'text-green-600' },
     { value: 'busy', label: 'Busy', icon: ClockIcon, color: 'text-red-600' },
     { value: 'in_class', label: 'In Class', icon: BookOpenIcon, color: 'text-blue-600' },
     { value: 'studying', label: 'Studying', icon: BookOpenIcon, color: 'text-purple-600' },
     { value: 'free', label: 'Free', icon: CheckCircleIcon, color: 'text-orange-600' }
-  ];
+  ], []);
 
   // Load basic user info and refresh from server
   useEffect(() => {

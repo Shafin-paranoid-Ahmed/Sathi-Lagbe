@@ -7,6 +7,9 @@ const cors = require('cors');
 const http = require('http');
 const morgan = require('morgan');
 const jwt = require('jsonwebtoken');
+const compression = require('compression');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { initSocket } = require('./utils/socket');
 
 
@@ -28,6 +31,31 @@ const statsRoutes = require('./routes/statsRoutes');
 const { startAutoStatusScheduler } = require('./services/autoStatusService');
 
 const app = express();
+
+// Performance and Security Middleware
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable for development
+  crossOriginEmbedderPolicy: false
+}));
+app.use(compression());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', limiter);
+
+// Stricter rate limiting for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 requests per windowMs
+  message: 'Too many authentication attempts, please try again later.',
+});
+app.use('/api/auth/', authLimiter);
 
 // Middleware - ORDER IS IMPORTANT
 // CORS configuration for Vercel deployment

@@ -1,38 +1,48 @@
 // client/src/App.jsx with Argon Dashboard integration
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import {
   Routes,
   Route,
   Navigate,
 } from 'react-router-dom';
 
-// Auth & general pages
-import Signup from './pages/Signup';
-import Login from './pages/Login';
-import Home from './pages/Home';
-import Chat from './pages/Chat';
-import Sos from './pages/SOS';
-import Friends from './pages/Friends';
-import Classroom from './pages/Classroom';
-import Routine from './pages/Routine'; // Import Routine page
-import Profile from './pages/Profile'; // Import Profile page
-import Ratings from './pages/Ratings'; // Import Ratings page
+// Auth & general pages - lazy loaded for better performance
+const Signup = lazy(() => import('./pages/Signup'));
+const Login = lazy(() => import('./pages/Login'));
+const Home = lazy(() => import('./pages/Home'));
+const Chat = lazy(() => import('./pages/Chat'));
+const Sos = lazy(() => import('./pages/SOS'));
+const Friends = lazy(() => import('./pages/Friends'));
+const Classroom = lazy(() => import('./pages/Classroom'));
+const Routine = lazy(() => import('./pages/Routine'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Ratings = lazy(() => import('./pages/Ratings'));
 
-// Ride sharing components
-import RideOfferForm from './components/RideOfferForm';
-import RideMatchResults from './components/RideMatchResults';
-import RideCoordination from './components/RideCoordination';
-import MyRides from './components/MyRides';
-import RideEditForm from './components/RideEditForm';
-import RideDeleteForm from './components/RideDeleteForm';
-import FeedbackForm from './components/FeedbackForm';
-import FreeRooms from './components/FreeRooms';
+// Ride sharing components - lazy loaded
+const RideOfferForm = lazy(() => import('./components/RideOfferForm'));
+const RideMatchResults = lazy(() => import('./components/RideMatchResults'));
+const RideCoordination = lazy(() => import('./components/RideCoordination'));
+const MyRides = lazy(() => import('./components/MyRides'));
+const RideEditForm = lazy(() => import('./components/RideEditForm'));
+const RideDeleteForm = lazy(() => import('./components/RideDeleteForm'));
+const FeedbackForm = lazy(() => import('./components/FeedbackForm'));
+const FreeRooms = lazy(() => import('./components/FreeRooms'));
 
-// Layout
+// Layout - keep this loaded immediately as it's always needed
 import ArgonLayout from './components/ArgonLayout';
 
 // API
 import { verifyToken } from './api/auth';
+
+// Loading component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="text-center animate-fade-in">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+      <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+    </div>
+  </div>
+);
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -91,12 +101,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-      <Routes>
-        {/* Auth Routes */}
-        <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login-success" element={<Navigate to="/home" replace />} />
-        <Route path="/signup-success" element={<Navigate to="/login" replace />} />
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
+          {/* Auth Routes */}
+          <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/login-success" element={<Navigate to="/home" replace />} />
+          <Route path="/signup-success" element={<Navigate to="/login" replace />} />
 
         {/* Protected Routes with Argon Layout */}
         <Route 
@@ -312,9 +323,10 @@ export default function App() {
           element={isAuthenticated ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />} 
         />
         
-        {/* Catch all route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Catch all route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </div>
   );
 }
