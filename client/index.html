@@ -5,10 +5,39 @@
     <link rel="icon" type="image/svg+xml" href="/bracu-logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sathi Lagbe - Campus Ride Sharing</title>
+    
+    <!-- Performance optimizations -->
+    <link rel="preload" href="/bracu-logo.svg" as="image" type="image/svg+xml">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="dns-prefetch" href="https://maps.googleapis.com">
+    
     <!-- Inter font for Argon Dashboard -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Critical CSS inline for faster rendering -->
+    <style>
+      /* Critical above-the-fold styles */
+      body { margin: 0; font-family: Inter, system-ui, sans-serif; }
+      .loading-spinner { 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        height: 100vh; 
+        background: #f9fafb; 
+      }
+      .spinner { 
+        width: 48px; 
+        height: 48px; 
+        border: 4px solid #e5e7eb; 
+        border-top: 4px solid #3b82f6; 
+        border-radius: 50%; 
+        animation: spin 1s linear infinite; 
+      }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
     <div id="root"></div>

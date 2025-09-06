@@ -247,6 +247,10 @@ const connectWithRetry = async () => {
     await mongoose.connect(process.env.MONGO_URI, mongoOptions);
     console.log('✅ Database connected successfully');
     console.log('MongoDB connection state:', mongoose.connection.readyState);
+    
+    // Initialize cache service after database connection
+    const cacheService = require('./services/cacheService');
+    await cacheService.connect();
   } catch (err) {
     console.error('❌ MongoDB connection error:', err);
     console.error('Error code:', err.code);

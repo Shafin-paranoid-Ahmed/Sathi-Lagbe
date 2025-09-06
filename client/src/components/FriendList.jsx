@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { getAllUsers, searchUsers } from '../api/users';
 import { createChat } from '../api/chat';
 import { SearchIcon, MessageSquareIcon } from 'lucide-react';
+import LazyImage from './LazyImage';
 
 export default function FriendList({ onSelectChat }) {
   const [users, setUsers] = useState([]);
@@ -119,20 +120,26 @@ export default function FriendList({ onSelectChat }) {
             >
               <div className="flex items-center flex-1 min-w-0">
                 {user.avatarUrl ? (
-                  <img 
+                  <LazyImage 
                     src={user.avatarUrl} 
                     alt={user.name || 'User'} 
                     className="w-8 h-8 rounded-full object-cover mr-2 shadow-sm"
-                    onError={(e) => {
-                      // Fallback to initials if image fails to load
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
+                    placeholder={
+                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-2">
+                        <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                      </div>
+                    }
+                    fallback={
+                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium mr-2">
+                        {user.name?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                    }
                   />
-                ) : null}
-                <div className={`w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium mr-2 ${user.avatarUrl ? 'hidden' : ''}`}>
-                  {user.name?.charAt(0).toUpperCase() || '?'}
-                </div>
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium mr-2">
+                    {user.name?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                )}
                 <div className="overflow-hidden">
                   <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{user.name || "User"}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>

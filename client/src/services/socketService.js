@@ -27,7 +27,26 @@ class SocketService {
     // Ensure no trailing slash to prevent double slashes
     const cleanBase = BASE_URL.replace(/\/$/, '');
     this.socket = io(cleanBase, {
-      auth: { token }
+      auth: { token },
+      // Performance optimizations
+      transports: ['websocket', 'polling'],
+      upgrade: true,
+      rememberUpgrade: true,
+      // Connection settings
+      timeout: 20000, // 20 seconds
+      forceNew: false, // Reuse existing connection
+      // Memory optimization
+      autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      maxReconnectionAttempts: 5,
+      // Compression
+      compression: true,
+      // Heartbeat settings
+      pingTimeout: 60000,
+      pingInterval: 25000
     });
     
     this.socket.on('connect', () => {
