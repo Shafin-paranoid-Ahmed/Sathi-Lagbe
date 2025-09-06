@@ -10,34 +10,24 @@ exports.getContacts = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
     
-    console.log('=== SOS CONTACTS DEBUG ===');
-    console.log('Fetching contacts for user:', userId);
-    
     // Try both models for compatibility
     let contacts = [];
     
     // Try SosContact model first (ONLYGWUB style)
     try {
-      console.log('=== FETCHING FROM SOSCONTACT MODEL ===');
       const contactEntry = await SosContact.findOne({ user: userId });
-      console.log('SosContact query result:', contactEntry);
       
       if (contactEntry && contactEntry.contacts && contactEntry.contacts.length > 0) {
         const filteredContacts = contactEntry.contacts.filter(c => c.name && c.name.trim() !== '');
-        console.log('Found contacts in SosContact model:', filteredContacts.length);
-        console.log('Filtered contacts:', JSON.stringify(filteredContacts, null, 2));
         return res.json({
           success: true,
           data: {
             contacts: filteredContacts
           }
         });
-      } else {
-        console.log('No contacts found in SosContact model');
       }
     } catch (err) {
-      console.log('SosContact model error:', err.message);
-      console.log('Trying Emergency model...');
+      // Fallback to Emergency model
     }
     
     // Try Emergency model (Sathi_Lagbe style)
@@ -45,7 +35,6 @@ exports.getContacts = async (req, res) => {
       const emergency = await Emergency.findOne({ userId }).sort('-triggeredAt');
       if (emergency && emergency.contacts && emergency.contacts.length > 0) {
         const filteredContacts = emergency.contacts.filter(c => c.name && c.name.trim() !== '');
-        console.log('Found contacts in Emergency model:', filteredContacts.length);
         return res.json({
           success: true,
           data: {
@@ -54,10 +43,8 @@ exports.getContacts = async (req, res) => {
         });
       }
     } catch (err) {
-      console.log('Emergency model not found');
+      // No contacts found
     }
-    
-    console.log('No contacts found for user:', userId);
     // Return empty array if nothing found
     return res.json({
       success: true,

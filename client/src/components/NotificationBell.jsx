@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { BellIcon, UserIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { API } from '../api/auth';
 import { createChat } from '../api/chat';
 import socketService from '../services/socketService';
 
-export default function NotificationBell() {
+const NotificationBell = memo(function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -40,7 +40,7 @@ export default function NotificationBell() {
     };
   }, []);
 
-  const handleNotificationClick = async (notification) => {
+  const handleNotificationClick = useCallback(async (notification) => {
     // Mark as read first
     if (!notification.isRead) {
       markAsRead(notification._id);
@@ -66,11 +66,10 @@ export default function NotificationBell() {
       }
       setShowDropdown(false);
     } else if (notification.data?.rideId) {
-
-        setShowDropdown(false);
-        navigate(`/rides/${notification.data.rideId}/manage`);
+      setShowDropdown(false);
+      navigate(`/rides/${notification.data.rideId}/manage`);
     }
-  };
+  }, [navigate]);
 
   const fetchUnreadCount = async () => {
     try {
@@ -413,4 +412,6 @@ export default function NotificationBell() {
       )}
     </div>
   );
-}
+});
+
+export default NotificationBell;

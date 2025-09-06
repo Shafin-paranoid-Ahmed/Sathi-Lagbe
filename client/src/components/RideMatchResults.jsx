@@ -1,13 +1,13 @@
 // client/src/components/RideMatchResults.jsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { searchRides, getAiMatches, requestToJoinRide, getAllAvailableRides } from '../api/rides';
 import { API } from '../api/auth';
 import MapView from './MapView';
 import LocationAutocomplete from './LocationAutocomplete';
 import CustomDateTimePicker from './CustomDateTimePicker';
 
-export default function RideMatchResults() {
+const RideMatchResults = memo(function RideMatchResults() {
 
   
   const [searchParams, setSearchParams] = useState({
@@ -17,7 +17,6 @@ export default function RideMatchResults() {
   });
 
   const [matches, setMatches] = useState([]);
-  const [filteredMatches, setFilteredMatches] = useState([]);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState('');
@@ -54,20 +53,16 @@ export default function RideMatchResults() {
     loadAllRides();
   }, []);
 
-  // Filter matches based on gender filter
-  useEffect(() => {
+  // Filter matches based on gender filter - memoized for performance
+  const filteredMatches = useMemo(() => {
     if (genderFilter === 'all') {
-      setFilteredMatches(matches);
-    } else {
-      const filtered = matches.filter(ride => {
-        // --- THIS IS THE FIX ---
-        // 1. Use the now-reliable `riderGender` field from the backend.
-        // 2. Use `?.toLowerCase()` to make the comparison case-insensitive.
-        // This prevents bugs if data is ever "Female" or "MALE".
-        return (ride.riderGender?.toLowerCase() || '') === genderFilter;
-      });
-      setFilteredMatches(filtered);
+      return matches;
     }
+    return matches.filter(ride => {
+      // Use the now-reliable `riderGender` field from the backend.
+      // Use `?.toLowerCase()` to make the comparison case-insensitive.
+      return (ride.riderGender?.toLowerCase() || '') === genderFilter;
+    });
   }, [matches, genderFilter]);
 
   const loadAllRides = async () => {
@@ -556,4 +551,6 @@ export default function RideMatchResults() {
       )}
     </div>
   );
-}
+});
+
+export default RideMatchResults;
