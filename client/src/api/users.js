@@ -2,9 +2,7 @@
 import { API } from './auth';
 
 // Get all users for the friend list
-export function getAllUsers() {
-  return API.get('/users');
-}
+export function getAllUsers(params = {}) {\r\n  return API.get('/users', { params });\r\n}
 
 // Add a user as a friend
 export function addFriend(userId) {

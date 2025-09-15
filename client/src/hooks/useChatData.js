@@ -23,6 +23,7 @@ export const useChatData = () => {
   const [userProfiles, setUserProfiles] = useState({});
   const currentUserId = sessionStorage.getItem('userId');
   const isInitialLoad = useRef(true);
+  const userProfilesRef = useRef({});
 
   // Helper function to get current draft
   const getCurrentDraft = (selectedChat) => {
@@ -39,38 +40,56 @@ export const useChatData = () => {
     }
   };
 
+  useEffect(() => {
+    userProfilesRef.current = userProfiles;
+  }, [userProfiles]);
+
   // Load profile pictures for all users in chats
-  const loadUserProfiles = useCallback(async (chatsList) => {
+  const loadUserProfiles = useCallback(async (chatsList = []) => {
     try {
       const userIds = new Set();
-      
+
       chatsList.forEach(chat => {
-        if (chat.members && Array.isArray(chat.members)) {
+        if (chat?.members && Array.isArray(chat.members)) {
           chat.members.forEach(member => {
-            if (member && typeof member === 'object' && member._id && member._id !== currentUserId) {
-              userIds.add(member._id);
+            const memberId = typeof member === 'object' && member?._id ? member._id : (typeof member === 'string' ? member : null);
+            if (memberId && memberId !== currentUserId) {
+              userIds.add(memberId);
             }
           });
         }
       });
-      
+
       if (currentUserId) {
         userIds.add(currentUserId);
       }
-      
-      const profiles = {};
-      for (const userId of userIds) {
+
+      const existingProfiles = userProfilesRef.current || {};
+      const missingIds = Array.from(userIds).filter(id => id && !existingProfiles[id]);
+
+      if (missingIds.length === 0) {
+        return;
+      }
+
+      const results = await Promise.all(missingIds.map(async (userId) => {
         try {
           const userRes = await getUserById(userId);
-          if (userRes.data) {
-            profiles[userId] = userRes.data;
-          }
+          return userRes.data ? { userId, profile: userRes.data } : null;
         } catch (err) {
           console.warn(`Failed to fetch profile for user ${userId}:`, err);
+          return null;
         }
-      }
-      
-      setUserProfiles(prev => ({ ...prev, ...profiles }));
+      }));
+
+      setUserProfiles(prev => {
+        const nextProfiles = { ...prev };
+        results.forEach(result => {
+          if (result && result.profile) {
+            nextProfiles[result.userId] = result.profile;
+          }
+        });
+        return nextProfiles;
+      });
     } catch (err) {
       console.error('Failed to load user profiles:', err);
     }
@@ -169,3 +188,4 @@ export const useChatData = () => {
     loadUserProfiles
   };
 };
+

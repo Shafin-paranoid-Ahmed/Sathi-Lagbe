@@ -1,9 +1,11 @@
 // client/src/components/FriendList.jsx - IMPROVED
-import { useState, useEffect } from 'react';
-import { getAllUsers, searchUsers } from '../api/users';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { getAllUsers } from '../api/users';
 import { createChat } from '../api/chat';
 import { SearchIcon, MessageSquareIcon } from 'lucide-react';
 import LazyImage from './LazyImage';
+
+const PAGE_SIZE = 20;
 
 export default function FriendList({ onSelectChat }) {
   const [users, setUsers] = useState([]);
@@ -11,41 +13,66 @@ export default function FriendList({ onSelectChat }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [processingChat, setProcessingChat] = useState({});
+  const appliedSearchRef = useRef('');
+  const [pageInfo, setPageInfo] = useState({ page: 1, hasMore: false });
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  // Fetch all users on component mount
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  const fetchUsers = useCallback(async ({ page = 1, search, append = false } = {}) => {
+    const effectiveSearch = typeof search === 'string' ? search : appliedSearch;
+    const trimmedSearch = effectiveSearch.trim();
 
-  const fetchUsers = async () => {
-    setLoading(true);
     setError('');
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+
+    const params = { page, limit: PAGE_SIZE };
+    if (trimmedSearch) {
+      params.search = trimmedSearch;
+    }
+
     try {
-      const res = await getAllUsers();
-      setUsers(res.data || []);
+      const res = await getAllUsers(params);
+      const responseData = res.data || {};
+      const fetchedUsers = responseData.data || [];
+      const pagination = responseData.pagination || {};
+      const hasMore = typeof pagination.hasMore === 'boolean'
+        ? pagination.hasMore
+        : fetchedUsers.length === PAGE_SIZE;
+
+      setUsers(prev => append ? [...prev, ...fetchedUsers] : fetchedUsers);
+      setPageInfo({
+        page: pagination.page ?? page,
+        hasMore
+      });
+
+      if (!append) {
+        appliedSearchRef.current = trimmedSearch;
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load users');
     } finally {
-      setLoading(false);
+      if (append) {
+        setLoadingMore(false);
+      } else {
+        setLoading(false);
+      }
     }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers({ page: 1, search: '' });
+  }, [fetchUsers]);
+
+  const handleSearch = () => {
+    fetchUsers({ page: 1, search: searchQuery });
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      fetchUsers();
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    try {
-      const res = await searchUsers(searchQuery);
-      setUsers(res.data || []);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Search failed');
-    } finally {
-      setLoading(false);
-    }
+  const handleLoadMore = () => {
+    if (loadingMore) return;
+    fetchUsers({ page: pageInfo.page + 1, append: true });
   };
 
   const startChat = async (userId) => {
@@ -165,6 +192,33 @@ export default function FriendList({ onSelectChat }) {
           ))
         )}
       </div>
+
+      {pageInfo.hasMore && (
+        <div className="mt-3 flex justify-center">
+          <button
+            onClick={handleLoadMore}
+            disabled={loading || loadingMore}
+            className={`px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+              loading || loadingMore ? 'opacity-70 cursor-not-allowed' : ''
+            }`}
+          >
+            {loadingMore ? 'Loading...' : 'Load more'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { sendNewMessage } from '../api/chat';
-import { getUserById } from '../api/users';
 import socketService from '../services/socketService';
 
 // Components
@@ -327,22 +326,7 @@ export default function Chat() {
       setChats(prev => [chat, ...prev]);
       
       if (chat.members && Array.isArray(chat.members)) {
-        const newUserIds = chat.members
-          .filter(m => m && typeof m === 'object' && m._id && m._id !== currentUserId)
-          .map(m => m._id);
-        
-        newUserIds.forEach(async (userId) => {
-          if (!userProfiles[userId]) {
-            try {
-              const userRes = await getUserById(userId);
-              if (userRes.data && userRes.data.avatarUrl) {
-                setUserProfiles(prev => ({ ...prev, [userId]: userRes.data }));
-              }
-            } catch (err) {
-              console.warn(`Failed to fetch profile for user ${userId}:`, err);
-            }
-          }
-        });
+        void loadUserProfiles([chat]);
       }
     }
     
@@ -421,3 +405,4 @@ export default function Chat() {
     </ChatLayout>
   );
 }
+

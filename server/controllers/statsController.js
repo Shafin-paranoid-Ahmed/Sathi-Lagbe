@@ -12,23 +12,20 @@ const Notification = require('../models/Notification');
 exports.getDashboardStats = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    
-    // Get total users count
-    const totalUsers = await User.countDocuments();
-    
-    // Get active rides (pending and confirmed)
-    const activeRides = await RideMatch.countDocuments({ 
-      status: { $in: ['pending', 'confirmed'] } 
-    });
-    
-    // Get total chats count
-    const totalChats = await Chat.countDocuments();
-    
-    // Get user growth data (last 6 months)
+
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    
-    const userGrowthData = await User.aggregate([
+
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const countsPromise = Promise.all([
+      User.countDocuments(),
+      RideMatch.countDocuments({ status: { $in: ['pending', 'confirmed'] } }),
+      Chat.countDocuments()
+    ]);
+
+    const userGrowthPromise = User.aggregate([
       {
         $match: {
           createdAt: { $gte: sixMonthsAgo }
@@ -47,12 +44,8 @@ exports.getDashboardStats = async (req, res) => {
         $sort: { '_id.year': 1, '_id.month': 1 }
       }
     ]);
-    
-    // Get weekly ride activity (last 7 days)
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    
-    const weeklyRideData = await RideMatch.aggregate([
+
+    const weeklyRidePromise = RideMatch.aggregate([
       {
         $match: {
           createdAt: { $gte: oneWeekAgo }
@@ -70,10 +63,16 @@ exports.getDashboardStats = async (req, res) => {
         $sort: { '_id.day': 1 }
       }
     ]);
-    
-    // Get friend activities for the current user
-    const friendActivities = await getFriendActivities(userId);
-    
+
+    const [counts, userGrowthData, weeklyRideData, friendActivities] = await Promise.all([
+      countsPromise,
+      userGrowthPromise,
+      weeklyRidePromise,
+      getFriendActivities(userId)
+    ]);
+
+    const [totalUsers, activeRides, totalChats] = counts;
+
     res.json({
       totalUsers,
       activeRides,
@@ -93,37 +92,71 @@ exports.getDashboardStats = async (req, res) => {
  */
 async function getFriendActivities(userId) {
   try {
-    // Get user's friends
+    const normalizedUserId = (userId || '').toString();
+
     const friendships = await Friend.find({
       $or: [
         { requester: userId, status: 'accepted' },
         { recipient: userId, status: 'accepted' }
       ]
-    }).populate('requester recipient', 'name email avatarUrl');
-    
-    const friendIds = friendships.map(friendship => 
-      friendship.requester._id.toString() === userId 
-        ? friendship.recipient._id 
-        : friendship.requester._id
-    );
-    
-    if (friendIds.length === 0) {
+    })
+      .select('requester recipient')
+      .lean();
+
+    const friendIdsSet = new Set();
+    friendships.forEach(friendship => {
+      const requesterId = friendship.requester?.toString();
+      const recipientId = friendship.recipient?.toString();
+
+      if (requesterId === normalizedUserId && recipientId) {
+        friendIdsSet.add(recipientId);
+      } else if (requesterId) {
+        friendIdsSet.add(requesterId);
+      }
+    });
+
+    const friendIds = Array.from(friendIdsSet);
+    if (!friendIds.length) {
       return [];
     }
-    
-    // Get recent activities from friends
+
+    const now = Date.now();
+    const twentyFourHoursAgo = new Date(now - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+    const [recentRides, recentStatusChanges, recentNotifications] = await Promise.all([
+      RideMatch.find({
+        riderId: { $in: friendIds },
+        createdAt: { $gte: twentyFourHoursAgo }
+      })
+        .select('startLocation endLocation createdAt riderId')
+        .populate('riderId', 'name avatarUrl')
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+      User.find({
+        _id: { $in: friendIds },
+        'status.lastUpdated': { $gte: twentyFourHoursAgo }
+      })
+        .select('name avatarUrl status')
+        .sort({ 'status.lastUpdated': -1 })
+        .limit(5)
+        .lean(),
+      Notification.find({
+        recipient: userId,
+        createdAt: { $gte: sevenDaysAgo }
+      })
+        .select('message title createdAt sender data')
+        .populate('sender', 'name avatarUrl')
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean()
+    ]);
+
     const activities = [];
-    
-    // Get recent ride offers from friends
-    const recentRides = await RideMatch.find({
-      riderId: { $in: friendIds },
-      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
-    })
-    .populate('riderId', 'name avatarUrl')
-    .sort({ createdAt: -1 })
-    .limit(5);
-    
+
     recentRides.forEach(ride => {
+      if (!ride?.riderId) return;
       activities.push({
         id: `ride_${ride._id}`,
         type: 'ride',
@@ -134,99 +167,77 @@ async function getFriendActivities(userId) {
         data: { rideId: ride._id }
       });
     });
-    
-    // Get recent status changes from friends
-    const recentStatusChanges = await User.find({
-      _id: { $in: friendIds },
-      'status.lastUpdated': { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-    })
-    .select('name avatarUrl status')
-    .sort({ 'status.lastUpdated': -1 })
-    .limit(5);
-    
+
     recentStatusChanges.forEach(user => {
-      if (user.status && user.status.current) {
-        const statusLabels = {
-          'available': 'is now available',
-          'busy': 'is now busy',
-          'in_class': 'is now in class',
-          'studying': 'is now studying',
-          'free': 'is now free'
-        };
-        
-        activities.push({
-          id: `status_${user._id}_${user.status.lastUpdated}`,
-          type: 'status',
-          message: `${user.name} ${statusLabels[user.status.current] || 'updated their status'}`,
-          time: user.status.lastUpdated,
-          user: user.name,
-          userAvatar: user.avatarUrl,
-          data: { status: user.status.current }
-        });
-      }
+      if (!user?.status?.current) return;
+      const statusLabels = {
+        'available': 'is now available',
+        'busy': 'is now busy',
+        'in_class': 'is now in class',
+        'studying': 'is now studying',
+        'free': 'is now free'
+      };
+
+      activities.push({
+        id: `status_${user._id}_${user.status.lastUpdated}`,
+        type: 'status',
+        message: `${user.name} ${statusLabels[user.status.current] || 'updated their status'}`,
+        time: user.status.lastUpdated,
+        user: user.name,
+        userAvatar: user.avatarUrl,
+        data: { status: user.status.current }
+      });
     });
-    
-         // Get recent notifications related to friends (last 7 days)
-     const recentNotifications = await Notification.find({
-       recipient: userId,
-       createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Last 7 days
-     })
-     .populate('sender', 'name avatarUrl')
-     .sort({ createdAt: -1 })
-     .limit(10);
-    
+
     recentNotifications.forEach(notification => {
-      if (notification.sender) {
+      if (!notification.sender) return;
+      activities.push({
+        id: `notification_${notification._id}`,
+        type: 'notification',
+        message: notification.message,
+        time: notification.createdAt,
+        user: notification.sender.name,
+        userAvatar: notification.sender.avatarUrl,
+        data: notification.data
+      });
+    });
+
+    if (activities.length === 0) {
+      const generalNotifications = await Notification.find({
+        recipient: userId,
+        createdAt: { $gte: sevenDaysAgo }
+      })
+        .select('message title createdAt sender data')
+        .populate('sender', 'name avatarUrl')
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean();
+
+      generalNotifications.forEach(notification => {
         activities.push({
           id: `notification_${notification._id}`,
           type: 'notification',
-          message: notification.message,
+          message: notification.title || notification.message,
           time: notification.createdAt,
-          user: notification.sender.name,
-          userAvatar: notification.sender.avatarUrl,
+          user: notification.sender?.name || 'System',
+          userAvatar: notification.sender?.avatarUrl || null,
           data: notification.data
         });
-      }
-    });
-    
-         // If no friend activities, get general notifications for the user
-     if (activities.length === 0) {
-       const generalNotifications = await Notification.find({
-         recipient: userId,
-         createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
-       })
-       .populate('sender', 'name avatarUrl')
-       .sort({ createdAt: -1 })
-       .limit(10);
-       
-       generalNotifications.forEach(notification => {
-         activities.push({
-           id: `notification_${notification._id}`,
-           type: 'notification',
-           message: notification.title || notification.message,
-           time: notification.createdAt,
-           user: notification.sender?.name || 'System',
-           userAvatar: notification.sender?.avatarUrl || null,
-           data: notification.data
-         });
-       });
-     }
-     
-     // Sort all activities by time and return the most recent 10
-     return activities
-       .sort((a, b) => new Date(b.time) - new Date(a.time))
-       .slice(0, 10)
-       .map(activity => ({
-         ...activity,
-         time: formatTimeAgo(activity.time)
-       }));
-    
+      });
+    }
+
+    return activities
+      .sort((a, b) => new Date(b.time) - new Date(a.time))
+      .slice(0, 10)
+      .map(activity => ({
+        ...activity,
+        time: formatTimeAgo(activity.time)
+      }));
   } catch (err) {
     console.error('Error getting friend activities:', err);
     return [];
   }
 }
-
 /**
  * Format time ago
  */
@@ -247,3 +258,6 @@ function formatTimeAgo(date) {
     return `${days} day${days > 1 ? 's' : ''} ago`;
   }
 }
+
+
+
