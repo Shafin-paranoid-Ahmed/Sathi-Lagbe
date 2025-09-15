@@ -5,6 +5,8 @@ class CacheService {
   constructor() {
     this.client = null;
     this.isConnected = false;
+    this.rideVersion = 1;
+    this.versionKeys = { rides: 'cache:rides:version' };
   }
 
   async connect() {
@@ -34,6 +36,8 @@ class CacheService {
       this.client.on('error', (err) => {
         console.log('Redis Client Error:', err);
         this.isConnected = false;
+    this.rideVersion = 1;
+    this.versionKeys = { rides: 'cache:rides:version' };
       });
 
       this.client.on('connect', () => {
@@ -44,15 +48,42 @@ class CacheService {
       this.client.on('disconnect', () => {
         console.log('❌ Redis disconnected');
         this.isConnected = false;
+    this.rideVersion = 1;
+    this.versionKeys = { rides: 'cache:rides:version' };
       });
 
       await this.client.connect();
+      await this.initializeVersions();
     } catch (error) {
       console.log('Redis connection failed, continuing without cache:', error.message);
       this.isConnected = false;
+    this.rideVersion = 1;
+    this.versionKeys = { rides: 'cache:rides:version' };
     }
   }
 
+  async initializeVersions() {
+    try {
+      if (!this.isConnected || !this.client) {
+        this.rideVersion = this.rideVersion || 1;
+        return;
+      }
+
+      const versionKey = this.versionKeys.rides;
+      const versionValue = await this.client.get(versionKey);
+
+      if (!versionValue) {
+        await this.client.set(versionKey, '1');
+        this.rideVersion = 1;
+      } else {
+        const parsed = parseInt(versionValue, 10);
+        this.rideVersion = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+      }
+    } catch (error) {
+      console.error('Failed to initialize cache versions:', error);
+      this.rideVersion = 1;
+    }
+  }
   async get(key) {
     if (!this.isConnected || !this.client) return null;
     
@@ -106,14 +137,17 @@ class CacheService {
     return `user:${userId}`;
   }
 
-  static getRidesKey(filters = {}) {
-    const filterStr = Object.keys(filters)
+  getRidesKey(filters = {}) {
+    const normalizedFilters = filters || {};
+    const filterStr = Object.keys(normalizedFilters)
       .sort()
-      .map(key => `${key}:${filters[key]}`)
+      .map(key => `${key}:${normalizedFilters[key]}`)
       .join('|');
-    return `rides:${filterStr}`;
-  }
 
+    const version = this.rideVersion || 1;
+    const suffix = filterStr || 'all';
+    return `rides:v${version}:${suffix}`;
+  }
   static getNotificationsKey(userId, category = 'all') {
     return `notifications:${userId}:${category}`;
   }
@@ -133,19 +167,22 @@ class CacheService {
   }
 
   async invalidateRides() {
-    // Get all ride cache keys and delete them
-    if (!this.isConnected || !this.client) return;
-    
+    this.rideVersion = (this.rideVersion || 1) + 1;
+
+    if (!this.isConnected || !this.client) {
+      return;
+    }
+
     try {
-      const keys = await this.client.keys('rides:*');
-      if (keys.length > 0) {
-        await this.client.del(keys);
+      const versionKey = this.versionKeys.rides;
+      const newVersion = await this.client.incr(versionKey);
+      if (Number.isFinite(newVersion)) {
+        this.rideVersion = newVersion;
       }
     } catch (error) {
       console.error('Cache invalidation error:', error);
     }
   }
-
   async invalidateNotifications(userId) {
     if (!this.isConnected || !this.client) return;
     
@@ -164,3 +201,11 @@ class CacheService {
 const cacheService = new CacheService();
 
 module.exports = cacheService;
+
+
+
+
+
+
+
+

@@ -6,16 +6,48 @@ const fs = require('fs');
 const mongoose = require('mongoose');
 
 /**
- * Get all users (except the current user)
+ * Get users (except the current user) with pagination support
  */
 exports.getAllUsers = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user.userId;
-    
-    const users = await User.find({ _id: { $ne: currentUserId } })
-      .select('name email location avatarUrl bracuId');
-      
-    res.json(users);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limitParam = parseInt(req.query.limit, 10);
+    const limit = Math.min(Math.max(Number.isFinite(limitParam) ? limitParam : 20, 1), 50);
+    const skip = (page - 1) * limit;
+    const searchTerm = (req.query.search || '').trim();
+
+    const query = { _id: { $ne: currentUserId } };
+    if (searchTerm) {
+      query.$or = [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { email: { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
+
+    const projection = 'name email location avatarUrl bracuId';
+
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .select(projection)
+        .sort({ name: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(query)
+    ]);
+
+    const hasMore = skip + users.length < total;
+
+    res.json({
+      data: users,
+      pagination: {
+        page,
+        pageSize: limit,
+        total,
+        hasMore
+      }
+    });
   } catch (err) {
     console.error('Error fetching users:', err);
     res.status(500).json({ error: err.message || 'Failed to fetch users' });

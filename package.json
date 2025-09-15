@@ -1,0 +1,45 @@
+{
+  "name": "sathi-lagbe",
+  "version": "1.0.0",
+  "description": "Campus Ride Sharing Application - MERN Stack",
+  "scripts": {
+    "test": "npm run test:server && npm run test:client",
+    "test:server": "cd server && npm test",
+    "test:client": "cd client && npm test",
+    "test:server:watch": "cd server && npm run test:watch",
+    "test:client:watch": "cd client && npm run test:watch",
+    "test:server:coverage": "cd server && npm run test:coverage",
+    "test:client:coverage": "cd client && npm run test:coverage",
+    "test:integration": "cd server && npm run test:integration",
+    "test:e2e": "cd client && npm run test:e2e",
+    "test:ci": "npm run test:server:ci && npm run test:client:ci",
+    "test:server:ci": "cd server && npm run test:ci",
+    "test:client:ci": "cd client && npm run test:ci",
+    "lint": "npm run lint:server && npm run lint:client",
+    "lint:server": "cd server && npm run lint",
+    "lint:client": "cd client && npm run lint",
+    "lint:fix": "npm run lint:server:fix && npm run lint:client:fix",
+    "lint:server:fix": "cd server && npm run lint:fix",
+    "lint:client:fix": "cd client && npm run lint:fix",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\"",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "clean": "rm -rf node_modules server/node_modules client/node_modules server/coverage client/coverage",
+    "setup": "npm run install:all && npm run test:ci"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "campus",
+    "ride-sharing",
+    "mern",
+    "react",
+    "nodejs",
+    "mongodb",
+    "express"
+  ],
+  "author": "Sathi Lagbe Team",
+  "license": "MIT"
+}

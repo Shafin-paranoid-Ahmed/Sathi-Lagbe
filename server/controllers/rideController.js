@@ -8,52 +8,6 @@ const cacheService = require('../services/cacheService');
 const mongoose = require('mongoose'); // Added for mongoose.Types.ObjectId
 
 /**
- * Migration function to update existing rides with user gender information
- */
-const migrateRidesWithUserData = async () => {
-  try {
-
-    
-    // Find all rides that don't have riderName or riderGender populated
-    const ridesToUpdate = await RideMatch.find({
-      $or: [
-        { riderName: { $exists: false } },
-        { riderName: 'Anonymous User' },
-        { riderGender: { $exists: false } },
-        { riderGender: '' }
-      ]
-    });
-    
-
-    
-    for (const ride of ridesToUpdate) {
-      try {
-        // Fetch user data
-        const user = await User.findById(ride.riderId).select('name email gender');
-        
-        if (user) {
-          // Update the ride with user data
-          await RideMatch.findByIdAndUpdate(ride._id, {
-            riderName: user.name || 'Anonymous User',
-            riderGender: user.gender || ''
-          });
-          
-
-        } else {
-
-        }
-      } catch (err) {
-        console.error(`Error updating ride ${ride._id}:`, err);
-      }
-    }
-    
-
-  } catch (err) {
-    console.error('Error in ride migration:', err);
-  }
-};
-
-/**
  * Test endpoint to check user gender and ride data
  */
 exports.testGenderData = async (req, res) => {
@@ -127,8 +81,6 @@ exports.getAllAvailableRides = async (req, res) => {
       return res.json(cachedRides);
     }
 
-    await migrateRidesWithUserData();
-    
     const rides = await RideMatch.find({ status: { $ne: 'completed' } })
       .populate('riderId', 'name email avatarUrl gender')
       .sort({ createdAt: -1 })
@@ -137,8 +89,7 @@ exports.getAllAvailableRides = async (req, res) => {
 
     const validRides = rides.filter(ride => ride.riderId);
 
-    // --- THIS IS THE FIX ---
-    // We will create a final, consistent data shape before sending.
+    // Ensure we return a consistent data shape for clients.
     const finalRides = validRides.map(r => {
       // Prioritize the live gender from the populated user profile.
       // Fall back to the saved gender, then to an empty string.
@@ -149,6 +100,7 @@ exports.getAllAvailableRides = async (req, res) => {
 
       return {
         ...r,
+        riderName: r.riderName || r.riderId?.name || 'Anonymous User',
         riderGender: reliableGender, // Overwrite with the most reliable gender source.
         seatsRemaining: Math.max(0, seatsRemaining)
       };
@@ -180,7 +132,6 @@ exports.findRideMatches = async (req, res) => {
 
     const validRides = rides.filter(ride => ride.riderId);
 
-    // --- THIS IS THE FIX ---
     // Apply the same consistent data shaping logic here.
     const finalRides = validRides.map(r => {
       const reliableGender = r.riderId?.gender || r.riderGender || '';
@@ -189,6 +140,7 @@ exports.findRideMatches = async (req, res) => {
 
       return {
         ...r,
+        riderName: r.riderName || r.riderId?.name || 'Anonymous User',
         riderGender: reliableGender,
         seatsRemaining: Math.max(0, seatsRemaining)
       };
