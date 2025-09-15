@@ -2,7 +2,6 @@
 const User = require('../models/User');
 const RideMatch = require('../models/RideMatch');
 const Chat = require('../models/chat');
-const Message = require('../models/Message');
 const Friend = require('../models/Friend');
 const Notification = require('../models/Notification');
 
@@ -110,8 +109,11 @@ async function getFriendActivities(userId) {
 
       if (requesterId === normalizedUserId && recipientId) {
         friendIdsSet.add(recipientId);
-      } else if (requesterId) {
+      } else if (recipientId === normalizedUserId && requesterId) {
         friendIdsSet.add(requesterId);
+      } else {
+        if (requesterId) friendIdsSet.add(requesterId);
+        if (recipientId) friendIdsSet.add(recipientId);
       }
     });
 
@@ -258,6 +260,3 @@ function formatTimeAgo(date) {
     return `${days} day${days > 1 ? 's' : ''} ago`;
   }
 }
-
-
-

@@ -18,7 +18,7 @@ export default function FriendList({ onSelectChat }) {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const fetchUsers = useCallback(async ({ page = 1, search, append = false } = {}) => {
-    const effectiveSearch = typeof search === 'string' ? search : appliedSearch;
+    const effectiveSearch = typeof search === 'string' ? search : appliedSearchRef.current;
     const trimmedSearch = effectiveSearch.trim();
 
     setError('');
@@ -209,6 +209,7 @@ export default function FriendList({ onSelectChat }) {
     </div>
   );
 }
+
 
 
 

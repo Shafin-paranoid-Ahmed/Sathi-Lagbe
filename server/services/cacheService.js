@@ -11,9 +11,8 @@ class CacheService {
 
   async connect() {
     try {
-      // Use Redis URL from environment or default to localhost
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-      
+
       this.client = createClient({
         url: redisUrl,
         retry_strategy: (options) => {
@@ -36,20 +35,16 @@ class CacheService {
       this.client.on('error', (err) => {
         console.log('Redis Client Error:', err);
         this.isConnected = false;
-    this.rideVersion = 1;
-    this.versionKeys = { rides: 'cache:rides:version' };
       });
 
       this.client.on('connect', () => {
-        console.log('✅ Redis connected successfully');
+        console.log('Redis connected successfully');
         this.isConnected = true;
       });
 
       this.client.on('disconnect', () => {
-        console.log('❌ Redis disconnected');
+        console.log('Redis disconnected');
         this.isConnected = false;
-    this.rideVersion = 1;
-    this.versionKeys = { rides: 'cache:rides:version' };
       });
 
       await this.client.connect();
@@ -57,8 +52,7 @@ class CacheService {
     } catch (error) {
       console.log('Redis connection failed, continuing without cache:', error.message);
       this.isConnected = false;
-    this.rideVersion = 1;
-    this.versionKeys = { rides: 'cache:rides:version' };
+      this.rideVersion = 1;
     }
   }
 
@@ -84,9 +78,10 @@ class CacheService {
       this.rideVersion = 1;
     }
   }
+
   async get(key) {
     if (!this.isConnected || !this.client) return null;
-    
+
     try {
       const value = await this.client.get(key);
       return value ? JSON.parse(value) : null;
@@ -98,7 +93,7 @@ class CacheService {
 
   async set(key, value, ttlSeconds = 300) {
     if (!this.isConnected || !this.client) return false;
-    
+
     try {
       await this.client.setEx(key, ttlSeconds, JSON.stringify(value));
       return true;
@@ -110,7 +105,7 @@ class CacheService {
 
   async del(key) {
     if (!this.isConnected || !this.client) return false;
-    
+
     try {
       await this.client.del(key);
       return true;
@@ -122,7 +117,7 @@ class CacheService {
 
   async flush() {
     if (!this.isConnected || !this.client) return false;
-    
+
     try {
       await this.client.flushAll();
       return true;
@@ -141,13 +136,14 @@ class CacheService {
     const normalizedFilters = filters || {};
     const filterStr = Object.keys(normalizedFilters)
       .sort()
-      .map(key => `${key}:${normalizedFilters[key]}`)
+      .map((key) => `${key}:${normalizedFilters[key]}`)
       .join('|');
 
     const version = this.rideVersion || 1;
     const suffix = filterStr || 'all';
     return `rides:v${version}:${suffix}`;
   }
+
   static getNotificationsKey(userId, category = 'all') {
     return `notifications:${userId}:${category}`;
   }
@@ -183,9 +179,10 @@ class CacheService {
       console.error('Cache invalidation error:', error);
     }
   }
+
   async invalidateNotifications(userId) {
     if (!this.isConnected || !this.client) return;
-    
+
     try {
       const keys = await this.client.keys(`notifications:${userId}:*`);
       if (keys.length > 0) {
@@ -201,11 +198,4 @@ class CacheService {
 const cacheService = new CacheService();
 
 module.exports = cacheService;
-
-
-
-
-
-
-
 
