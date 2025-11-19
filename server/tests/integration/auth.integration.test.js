@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../../index');
+const { app, server } = require('../../index'); // Import both app and server
 const User = require('../../models/User');
 const bcrypt = require('bcryptjs');
 
@@ -309,4 +309,9 @@ describe('Auth Integration Tests', () => {
       expect(response.body.error).toBeDefined();
     });
   });
+});
+
+// Close the server after all tests
+afterAll((done) => {
+  server.close(done);
 });

@@ -220,10 +220,23 @@ app.get('/api/cors-test', (req, res) => {
   });
 });
 
+// JSON parsing error handler
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid JSON format',
+      message: 'Request body contains invalid JSON'
+    });
+  }
+  next(err);
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err.stack);
   res.status(500).json({ 
+    success: false,
     message: 'Something went wrong!',
     error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
@@ -242,6 +255,10 @@ const mongoOptions = {
 
 // MongoDB connection with retry logic
 const connectWithRetry = async () => {
+  if (process.env.NODE_ENV === 'test') {
+    // In test environment, mongoose connection is handled by jest-mongodb
+    return;
+  }
   try {
     console.log('🔄 Attempting to connect to MongoDB...');
     await mongoose.connect(process.env.MONGO_URI, mongoOptions);
@@ -424,11 +441,13 @@ io.on('connection', (socket) => {
 // Start server
 const PORT = process.env.PORT || 5000;
 
-// Only start server if not in Vercel environment
-if (process.env.VERCEL !== '1') {
+// Only start server if not in Vercel environment and not in test environment
+if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
     console.log(`Server started successfully on port ${PORT}`);
   });
+} else if (process.env.NODE_ENV === 'test') {
+  console.log("Server configured for testing, not starting listener.");
 } else {
   // For Vercel, export the app instead of starting the server
   module.exports = app;
@@ -457,3 +476,5 @@ if (process.env.VERCEL !== '1') {
     console.warn('Failed to start auto status scheduler:', e?.message);
   }
 }
+
+module.exports = { app, server };

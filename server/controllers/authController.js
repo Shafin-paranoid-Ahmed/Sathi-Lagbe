@@ -18,6 +18,7 @@ const registerUser = async (req, res) => {
         // Validate required fields
         if (!name || !email || !password || !phone || !bracuId) {
             return res.status(400).json({ 
+                success: false,
                 error: "Name, email, password, phone and BRACU ID are required",
                 message: "Missing required fields" 
             });
@@ -26,6 +27,7 @@ const registerUser = async (req, res) => {
         // Enforce BRACU email domain
         if (!isBracuEmail(email)) {
             return res.status(400).json({
+                success: false,
                 error: "A BRACU G-Suite email is required",
                 message: "Only BRACU emails are allowed"
             });
@@ -35,6 +37,7 @@ const registerUser = async (req, res) => {
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({
+                success: false,
                 error: "User with this email already exists",
                 message: "User already exists"
             });
@@ -48,6 +51,7 @@ const registerUser = async (req, res) => {
         const bdPhoneRegex = /^\+880\d{10}$/;
         if (!bdPhoneRegex.test(phone)) {
             return res.status(400).json({
+                success: false,
                 error: "Phone must be in Bangladeshi format +880XXXXXXXXXX (10 digits)",
                 message: "Invalid phone number format"
             });
@@ -56,7 +60,10 @@ const registerUser = async (req, res) => {
         // Ensure unique BRACU ID
         const existingId = await User.findOne({ bracuId });
         if (existingId) {
-            return res.status(400).json({ error: 'BRACU ID already exists' });
+            return res.status(400).json({ 
+                success: false,
+                error: 'BRACU ID already exists' 
+            });
         }
 
         // Create new user
@@ -75,14 +82,31 @@ const registerUser = async (req, res) => {
 
         await user.save();
 
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: user._id },
+            process.env.JWT_SECRET || 'fallback-secret',
+            { expiresIn: '7d' }
+        );
+
         // Return success response
         res.status(201).json({ 
             message: "User registered successfully",
-            success: true 
+            success: true,
+            token: token,
+            user: {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                bracuId: user.bracuId,
+                phone: user.phone,
+                gender: user.gender
+            }
         });
     } catch (err) {
         console.error('Registration error:', err);
         res.status(500).json({ 
+            success: false,
             error: err.message || "Server error during registration",
             message: "Registration failed" 
         });
@@ -100,6 +124,7 @@ const loginUser = async (req, res) => {
         // Validate input (allow either email or BRACU ID)
         if ((!email && !bracuId) || !password) {
             return res.status(400).json({ 
+                success: false,
                 error: "Email/BRACU ID and password are required",
                 message: "Missing credentials" 
             });
@@ -110,8 +135,9 @@ const loginUser = async (req, res) => {
             ? await User.findOne({ email })
             : await User.findOne({ bracuId });
         if (!user) {
-            return res.status(404).json({
-                error: "User not found",
+            return res.status(401).json({
+                success: false,
+                error: "Invalid credentials",
                 message: "Invalid credentials"
             });
         }

@@ -2,33 +2,35 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import ArgonLayout from '../../components/ArgonLayout';
 
+import { vi } from 'vitest';
+
 // Mock the API functions
-jest.mock('../../api/auth', () => ({
-  verifyToken: jest.fn(),
-  updateStatus: jest.fn(),
-  getCurrentUserStatus: jest.fn(),
-  logout: jest.fn()
+vi.mock('../../api/auth', () => ({
+  verifyToken: vi.fn(),
+  updateStatus: vi.fn(),
+  getCurrentUserStatus: vi.fn(),
+  logout: vi.fn()
 }));
 
 // Mock socket service
-jest.mock('../../services/socketService', () => ({
-  connect: jest.fn(),
-  disconnect: jest.fn()
+vi.mock('../../services/socketService', () => ({
+  connect: vi.fn(),
+  disconnect: vi.fn()
 }));
 
 // Mock NotificationBell component
-jest.mock('../../components/NotificationBell', () => {
-  return function MockNotificationBell() {
+vi.mock('../../components/NotificationBell', () => ({
+  default: function MockNotificationBell() {
     return <div data-testid="notification-bell">Notification Bell</div>;
-  };
-});
+  }
+}));
 
 // Mock LazyImage component
-jest.mock('../../components/LazyImage', () => {
-  return function MockLazyImage({ src, alt, ...props }) {
+vi.mock('../../components/LazyImage', () => ({
+  default: function MockLazyImage({ src, alt, ...props }) {
     return <img src={src} alt={alt} {...props} />;
-  };
-});
+  }
+}));
 
 const MockArgonLayout = ({ children, setIsAuthenticated }) => (
   <BrowserRouter>
@@ -39,20 +41,20 @@ const MockArgonLayout = ({ children, setIsAuthenticated }) => (
 );
 
 describe('ArgonLayout', () => {
-  const mockSetIsAuthenticated = jest.fn();
+  const mockSetIsAuthenticated = vi.fn();
 
   beforeEach(() => {
     // Mock sessionStorage
     Object.defineProperty(window, 'sessionStorage', {
       value: {
-        getItem: jest.fn((key) => {
+        getItem: vi.fn((key) => {
           if (key === 'userId') return '507f1f77bcf86cd799439011';
           if (key === 'userName') return 'Test User';
           if (key === 'token') return 'mock-token';
           return null;
         }),
-        setItem: jest.fn(),
-        removeItem: jest.fn()
+        setItem: vi.fn(),
+        removeItem: vi.fn()
       },
       writable: true
     });
@@ -60,18 +62,18 @@ describe('ArgonLayout', () => {
     // Mock localStorage
     Object.defineProperty(window, 'localStorage', {
       value: {
-        getItem: jest.fn((key) => {
+        getItem: vi.fn((key) => {
           if (key === 'darkMode_507f1f77bcf86cd799439011') return 'false';
           if (key === 'userCurrentStatus') return 'available';
           return null;
         }),
-        setItem: jest.fn(),
-        removeItem: jest.fn()
+        setItem: vi.fn(),
+        removeItem: vi.fn()
       },
       writable: true
     });
 
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders with children content', () => {
