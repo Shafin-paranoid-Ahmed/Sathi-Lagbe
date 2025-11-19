@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../../../index');
+const { app } = require('../../../index');
 const Chat = require('../../../models/chat');
 const Message = require('../../../models/Message');
 const User = require('../../../models/User');

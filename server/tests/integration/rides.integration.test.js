@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../../index');
+const { app, server } = require('../../index'); // Import both app and server
 const RideMatch = require('../../models/RideMatch');
 const User = require('../../models/User');
 
@@ -461,5 +461,10 @@ describe('Rides Integration Tests', () => {
 
       expect(response.body.success).toBe(false);
     });
+  });
+
+  // Close the server after all tests
+  afterAll((done) => {
+    server.close(done);
   });
 });

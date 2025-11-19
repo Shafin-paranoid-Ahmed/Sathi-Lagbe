@@ -1,31 +1,32 @@
 import { renderHook, act } from '@testing-library/react';
+import { vi } from 'vitest';
 import { useChatData } from '../../hooks/useChatData';
 
 // Mock the API functions
-jest.mock('../../api/chat', () => ({
-  getAllChats: jest.fn(),
-  getChatMessages: jest.fn(),
-  sendNewMessage: jest.fn(),
-  clearUnreadMessages: jest.fn()
+vi.mock('../../api/chat', () => ({
+  getAllChats: vi.fn(),
+  getChatMessages: vi.fn(),
+  sendNewMessage: vi.fn(),
+  clearUnreadMessages: vi.fn()
 }));
 
-jest.mock('../../api/users', () => ({
-  getUserById: jest.fn()
+vi.mock('../../api/users', () => ({
+  getUserById: vi.fn()
 }));
 
 // Mock sessionStorage and localStorage
 const mockSessionStorage = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn()
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn()
 };
 
 const mockLocalStorage = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn()
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn()
 };
 
 Object.defineProperty(window, 'sessionStorage', {
@@ -44,7 +45,7 @@ describe('useChatData', () => {
   const mockGetUserById = require('../../api/users').getUserById;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockSessionStorage.getItem.mockReturnValue('user123');
     mockLocalStorage.getItem.mockReturnValue(null);
   });

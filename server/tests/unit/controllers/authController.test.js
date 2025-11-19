@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../../../index');
+const { app } = require('../../../index');
 const User = require('../../../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -12,6 +12,7 @@ describe('Auth Controller', () => {
         email: 'john@bracu.ac.bd',
         password: 'password123',
         bracuId: '12345678',
+        phone: '+8801234567890',
         gender: 'Male'
       };
 
@@ -39,6 +40,7 @@ describe('Auth Controller', () => {
         email: 'invalid-email',
         password: 'password123',
         bracuId: '12345678',
+        phone: '+8801234567890',
         gender: 'Male'
       };
 
@@ -57,6 +59,7 @@ describe('Auth Controller', () => {
         email: 'john@gmail.com',
         password: 'password123',
         bracuId: '12345678',
+        phone: '+8801234567890',
         gender: 'Male'
       };
 
@@ -75,6 +78,7 @@ describe('Auth Controller', () => {
         email: 'john@bracu.ac.bd',
         password: 'password123',
         bracuId: '12345678',
+        phone: '+8801234567890',
         gender: 'Male'
       };
 
@@ -100,6 +104,7 @@ describe('Auth Controller', () => {
         email: 'john@bracu.ac.bd',
         password: '123',
         bracuId: '12345678',
+        phone: '+8801234567890',
         gender: 'Male'
       };
 
@@ -118,6 +123,7 @@ describe('Auth Controller', () => {
         email: 'john@bracu.ac.bd',
         password: 'password123',
         bracuId: '123',
+        phone: '+8801234567890',
         gender: 'Male'
       };
 

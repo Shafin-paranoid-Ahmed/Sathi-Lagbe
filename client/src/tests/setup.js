@@ -88,6 +88,15 @@ global.testUtils = {
     text: () => Promise.resolve(JSON.stringify(data))
   }),
   
+  // Create mock functions that work with Vitest
+  createMockFn: (implementation) => {
+    const mockFn = vi.fn();
+    if (implementation) {
+      mockFn.mockImplementation(implementation);
+    }
+    return mockFn;
+  },
+  
   // Mock user data
   mockUser: {
     _id: '507f1f77bcf86cd799439011',

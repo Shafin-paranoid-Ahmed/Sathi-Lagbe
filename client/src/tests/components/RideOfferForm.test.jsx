@@ -1,16 +1,17 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
 import RideOfferForm from '../../components/RideOfferForm';
 
 // Mock the API functions
-jest.mock('../../api/rides', () => ({
-  createRideOffer: jest.fn(),
-  createRecurringRides: jest.fn()
+vi.mock('../../api/rides', () => ({
+  createRideOffer: vi.fn(),
+  createRecurringRides: vi.fn()
 }));
 
 // Mock the child components
-jest.mock('../../components/LocationAutocomplete', () => {
-  return function MockLocationAutocomplete({ onLocationSelect, placeholder, value }) {
+vi.mock('../../components/LocationAutocomplete', () => ({
+  default: function MockLocationAutocomplete({ onLocationSelect, placeholder, value }) {
     return (
       <input
         data-testid={`location-${placeholder.toLowerCase().replace(/\s+/g, '-')}`}
@@ -19,11 +20,11 @@ jest.mock('../../components/LocationAutocomplete', () => {
         onChange={(e) => onLocationSelect && onLocationSelect(e.target.value)}
       />
     );
-  };
-});
+  }
+}));
 
-jest.mock('../../components/CustomDateTimePicker', () => {
-  return function MockCustomDateTimePicker({ value, onChange }) {
+vi.mock('../../components/CustomDateTimePicker', () => ({
+  default: function MockCustomDateTimePicker({ value, onChange }) {
     return (
       <input
         data-testid="departure-time"
@@ -32,15 +33,15 @@ jest.mock('../../components/CustomDateTimePicker', () => {
         onChange={(e) => onChange && onChange(e.target.value)}
       />
     );
-  };
-});
+  }
+}));
 
 describe('RideOfferForm', () => {
   const mockCreateRideOffer = require('../../api/rides').createRideOffer;
   const mockCreateRecurringRides = require('../../api/rides').createRecurringRides;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockCreateRideOffer.mockResolvedValue({ data: { success: true, ride: { _id: '123' } } });
     mockCreateRecurringRides.mockResolvedValue({ data: { success: true, rides: [{ _id: '123' }] } });
   });

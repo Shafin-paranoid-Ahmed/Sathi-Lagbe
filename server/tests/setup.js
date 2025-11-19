@@ -30,11 +30,35 @@ afterAll(async () => {
 
 // Clean up after each test
 afterEach(async () => {
-  // Clear all collections after each test
-  const collections = mongoose.connection.collections;
-  for (const key in collections) {
-    const collection = collections[key];
-    await collection.deleteMany({});
+  // Only clear if connected
+  if (mongoose.connection.readyState === 1) {
+    try {
+      // Drop all collections to ensure clean state
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      for (const collection of collections) {
+        await mongoose.connection.db.collection(collection.name).drop();
+      }
+    } catch (error) {
+      // Ignore cleanup errors
+      console.warn('Cleanup error:', error.message);
+    }
+  }
+});
+
+// Clean up after all tests in a file
+afterAll(async () => {
+  // Only clear if connected
+  if (mongoose.connection.readyState === 1) {
+    try {
+      // Drop all collections to ensure clean state
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      for (const collection of collections) {
+        await mongoose.connection.db.collection(collection.name).drop();
+      }
+    } catch (error) {
+      // Ignore cleanup errors
+      console.warn('Cleanup error:', error.message);
+    }
   }
 });
 
@@ -44,12 +68,17 @@ global.testUtils = {
   createTestUser: async (overrides = {}) => {
     const User = require('../models/User');
     const bcrypt = require('bcryptjs');
+    const mongoose = require('mongoose');
+    
+    // Generate unique identifiers to prevent conflicts
+    const uniqueId = Math.floor(Math.random() * 1000);
     
     const defaultUser = {
       name: 'Test User',
-      email: 'test@bracu.ac.bd',
+      email: `test${uniqueId}@bracu.ac.bd`,
       password: await bcrypt.hash('password123', 10),
-      bracuId: '12345678',
+      bracuId: `1234567${uniqueId.toString().slice(-1)}`,
+      phone: `+880123456${uniqueId.toString().padStart(1, '0')}`,
       gender: 'Male',
       ...overrides
     };
@@ -99,6 +128,12 @@ global.testUtils = {
   generateToken: (userId) => {
     const jwt = require('jsonwebtoken');
     return jwt.sign({ userId }, process.env.JWT_SECRET || 'test-secret', { expiresIn: '1h' });
+  },
+
+  // Create a new ObjectId for testing
+  createObjectId: () => {
+    const mongoose = require('mongoose');
+    return new mongoose.Types.ObjectId();
   },
   
   // Mock request object
