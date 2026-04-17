@@ -39,23 +39,25 @@ app.use(helmet({
 }));
 app.use(compression());
 
-// Rate limiting (disabled for development to avoid CORS issues)
-// const limiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 100, // limit each IP to 100 requests per windowMs
-//   message: 'Too many requests from this IP, please try again later.',
-//   standardHeaders: true,
-//   legacyHeaders: false,
-// });
-// app.use('/api/', limiter);
+// Rate limiting (enabled in production)
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // stricter in production
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'test', // Skip in test environment
+});
+app.use('/api/', limiter);
 
-// Stricter rate limiting for auth endpoints (disabled for development)
-// const authLimiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 5, // limit each IP to 5 requests per windowMs
-//   message: 'Too many authentication attempts, please try again later.',
-// });
-// app.use('/api/auth/', authLimiter);
+// Stricter rate limiting for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 5 : 50, // stricter in production
+  message: 'Too many authentication attempts, please try again later.',
+  skip: (req) => process.env.NODE_ENV === 'test', // Skip in test environment
+});
+app.use('/api/auth/', authLimiter);
 
 // Middleware - ORDER IS IMPORTANT
 // CORS configuration for Vercel deployment
@@ -72,34 +74,36 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: (origin, callback) => {
-    console.log('CORS request from origin:', origin);
-    console.log('Allowed origins:', allowedOrigins);
+    // In production, be strict about origins
+    if (process.env.NODE_ENV === 'production') {
+      // Allow requests with no origin only in development
+      if (!origin) {
+        return callback(new Error('No origin header - requests must include origin in production'));
+      }
+      
+      // Strict whitelist in production
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, origin);
+      }
+      
+      // Allow verified Vercel app domains only
+      if (origin.includes('vercel.app') && allowedOrigins.some(allowed => origin.includes(allowed?.split('//')[1]?.split('.')[0] || ''))) {
+        return callback(null, origin);
+      }
+      
+      console.warn('CORS blocked origin in production:', origin);
+      return callback(new Error('Not allowed by CORS'));
+    }
     
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Development mode - more permissive
     if (!origin) {
-      console.log('CORS: Allowing request with no origin');
       return callback(null, true);
     }
     
-    // Allow if in allowed origins list
-    if (allowedOrigins.includes(origin)) {
-      console.log('CORS: Allowing origin from list:', origin);
-      return callback(null, origin);
-    }
-    
-    // Allow any Vercel app domain
-    if (origin.includes('vercel.app')) {
-      console.log('CORS: Allowing Vercel origin:', origin);
-      return callback(null, origin);
-    }
-    
-    // Allow localhost for development
-    if (origin.includes('localhost')) {
-      console.log('CORS: Allowing localhost origin:', origin);
+    if (allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('vercel.app')) {
       return callback(null, origin);
     }
 
-    console.log('CORS blocked origin:', origin);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -153,11 +157,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Debug middleware for CORS issues
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url} - Origin: ${req.get('Origin')}`);
-  next();
-});
+// Debug middleware for CORS issues (only in development)
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url} - Origin: ${req.get('Origin')}`);
+    next();
+  });
+}
 
 
 // Routes
@@ -241,6 +247,22 @@ app.use((err, req, res, next) => {
     error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
+
+// Validate critical environment variables in production
+if (process.env.NODE_ENV === 'production') {
+  const requiredEnvVars = ['JWT_SECRET', 'MONGO_URI'];
+  const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+  
+  if (missingEnvVars.length > 0) {
+    console.error('❌ FATAL: Missing required environment variables:', missingEnvVars.join(', '));
+    console.error('Application cannot start in production without these variables.');
+    process.exit(1);
+  }
+  
+  if (!process.env.FRONTEND_URL && !process.env.CLIENT_URL) {
+    console.warn('⚠️ WARNING: FRONTEND_URL or CLIENT_URL should be set in production for proper CORS configuration');
+  }
+}
 
 // Connect to MongoDB with Vercel-optimized settings
 const mongoOptions = {

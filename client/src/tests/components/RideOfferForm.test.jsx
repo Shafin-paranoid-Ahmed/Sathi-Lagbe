@@ -278,7 +278,7 @@ describe('RideOfferForm', () => {
     const user = userEvent.setup();
     render(<RideOfferForm />);
 
-    const seatsInput = screen.getByLabelText(/available seats/i);
+    const seatsInput = screen.getByLabelText(/Available Seats/i, { selector: 'input' });
     await user.clear(seatsInput);
     await user.type(seatsInput, '0');
 
@@ -341,8 +341,8 @@ describe('RideOfferForm', () => {
   });
 
   it('shows success message and hides it after timeout', async () => {
-    jest.useFakeTimers();
-    const user = userEvent.setup();
+    vi.useFakeTimers();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<RideOfferForm />);
 
     // Fill in the form
@@ -362,12 +362,12 @@ describe('RideOfferForm', () => {
     });
 
     // Fast-forward time
-    jest.advanceTimersByTime(5000);
+    vi.advanceTimersByTime(5000);
 
     await waitFor(() => {
       expect(screen.queryByText(/ride offered successfully/i)).not.toBeInTheDocument();
     });
 
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 });

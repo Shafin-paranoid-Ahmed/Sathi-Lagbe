@@ -269,31 +269,49 @@ describe('RideMatch Model', () => {
 
   describe('RideMatch Indexes', () => {
     it('should have status and departureTime index', async () => {
+      // Create a ride first to ensure collection exists
+      await global.testUtils.createTestRide();
+      await RideMatch.ensureIndexes();
       const indexes = await RideMatch.collection.getIndexes();
       expect(indexes).toHaveProperty('status_1_departureTime_1');
     });
 
     it('should have riderId and status index', async () => {
+      // Create a ride first to ensure collection exists
+      await global.testUtils.createTestRide();
+      await RideMatch.ensureIndexes();
       const indexes = await RideMatch.collection.getIndexes();
       expect(indexes).toHaveProperty('riderId_1_status_1');
     });
 
     it('should have startLocation and endLocation index', async () => {
+      // Create a ride first to ensure collection exists
+      await global.testUtils.createTestRide();
+      await RideMatch.ensureIndexes();
       const indexes = await RideMatch.collection.getIndexes();
       expect(indexes).toHaveProperty('startLocation_1_endLocation_1');
     });
 
     it('should have departureTime and status index', async () => {
+      // Create a ride first to ensure collection exists
+      await global.testUtils.createTestRide();
+      await RideMatch.ensureIndexes();
       const indexes = await RideMatch.collection.getIndexes();
       expect(indexes).toHaveProperty('departureTime_1_status_1');
     });
 
     it('should have createdAt index', async () => {
+      // Create a ride first to ensure collection exists
+      await global.testUtils.createTestRide();
+      await RideMatch.ensureIndexes();
       const indexes = await RideMatch.collection.getIndexes();
       expect(indexes).toHaveProperty('createdAt_-1');
     });
 
     it('should have recurring days index', async () => {
+      // Create a ride first to ensure collection exists
+      await global.testUtils.createTestRide();
+      await RideMatch.ensureIndexes();
       const indexes = await RideMatch.collection.getIndexes();
       expect(indexes).toHaveProperty('recurring.days_1');
     });

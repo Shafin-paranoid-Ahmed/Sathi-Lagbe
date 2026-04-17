@@ -78,7 +78,7 @@ global.testUtils = {
       email: `test${uniqueId}@bracu.ac.bd`,
       password: await bcrypt.hash('password123', 10),
       bracuId: `1234567${uniqueId.toString().slice(-1)}`,
-      phone: `+880123456${uniqueId.toString().padStart(1, '0')}`,
+      phone: `+8801${uniqueId.toString().padStart(9, '0')}`,
       gender: 'Male',
       ...overrides
     };

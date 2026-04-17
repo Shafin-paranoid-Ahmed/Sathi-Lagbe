@@ -276,16 +276,46 @@ describe('Notification Model', () => {
 
   describe('Notification Indexes', () => {
     it('should have recipient, isRead, and createdAt index', async () => {
+      // Create a notification first to ensure collection exists
+      const user = await global.testUtils.createTestUser();
+      await Notification.create({
+        recipient: user._id,
+        sender: user._id,
+        type: 'ride_request',
+        title: 'Test',
+        message: 'Test'
+      });
+      await Notification.ensureIndexes();
       const indexes = await Notification.collection.getIndexes();
       expect(indexes).toHaveProperty('recipient_1_isRead_1_createdAt_-1');
     });
 
     it('should have recipient, category, and createdAt index', async () => {
+      // Create a notification first to ensure collection exists
+      const user = await global.testUtils.createTestUser();
+      await Notification.create({
+        recipient: user._id,
+        sender: user._id,
+        type: 'ride_request',
+        title: 'Test',
+        message: 'Test'
+      });
+      await Notification.ensureIndexes();
       const indexes = await Notification.collection.getIndexes();
       expect(indexes).toHaveProperty('recipient_1_category_1_createdAt_-1');
     });
 
     it('should have expiresAt TTL index', async () => {
+      // Create a notification first to ensure collection exists
+      const user = await global.testUtils.createTestUser();
+      await Notification.create({
+        recipient: user._id,
+        sender: user._id,
+        type: 'ride_request',
+        title: 'Test',
+        message: 'Test'
+      });
+      await Notification.ensureIndexes();
       const indexes = await Notification.collection.getIndexes();
       expect(indexes).toHaveProperty('expiresAt_1');
     });
