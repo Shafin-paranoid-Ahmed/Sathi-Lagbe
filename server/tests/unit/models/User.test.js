@@ -172,11 +172,17 @@ describe('User Model', () => {
 
   describe('User Indexes', () => {
     it('should have email index', async () => {
+      // Create a user first to ensure collection exists
+      await global.testUtils.createTestUser();
+      await User.ensureIndexes();
       const indexes = await User.collection.getIndexes();
       expect(indexes).toHaveProperty('email_1');
     });
 
     it('should have bracuId index', async () => {
+      // Create a user first to ensure collection exists
+      await global.testUtils.createTestUser();
+      await User.ensureIndexes();
       const indexes = await User.collection.getIndexes();
       expect(indexes).toHaveProperty('bracuId_1');
     });

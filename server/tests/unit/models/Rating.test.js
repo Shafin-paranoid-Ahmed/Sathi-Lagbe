@@ -187,6 +187,18 @@ describe('Rating Model', () => {
 
   describe('Rating Indexes', () => {
     it('should have unique index on rater, ratee, rideId, and isRiderRating', async () => {
+      // Create a rating first to ensure collection exists
+      await global.testUtils.createTestUser();
+      const rater = await global.testUtils.createTestUser({ email: 'rater@bracu.ac.bd' });
+      const ratee = await global.testUtils.createTestUser({ email: 'ratee@bracu.ac.bd' });
+      await Rating.create({
+        rater: rater._id,
+        ratee: ratee._id,
+        rideId: global.testUtils.createObjectId(),
+        rating: 5,
+        isRiderRating: true
+      });
+      await Rating.ensureIndexes();
       const indexes = await Rating.collection.getIndexes();
       expect(indexes).toHaveProperty('rater_1_ratee_1_rideId_1_isRiderRating_1');
     });

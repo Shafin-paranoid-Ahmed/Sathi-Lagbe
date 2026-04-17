@@ -35,9 +35,6 @@ export default function Login({ setIsAuthenticated }) {
 
       const res = await login({ email, password, bracuId });
       
-      // Debug logging
-      console.log('Login response:', res.data);
-      
       // Store token and user info
       sessionStorage.setItem('token', res.data.token);
       
@@ -55,11 +52,6 @@ export default function Login({ setIsAuthenticated }) {
         // Use email as fallback if name is not available
         sessionStorage.setItem('userName', res.data.user.email.split('@')[0]);
       }
-      
-      // Debug logging
-      console.log('Token stored:', sessionStorage.getItem('token'));
-      console.log('UserId stored:', sessionStorage.getItem('userId'));
-      console.log('UserName stored:', sessionStorage.getItem('userName'));
       
       // Update authentication state
       setIsAuthenticated(true);
