@@ -33,5 +33,8 @@
     "nodejs",
     "mongodb"
   ],
-  "author": "Sathi Lagbe Team"
+  "author": "Sathi Lagbe Team",
+  "dependencies": {
+    "cursor": "^0.1.5"
+  }
 }
