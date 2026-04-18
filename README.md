@@ -98,6 +98,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 ```
 Sathi-Lagbe/
+├── doc/            # Project documentation (Markdown)
 ├── client/         # React frontend application
 │   ├── src/
 │   │   ├── api/        # Functions for making API calls
@@ -116,16 +117,19 @@ Sathi-Lagbe/
 │   ├── services/     # Business logic (e.g., AI matching, notifications)
 │   ├── utils/        # Utility functions (e.g., socket setup)
 │   └── index.js      # Server entry point
-└── README.md
+├── README.md       # Repository entry point (quick start)
+└── ...
 ```
+
+**Documentation:** guides and reports live in [`doc/`](doc/README.md) (issues, deployment, tests, security, migration, etc.).
 
 ## 🐛 Known Issues
 
-For a comprehensive list of known issues, bugs, and areas for improvement, please see our [ISSUES.md](ISSUES.md) file.
+For a comprehensive list of known issues, bugs, and areas for improvement, please see [doc/ISSUES.md](doc/ISSUES.md).
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/your-username/Sathi-Lagbe/issues) or our [local issues documentation](ISSUES.md).
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/your-username/Sathi-Lagbe/issues) or our [local issues documentation](doc/ISSUES.md).
 
 ## 📝 License
 
