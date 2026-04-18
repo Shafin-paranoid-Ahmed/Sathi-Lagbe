@@ -5,9 +5,17 @@ class SocketService {
   constructor() {
     this.socket = null;
     this.listenerQueue = []; // Queue for listeners added before connection
+    this.socketEnabled =
+      (typeof import.meta !== 'undefined' &&
+        import.meta.env &&
+        String(import.meta.env.VITE_SOCKET_ENABLED || 'true').toLowerCase() === 'true');
   }
 
   connect(token) {
+    if (!this.socketEnabled) {
+      return;
+    }
+
     if (this.socket && this.socket.connected) {
 
       return;
@@ -23,7 +31,10 @@ class SocketService {
       this.socket.disconnect();
     }
     
-    const BASE_URL = import.meta.env.VITE_API_URL || 'https://sathi-lagbe-backend.vercel.app';
+    const BASE_URL =
+      import.meta.env.VITE_SOCKET_URL ||
+      import.meta.env.VITE_API_URL ||
+      'https://sathi-lagbe-backend.vercel.app';
     // Ensure no trailing slash to prevent double slashes
     const cleanBase = BASE_URL.replace(/\/$/, '');
     this.socket = io(cleanBase, {
@@ -156,21 +167,35 @@ class SocketService {
   
   addListener(eventName, callback) {
     if (this.socket && this.socket.connected) {
+      // Defensive de-duplication: avoid attaching same callback more than once.
+      this.socket.off(eventName, callback);
       this.socket.on(eventName, callback);
     } else {
-
-      this.listenerQueue.push({ eventName, callback });
+      const exists = this.listenerQueue.some(
+        (entry) => entry.eventName === eventName && entry.callback === callback
+      );
+      if (!exists) {
+        this.listenerQueue.push({ eventName, callback });
+      }
     }
   }
 
-  off(eventName) {
+  off(eventName, callback) {
     if (!this.socket) {
       console.warn('Socket not initialized, cannot remove listener');
       // Also remove from queue if it's there
-      this.listenerQueue = this.listenerQueue.filter(l => l.eventName !== eventName);
+      this.listenerQueue = this.listenerQueue.filter((l) => {
+        if (l.eventName !== eventName) return true;
+        if (callback && l.callback !== callback) return true;
+        return false;
+      });
       return;
     }
-    this.socket.off(eventName);
+    if (callback) {
+      this.socket.off(eventName, callback);
+    } else {
+      this.socket.off(eventName);
+    }
   }
 
   removeAllListeners() {

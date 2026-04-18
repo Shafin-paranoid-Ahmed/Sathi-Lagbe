@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { searchRides, getAiMatches, requestToJoinRide, getAllAvailableRides } from '../api/rides';
-import { API } from '../api/auth';
+import { API, clearAuthSession } from '../api/auth';
 import MapView from './MapView';
 import LocationAutocomplete from './LocationAutocomplete';
 import CustomDateTimePicker from './CustomDateTimePicker';
@@ -95,10 +95,7 @@ const RideMatchResults = memo(function RideMatchResults() {
       // Handle authentication errors specifically
       if (err.response?.status === 401) {
         setErrors({ api: 'Your session has expired. Please log in again to view rides.' });
-        // Clear invalid session data
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('userId');
-        sessionStorage.removeItem('userName');
+        clearAuthSession();
       } else {
         setErrors({ api: err.response?.data?.error || 'Error fetching rides. Please try again.' });
       }
@@ -160,10 +157,7 @@ const RideMatchResults = memo(function RideMatchResults() {
       // Handle authentication errors specifically
       if (err.response?.status === 401) {
         setErrors({ api: 'Your session has expired. Please log in again to search rides.' });
-        // Clear invalid session data
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('userId');
-        sessionStorage.removeItem('userName');
+        clearAuthSession();
       } else {
         setErrors({ api: err.response?.data?.error || 'Error searching rides. Please try again.' });
       }

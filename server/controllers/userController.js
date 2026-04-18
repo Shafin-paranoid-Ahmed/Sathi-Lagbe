@@ -4,6 +4,7 @@ const Classroom = require('../models/Classroom');
 const cloudinary = require('../utils/cloudinary');
 const fs = require('fs');
 const mongoose = require('mongoose');
+const { isValidBangladeshPhone } = require('../utils/validators');
 
 /**
  * Get users (except the current user) with pagination support
@@ -141,8 +142,7 @@ exports.updateProfile = async (req, res) => {
     if (gender) updates.gender = gender;
     if (bracuId) updates.bracuId = bracuId;
     if (phone) {
-      const bdPhoneRegex = /^\+880\d{10}$/;
-      if (!bdPhoneRegex.test(phone)) {
+      if (!isValidBangladeshPhone(phone)) {
         return res.status(400).json({ error: 'Phone must be in Bangladeshi format +880XXXXXXXXXX (10 digits)' });
       }
       updates.phone = phone;

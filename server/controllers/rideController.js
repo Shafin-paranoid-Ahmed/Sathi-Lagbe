@@ -5,7 +5,6 @@ const { validateRideOffer, validateRecurringRide } = require('../utils/validate'
 const User = require('../models/User'); // Add this import
 const rideNotificationService = require('../services/rideNotificationService');
 const cacheService = require('../services/cacheService');
-const mongoose = require('mongoose'); // Added for mongoose.Types.ObjectId
 
 /**
  * Get all available rides (no search parameters required)
@@ -60,9 +59,20 @@ exports.getAllAvailableRides = async (req, res) => {
  */
 exports.findRideMatches = async (req, res) => {
   try {
-    // ... (query setup logic remains the same) ...
-    const query = { /* ... */ };
+    const { startLocation, endLocation, departureTime } = req.query;
+    const query = { status: { $ne: 'completed' } };
+    if (startLocation) query.startLocation = startLocation;
     if (endLocation) query.endLocation = endLocation;
+    if (departureTime) {
+      const dep = new Date(departureTime);
+      if (!Number.isNaN(dep.getTime())) {
+        const start = new Date(dep);
+        start.setMinutes(start.getMinutes() - 60);
+        const end = new Date(dep);
+        end.setMinutes(end.getMinutes() + 60);
+        query.departureTime = { $gte: start, $lte: end };
+      }
+    }
     
     const rides = await RideMatch.find(query)
       .populate('riderId', 'name email avatarUrl gender')
@@ -184,7 +194,7 @@ exports.createRecurringRides = async (req, res) => {
         departureTime.setMinutes(recurring.minute || 0);
         
         const ride = new RideMatch({
-          riderId: effectiveRiderId,
+          riderId,
           riderName: user?.name || 'Anonymous User',
           riderGender: user?.gender || '',
           startLocation,
@@ -285,13 +295,10 @@ exports.requestToJoinRide = async (req, res) => {
 exports.confirmRideRequest = async (req, res) => {
   try {
     const { rideId, userId, requestId } = req.body;
-    console.log('✅ confirmRideRequest: Received request with rideId:', rideId, 'userId:', userId, 'requestId:', requestId);
-    console.log('✅ userId type:', typeof userId);
 
     const ride = await RideMatch.findById(rideId);
     
     if (!ride) {
-      console.log('❌ confirmRideRequest: Ride not found for rideId:', rideId);
       return res.status(404).json({ error: "Ride not found" });
     }
     
@@ -300,7 +307,6 @@ exports.confirmRideRequest = async (req, res) => {
     // Check if the requester is authorized (ride owner)
     const requesterId = req.user.id || req.user.userId;
     if (ride.riderId.toString() !== requesterId.toString()) {
-      console.log('❌ confirmRideRequest: Unauthorized. Ride owner is', ride.riderId, 'but requester is', requesterId);
       return res.status(403).json({ error: "Only the ride creator can confirm requests" });
     }
 
@@ -320,7 +326,6 @@ exports.confirmRideRequest = async (req, res) => {
       return userId && uid === userId.toString();
     });
     if (alreadyConfirmed) {
-      console.log('❌ confirmRideRequest: User', userId, 'is already confirmed for this ride.');
       return res.status(400).json({ error: "User already confirmed" });
     }
     
@@ -335,12 +340,6 @@ exports.confirmRideRequest = async (req, res) => {
     });
 
     if (reqIndex === -1) {
-      console.log('❌ confirmRideRequest: Request not found for user', targetUserId, 'or requestId', targetRequestId, 'in requestedRiders.');
-      console.log('❌ Available requestedRiders:', ride.requestedRiders.map(r => ({
-        requestId: r._id ? r._id.toString() : null,
-        user: r.user && r.user._id ? r.user._id.toString() : r.user.toString(),
-        seatCount: r.seatCount
-      })));
       return res.status(404).json({ error: "Request not found" });
     }
 
@@ -432,14 +431,9 @@ exports.denyRideRequest = async (req, res) => {
 exports.getRideById = async (req, res) => {
   try {
     const { rideId } = req.params;
-    console.log('🔍 getRideById called with rideId:', rideId);
-    console.log('🔍 Request user ID:', req.user.id || req.user.userId);
-    console.log('🔍 RideId type:', typeof rideId);
-    console.log('🔍 Request headers:', req.headers);
     
     // Validate rideId format
     if (!rideId || !/^[0-9a-fA-F]{24}$/.test(rideId)) {
-      console.log('❌ Invalid rideId format:', rideId);
       return res.status(400).json({ error: 'Invalid ride ID format' });
     }
     
@@ -455,25 +449,8 @@ exports.getRideById = async (req, res) => {
       });
       
     if (!ride) {
-      console.log('❌ Ride not found in database for ID:', rideId);
-      console.log('❌ Checking if ride exists with different formats...');
-      
-      // Try to find the ride with different ID formats for debugging
-      const rideAsString = await RideMatch.findById(rideId.toString());
-      const rideAsObjectId = await RideMatch.findById(new mongoose.Types.ObjectId(rideId));
-      
-      console.log('❌ Ride as string search result:', rideAsString ? 'Found' : 'Not found');
-      console.log('❌ Ride as ObjectId search result:', rideAsObjectId ? 'Found' : 'Not found');
-      
       return res.status(404).json({ error: 'Ride not found' });
     }
-    
-    console.log('✅ Ride found:', {
-      id: ride._id,
-      startLocation: ride.startLocation,
-      endLocation: ride.endLocation,
-      riderId: ride.riderId
-    });
     
     res.json(ride);
   } catch (err) {
@@ -569,8 +546,6 @@ exports.updateRide = async (req, res) => {
 exports.deleteRide = async (req, res) => {
   try {
     const { rideId } = req.params;
-    console.log('🗑️ deleteRide called with rideId:', rideId);
-    
     // Find the ride
     const ride = await RideMatch.findById(rideId);
     if (!ride) {
@@ -585,13 +560,10 @@ exports.deleteRide = async (req, res) => {
     
     // Delete the ride
     await RideMatch.findByIdAndDelete(rideId);
-    console.log('✅ Ride deleted successfully');
-    
     // Clean up orphaned notifications for this ride
     try {
       const rideNotificationService = require('../services/rideNotificationService');
       await rideNotificationService.cleanupOrphanedNotifications();
-      console.log('✅ Notifications cleaned up after ride deletion');
     } catch (cleanupError) {
       console.error('⚠️ Warning: Failed to cleanup notifications:', cleanupError);
       // Don't fail the ride deletion if notification cleanup fails
@@ -668,25 +640,15 @@ exports.getAiMatches = async (req, res) => {
   try {
     const { startLocation, endLocation, departureTime } = req.body;
     
-    console.log('🎯 AI Match request received:', { startLocation, endLocation, departureTime });
-    
     if (!startLocation || !departureTime) {
-      console.log('❌ Missing required parameters');
       return res.status(400).json({ error: 'Missing match parameters' });
     }
-    
-    // Debug: Check what's in the database
-    const totalRides = await RideMatch.countDocuments();
-    const pendingRides = await RideMatch.countDocuments({ status: 'pending' });
-    console.log(`📊 Database stats: ${totalRides} total rides, ${pendingRides} pending rides`);
     
     const matches = await aiMatch({
       startLocation,
       endLocation: endLocation || '',
       departureTime
     });
-    
-    console.log(`✅ AI Match completed: ${matches.length} matches found`);
     res.json(matches);
   } catch (err) {
     console.error('❌ AI match error:', err);

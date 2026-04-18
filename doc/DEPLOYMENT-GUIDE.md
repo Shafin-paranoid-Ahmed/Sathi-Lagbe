@@ -117,6 +117,26 @@ After deploying frontend, update your backend:
 
 ---
 
+## Step 5.5: Realtime + Cron Decisions (Required)
+
+Before going live on Vercel, configure these architecture items:
+
+1. **Socket hosting**
+   - Set `SOCKET_ENABLED=false` on the Vercel API deployment (recommended default).
+   - Run Socket.IO on a long-lived host (or managed realtime provider), then set client `VITE_SOCKET_URL`.
+
+2. **Socket CORS**
+   - Set `SOCKET_CORS_ORIGINS` to your production frontend origins (comma-separated).
+
+3. **Cron jobs**
+   - Set `CRON_SECRET` in backend environment variables.
+   - Vercel cron calls:
+     - `POST /api/internal/cron/cleanup-notifications`
+     - `POST /api/internal/cron/auto-status-tick`
+   - Send secret via `Authorization: Bearer <CRON_SECRET>` or `x-cron-secret`.
+
+---
+
 ## Step 6: Test Your Deployment ✅
 
 ### Smoke Tests

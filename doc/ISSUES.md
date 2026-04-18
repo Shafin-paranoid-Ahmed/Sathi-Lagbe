@@ -131,8 +131,8 @@ This document tracks known issues, bugs, and areas for improvement in the Sathi 
 ### 16. Limited Test Coverage
 **Status:** Active  
 **Priority:** High  
-**Description:** No visible test files in the codebase.  
-**Impact:** Changes may introduce regressions without detection.
+**Description:** Test files exist for server and client, but coverage is uneven and multiple suites were previously skipped or outdated.  
+**Impact:** Regressions can still slip through on complex paths (realtime chat, rides flow, notifications).
 
 ### 17. Manual Testing Required
 **Status:** Active  

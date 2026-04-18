@@ -4,7 +4,21 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const auth = require('../middleware/auth');
 const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
+
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB
+    files: 1
+  },
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+      return cb(new Error('Only JPG, PNG and WEBP images are allowed'));
+    }
+    return cb(null, true);
+  }
+});
 
 // Get all users (for friend list)
 router.get('/', auth, userController.getAllUsers);

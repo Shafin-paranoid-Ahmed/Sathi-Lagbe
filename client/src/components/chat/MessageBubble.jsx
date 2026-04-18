@@ -66,7 +66,7 @@ const MessageBubble = ({
                       Failed
                     </span>
                     <button
-                      onClick={() => retryMessage(message._id)}
+                      onClick={() => retryMessage(message._id || message.tempId || message.clientId)}
                       className="text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2 py-1 rounded hover:bg-red-200 dark:hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
                       title="Retry sending message"
                       aria-label="Retry sending message"

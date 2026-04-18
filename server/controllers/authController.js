@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Routine = require('../models/Routine');
 const bcrypt = require('bcryptjs');
 const { signToken } = require('../utils/jwt');
+const { isValidBangladeshPhone } = require('../utils/validators');
 
 // Helper to ensure only BRACU G-Suite emails are used
 const isBracuEmail = (email) => /^[^@\s]+@(?:g\.)?bracu\.ac\.bd$/i.test(email);
@@ -66,8 +67,7 @@ const registerUser = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         // Validate Bangladeshi phone: +880 followed by 10 digits
-        const bdPhoneRegex = /^\+880\d{10}$/;
-        if (!bdPhoneRegex.test(phone)) {
+        if (!isValidBangladeshPhone(phone)) {
             return res.status(400).json({
                 success: false,
                 error: "Phone must be in Bangladeshi format +880XXXXXXXXXX (10 digits)",

@@ -2,10 +2,38 @@ const { Server } = require('socket.io');
 
 let io;
 
+function parseAllowedOrigins() {
+  const configured = [
+    process.env.FRONTEND_URL,
+    process.env.CLIENT_URL,
+    process.env.SOCKET_CORS_ORIGINS
+  ].filter(Boolean);
+
+  const expanded = configured.flatMap((entry) =>
+    String(entry)
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
+
+  return Array.from(
+    new Set([
+      'http://localhost:3000',
+      'http://localhost:5173',
+      ...expanded
+    ])
+  );
+}
+
 function initSocket(server) {
+  const allowedOrigins = parseAllowedOrigins();
   io = new Server(server, {
     cors: {
-      origin: ['http://localhost:3000', 'http://localhost:5173'],
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error(`Socket CORS: origin ${origin} not allowed`));
+      },
       methods: ['GET', 'POST'],
       credentials: true
     },

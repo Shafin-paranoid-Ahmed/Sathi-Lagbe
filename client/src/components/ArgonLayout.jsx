@@ -116,6 +116,22 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
     fetchCurrentStatus();
   }, []);
 
+  // Sync dark mode preference across tabs for current user.
+  useEffect(() => {
+    const currentUserId = sessionStorage.getItem('userId');
+    const key = currentUserId ? `darkMode_${currentUserId}` : 'darkMode';
+    const onStorage = (event) => {
+      if (event.key !== key || event.newValue == null) return;
+      try {
+        setDarkMode(JSON.parse(event.newValue));
+      } catch (_) {
+        // Ignore malformed storage payloads
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   // Listen for userName changes from Profile component
   useEffect(() => {
     const handleUserNameChange = (event) => {
@@ -134,8 +150,6 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
   useEffect(() => {
     const handleStatusChange = (event) => {
       const newStatus = event.detail.status;
-      console.log('ArgonLayout: Received userStatusChanged event with status:', newStatus);
-      console.log('ArgonLayout: Event detail:', event.detail);
       setCurrentStatus(newStatus);
       // Note: ArgonLayout doesn't need to track isAutoUpdate, but we could add it if needed
     };

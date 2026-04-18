@@ -24,13 +24,18 @@ export default function Sos() {
   const [isLiveSharing, setIsLiveSharing] = useState(false);
   const watchIdRef = useRef(null);
 
-  // Get filtered contacts for display - show all valid contacts for the current user
-  const displayContacts = useMemo(() => contacts.filter(c => 
-    c && 
-    c.name && 
-    c.name.trim() !== '' && 
-    (c.addedBy === currentUserId || !c.addedBy) // Show contacts added by current user OR contacts without addedBy (legacy)
-  ), [contacts, currentUserId]);
+  // Normalize contacts from API/local edits, drop invalid entries and avoid duplicates.
+  const displayContacts = useMemo(() => {
+    const seen = new Set();
+    return (contacts || []).filter((c) => {
+      if (!c || !c.name || c.name.trim() === '') return false;
+      const id = c.userId || c.phone || c.name.trim().toLowerCase();
+      if (id === currentUserId) return false;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [contacts, currentUserId]);
   
   const displayContactsRef = useRef(displayContacts);
   displayContactsRef.current = displayContacts;

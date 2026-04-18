@@ -15,6 +15,30 @@ export const API = axios.create({
 // Flag to prevent multiple redirects
 let isRedirecting = false;
 
+export function clearAuthSession() {
+  const userId = sessionStorage.getItem('userId');
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('userId');
+  sessionStorage.removeItem('userName');
+
+  if (userId) {
+    localStorage.removeItem(`chatList_${userId}`);
+    localStorage.removeItem(`userAvatarUrl_${userId}`);
+    localStorage.removeItem(`darkMode_${userId}`);
+    localStorage.removeItem(`theme_${userId}`);
+  }
+}
+
+export function handleUnauthorizedRedirect(redirectTo = '/login?expired=true') {
+  if (isRedirecting) return;
+  isRedirecting = true;
+  clearAuthSession();
+  setTimeout(() => {
+    window.location.href = redirectTo;
+    isRedirecting = false;
+  }, 500);
+}
+
 // Interceptor to add token to requests
 API.interceptors.request.use(
   (config) => {
@@ -33,29 +57,8 @@ API.interceptors.response.use(
   (response) => response,
   (error) => {
     // Handle 401 errors (unauthorized)
-    if (error.response && error.response.status === 401 && !isRedirecting) {
-      // Prevent multiple redirects
-      isRedirecting = true;
-      
-      // Clear invalid token and user data
-      const userId = sessionStorage.getItem('userId');
-      sessionStorage.removeItem('token');
-      sessionStorage.removeItem('userId');
-      sessionStorage.removeItem('userName');
-      
-      // Clear user-specific localStorage data
-      if (userId) {
-        localStorage.removeItem(`chatList_${userId}`);
-        localStorage.removeItem(`userAvatarUrl_${userId}`);
-        localStorage.removeItem(`darkMode_${userId}`);
-        localStorage.removeItem(`theme_${userId}`);
-      }
-      
-      // Add a small delay before redirecting
-      setTimeout(() => {
-        window.location.href = '/login?expired=true';
-        isRedirecting = false; // Reset flag
-      }, 500);
+    if (error.response && error.response.status === 401) {
+      handleUnauthorizedRedirect('/login?expired=true');
     }
     return Promise.reject(error);
   }
@@ -92,18 +95,7 @@ export function logout() {
   // --- FIX: Explicitly disconnect the socket to prevent duplicate listeners ---
   socketService.disconnect();
 
-  const userId = sessionStorage.getItem('userId');
-  
-  sessionStorage.removeItem('token');
-  sessionStorage.removeItem('userId');
-  sessionStorage.removeItem('userName');
-  
-  if (userId) {
-    localStorage.removeItem(`chatList_${userId}`);
-    localStorage.removeItem(`userAvatarUrl_${userId}`);
-    localStorage.removeItem(`darkMode_${userId}`);
-    localStorage.removeItem(`theme_${userId}`);
-  }
+  clearAuthSession();
   
   return API.post('/auth/logout');
 }

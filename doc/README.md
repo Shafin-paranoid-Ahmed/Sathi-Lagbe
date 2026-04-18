@@ -11,6 +11,7 @@ All **project-level** Markdown documentation for Sathi-Lagbe lives in this `doc/
 | [PERFORMANCE_OPTIMIZATIONS.md](PERFORMANCE_OPTIMIZATIONS.md) | Performance work applied to the stack |
 | [SECURITY_VULNERABILITIES.md](SECURITY_VULNERABILITIES.md) | Security vulnerability notes |
 | [MIGRATION-POSTGRES-AWS.md](MIGRATION-POSTGRES-AWS.md) | Guide: MongoDB → PostgreSQL and AWS deployment |
+| [PRE-SHIP-FIX-CHECKLIST.md](PRE-SHIP-FIX-CHECKLIST.md) | Pre-production fix checklist (deploy, UX, security, tests, docs) |
 
 **Repository root** keeps [README.md](../README.md) as the main entry point for GitHub and quick start (standard convention).
 

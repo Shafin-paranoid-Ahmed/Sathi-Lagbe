@@ -27,6 +27,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const ratingRoutes = require('./routes/ratingRoutes');
 const routineRoutes = require('./routes/routineRoutes');
 const statsRoutes = require('./routes/statsRoutes');
+const internalRoutes = require('./routes/internalRoutes');
 const { startAutoStatusScheduler } = require('./services/autoStatusService');
 
 const app = express();
@@ -127,6 +128,7 @@ try {
   app.use('/api/ratings', ratingRoutes);
   app.use('/api/routine', routineRoutes);
   app.use('/api/stats', statsRoutes);
+  app.use('/api/internal', internalRoutes);
   console.log('✅ All routes loaded successfully');
 } catch (error) {
   console.error('❌ Error loading routes:', error);
@@ -150,6 +152,20 @@ app.get('/api/cors-test', (req, res) => {
 
 // JSON parsing error handler
 app.use((err, req, res, next) => {
+  if (err && err.name === 'MulterError') {
+    return res.status(400).json({
+      success: false,
+      error: err.message || 'Invalid upload payload',
+      message: 'File upload validation failed'
+    });
+  }
+  if (err && err.message && err.message.includes('Only JPG, PNG and WEBP images are allowed')) {
+    return res.status(400).json({
+      success: false,
+      error: err.message,
+      message: 'File upload validation failed'
+    });
+  }
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
     return res.status(400).json({
       success: false,
@@ -246,11 +262,20 @@ mongoose.connection.on('disconnected', () => {
 // Start connection
 connectWithRetry();
 
+const isVercelRuntime = process.env.VERCEL === '1';
+const socketsEnabled = (() => {
+  if (typeof process.env.SOCKET_ENABLED === 'string') {
+    return process.env.SOCKET_ENABLED.toLowerCase() === 'true';
+  }
+  // Safe default: disable sockets on Vercel serverless unless explicitly enabled.
+  return !isVercelRuntime;
+})();
+
 // Create HTTP server
 const server = http.createServer(app);
 
-// Initialize Socket.IO
-const io = initSocket(server);
+// Initialize Socket.IO (long-lived runtime only by default).
+const io = socketsEnabled ? initSocket(server) : null;
 
 // Socket.IO authentication middleware
 const authenticateSocket = (socket, next) => {
@@ -271,9 +296,12 @@ const authenticateSocket = (socket, next) => {
 };
 
 // Apply authentication middleware
-io.use(authenticateSocket);
+if (io) {
+  io.use(authenticateSocket);
+}
 
 // Socket.IO connection handling
+if (io) {
 io.on('connection', (socket) => {
   // User connection logging removed for security
   
@@ -387,24 +415,22 @@ io.on('connection', (socket) => {
     }
   });
 });
+}
 
 // Start server
 const PORT = process.env.PORT || 5000;
 
 // Only start server if not in Vercel environment and not in test environment
-if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'test') {
+if (!isVercelRuntime && process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
     console.log(`Server started successfully on port ${PORT}`);
   });
 } else if (process.env.NODE_ENV === 'test') {
   console.log("Server configured for testing, not starting listener.");
-} else {
-  // For Vercel, export the app instead of starting the server
-  module.exports = app;
 }
 
 // Scheduled tasks only run in long-lived (non-Vercel, non-test) environments.
-if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'test') {
+if (!isVercelRuntime && process.env.NODE_ENV !== 'test') {
   // Scheduled cleanup of orphaned notifications (runs every hour)
   const cleanupInterval = 60 * 60 * 1000; // 1 hour in milliseconds
 
@@ -427,4 +453,9 @@ if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'test') {
   }
 }
 
-module.exports = { app, server };
+if (isVercelRuntime) {
+  // Vercel's Node runtime expects the HTTP handler export.
+  module.exports = app;
+} else {
+  module.exports = { app, server };
+}

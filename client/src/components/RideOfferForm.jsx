@@ -1,6 +1,7 @@
 // client/src/components/RideOfferForm.jsx
 import { useState, useEffect } from 'react';
 import { createRideOffer, createRecurringRides } from '../api/rides';
+import { clearAuthSession } from '../api/auth';
 import LocationAutocomplete from './LocationAutocomplete';
 import CustomDateTimePicker from './CustomDateTimePicker';
 
@@ -165,10 +166,7 @@ export default function RideOfferForm() {
       // Handle authentication errors specifically
       if (err.response?.status === 401) {
         setErrors({ api: 'Your session has expired. Please log in again to offer a ride.' });
-        // Clear invalid session data
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('userId');
-        sessionStorage.removeItem('userName');
+        clearAuthSession();
       } else {
         setErrors({ api: err.response?.data?.error || 'Failed to submit ride offer. Please try again.' });
       }

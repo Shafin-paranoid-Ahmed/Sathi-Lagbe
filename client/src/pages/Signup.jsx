@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signup } from '../api/auth';
+import { isValidBangladeshPhone } from '../utils/validators';
 
 const isBracuEmail = (email) => /^[^@\s]+@(?:g\.)?bracu\.ac\.bd$/i.test(email);
 
@@ -38,8 +39,7 @@ export default function Signup() {
         return;
       }
       // Validate Bangladeshi phone: +880 followed by 10 digits
-      const bdPhoneRegex = /^\+880\d{10}$/;
-      if (!bdPhoneRegex.test(phone)) {
+      if (!isValidBangladeshPhone(phone)) {
         setError('Phone must be in Bangladeshi format +880XXXXXXXXXX (10 digits)');
         setLoading(false);
         return;
