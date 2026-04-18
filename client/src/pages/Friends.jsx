@@ -86,8 +86,10 @@ export default function Friends() {
   const fetchAllUsers = async () => {
     try {
       const response = await API.get('/users');
+      // /users returns an envelope: { data: [...], pagination: {...} }
+      const users = Array.isArray(response.data?.data) ? response.data.data : [];
       // Ensure we have valid data and filter out any null entries
-      const validUsers = response.data ? response.data.filter(user => user) : [];
+      const validUsers = users.filter(user => user);
       // Sort users alphabetically by name
       const sortedUsers = validUsers.sort((a, b) => {
         const nameA = (a.name || '').toLowerCase();

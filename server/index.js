@@ -227,10 +227,17 @@ const connectWithRetry = async () => {
     return;
   }
   try {
+    const mongoDbName = process.env.MONGO_DB_NAME;
     console.log('🔄 Attempting to connect to MongoDB...');
-    await mongoose.connect(process.env.MONGO_URI, mongoOptions);
+    await mongoose.connect(process.env.MONGO_URI, {
+      ...mongoOptions,
+      ...(mongoDbName ? { dbName: mongoDbName } : {})
+    });
     console.log('✅ Database connected successfully');
     console.log('MongoDB connection state:', mongoose.connection.readyState);
+    if (mongoDbName) {
+      console.log(`MongoDB database in use: ${mongoDbName}`);
+    }
     
     // Initialize cache service after database connection
     const cacheService = require('./services/cacheService');
