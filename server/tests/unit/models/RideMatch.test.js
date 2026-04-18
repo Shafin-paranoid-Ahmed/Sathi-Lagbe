@@ -313,7 +313,7 @@ describe('RideMatch Model', () => {
       await global.testUtils.createTestRide();
       await RideMatch.ensureIndexes();
       const indexes = await RideMatch.collection.getIndexes();
-      expect(indexes).toHaveProperty('recurring.days_1');
+      expect('recurring.days_1' in indexes).toBe(true);
     });
   });
 

@@ -5,12 +5,11 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
-const morgan = require('morgan');
-const jwt = require('jsonwebtoken');
 const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { initSocket } = require('./utils/socket');
+const { verifyToken: verifyJwt, getJwtSecret } = require('./utils/jwt');
 
 
 // Import routes
@@ -59,52 +58,38 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth/', authLimiter);
 
-// Middleware - ORDER IS IMPORTANT
-// CORS configuration for Vercel deployment
-const allowedOrigins = [
+// CORS configuration. A single allowlist drives both preflight and actual
+// requests; the `cors` package handles OPTIONS automatically.
+const staticAllowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.CLIENT_URL,
   'https://sathi-lagbe-pcg3.vercel.app',
   'https://sathi-lagbe-lovat.vercel.app',
-  'https://sathi-lagbe-alpha.vercel.app',  // Your actual frontend URL
+  'https://sathi-lagbe-alpha.vercel.app',
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:4173'
 ].filter(Boolean);
 
+// Additional origins matched only in non-production environments.
+const isNonProd = process.env.NODE_ENV !== 'production';
+
 const corsOptions = {
   origin: (origin, callback) => {
-    // In production, be strict about origins
-    if (process.env.NODE_ENV === 'production') {
-      // Allow requests with no origin only in development
-      if (!origin) {
-        return callback(new Error('No origin header - requests must include origin in production'));
-      }
-      
-      // Strict whitelist in production
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, origin);
-      }
-      
-      // Allow verified Vercel app domains only
-      if (origin.includes('vercel.app') && allowedOrigins.some(allowed => origin.includes(allowed?.split('//')[1]?.split('.')[0] || ''))) {
-        return callback(null, origin);
-      }
-      
-      console.warn('CORS blocked origin in production:', origin);
-      return callback(new Error('Not allowed by CORS'));
-    }
-    
-    // Development mode - more permissive
+    // Server-to-server / curl / same-origin requests have no Origin header.
     if (!origin) {
       return callback(null, true);
     }
-    
-    if (allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('vercel.app')) {
-      return callback(null, origin);
+
+    if (staticAllowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
 
-    return callback(new Error('Not allowed by CORS'));
+    if (isNonProd && (origin.includes('localhost') || origin.endsWith('.vercel.app'))) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -112,80 +97,17 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 
-// Apply CORS middleware and ensure all preflight requests are handled
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
-// Handle preflight requests for all routes
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.status(200).end();
-});
-
-// Additional CORS fallback for Vercel
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  console.log('Request origin:', origin);
-  
-  // If origin is not in allowed list but looks like a Vercel app, allow it
-  if (origin && origin.includes('vercel.app') && !allowedOrigins.includes(origin)) {
-    console.log('Allowing Vercel origin:', origin);
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
-  }
-  
-  next();
-});
-// Make sure body-parser middleware is before routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// HTTP request logging disabled for security in production
-// app.use(morgan('dev'));
 
-// Note: File uploads now use memory storage for serverless compatibility
-
-// Middleware to handle double slashes in URLs
+// Normalize accidental double-slashes before route matching.
 app.use((req, res, next) => {
-  // Fix double slashes in the URL
   if (req.url.includes('//')) {
     req.url = req.url.replace(/\/+/g, '/');
   }
-  next();
-});
-
-// Debug middleware for CORS issues (only in development)
-if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url} - Origin: ${req.get('Origin')}`);
-    next();
-  });
-}
-
-
-// Routes
-
-// Manual CORS handler as backup for Vercel
-app.use((req, res, next) => {
-  const origin = req.get('Origin');
-  
-  if (allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  
   next();
 });
 
@@ -248,18 +170,25 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Validate critical environment variables in production
-if (process.env.NODE_ENV === 'production') {
+// Validate critical environment variables at startup (skipped only in tests,
+// which inject their own JWT_SECRET via tests/setup.js before requiring the app).
+if (process.env.NODE_ENV !== 'test') {
   const requiredEnvVars = ['JWT_SECRET', 'MONGO_URI'];
   const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-  
+
   if (missingEnvVars.length > 0) {
     console.error('❌ FATAL: Missing required environment variables:', missingEnvVars.join(', '));
-    console.error('Application cannot start in production without these variables.');
     process.exit(1);
   }
-  
-  if (!process.env.FRONTEND_URL && !process.env.CLIENT_URL) {
+
+  try {
+    getJwtSecret();
+  } catch (err) {
+    console.error('❌ FATAL:', err.message);
+    process.exit(1);
+  }
+
+  if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL && !process.env.CLIENT_URL) {
     console.warn('⚠️ WARNING: FRONTEND_URL or CLIENT_URL should be set in production for proper CORS configuration');
   }
 }
@@ -326,14 +255,13 @@ const io = initSocket(server);
 // Socket.IO authentication middleware
 const authenticateSocket = (socket, next) => {
   const token = socket.handshake.auth.token;
-  
+
   if (!token) {
     return next(new Error('Authentication error: No token provided'));
   }
 
   try {
-    const secret = process.env.JWT_SECRET || process.env.SECRET_KEY;
-    const decoded = jwt.verify(token, secret);
+    const decoded = verifyJwt(token);
     socket.userId = decoded.userId || decoded.id;
     socket.userName = decoded.name || decoded.email || 'User';
     next();
@@ -475,8 +403,8 @@ if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'test') {
   module.exports = app;
 }
 
-// Scheduled tasks only run in non-Vercel environments
-if (process.env.VERCEL !== '1') {
+// Scheduled tasks only run in long-lived (non-Vercel, non-test) environments.
+if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'test') {
   // Scheduled cleanup of orphaned notifications (runs every hour)
   const cleanupInterval = 60 * 60 * 1000; // 1 hour in milliseconds
 

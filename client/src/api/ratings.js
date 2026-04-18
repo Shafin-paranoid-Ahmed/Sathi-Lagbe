@@ -1,5 +1,5 @@
 // client/src/api/ratings.js
-import { API } from './auth';
+import { API } from './auth.js';
 
 // Submit a new rating
 export function submitRating(ratingData) {

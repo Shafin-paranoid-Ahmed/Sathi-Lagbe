@@ -1,5 +1,5 @@
 // client/src/api/sos.js
-import { API } from './auth';
+import { API } from './auth.js';
 
 // Fetch the user's SOS contacts
 export function getContacts() {

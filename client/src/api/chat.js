@@ -1,5 +1,5 @@
 // client/src/api/chat.js - Simplified version
-import { API } from './auth';
+import { API } from './auth.js';
 
 // Get all chats for the current user
 export function getAllChats() {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { User, MapPin, Clock, BookOpen, Coffee, Calendar, Zap, AlertCircle, CheckCircle, Bug } from 'lucide-react';
-import { API, checkAutoStatusSetup, debugAutoStatus, getCurrentUserStatus, updateStatus } from '../api/auth';
+import { User, MapPin, Clock, BookOpen, Coffee, Calendar, Zap, AlertCircle, CheckCircle } from 'lucide-react';
+import { API, checkAutoStatusSetup, getCurrentUserStatus, updateStatus } from '../api/auth';
 
 const StatusUpdate = () => {
   const [status, setStatus] = useState(() => localStorage.getItem('userCurrentStatus') || 'available');
@@ -103,17 +103,6 @@ const StatusUpdate = () => {
       setSetupStatus(response.data);
     } catch (error) {
       console.error('Error checking setup status:', error);
-    }
-  };
-
-  const handleDebug = async () => {
-    try {
-      const response = await debugAutoStatus();
-      console.log('🔍 Debug Info:', response.data);
-      alert('Debug info logged to console.');
-    } catch (error) {
-      console.error('Error getting debug info:', error);
-      alert('Failed to get debug info.');
     }
   };
 
@@ -422,16 +411,6 @@ const StatusUpdate = () => {
         >
           <Zap className="w-4 h-4 mr-2" />
           {autoUpdateLoading ? 'Updating...' : 'Update Status Automatically'}
-        </button>
-      )}
-
-      {isAutoUpdate && (
-        <button
-          onClick={handleDebug}
-          className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors mb-4 flex items-center justify-center"
-        >
-          <Bug className="w-4 h-4 mr-2" />
-          Debug Auto-Status
         </button>
       )}
 

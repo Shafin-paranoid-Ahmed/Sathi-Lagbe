@@ -1,5 +1,5 @@
 // client/src/api/users.js
-import { API } from './auth';
+import { API } from './auth.js';
 
 // Get all users for the friend list
 export function getAllUsers() {

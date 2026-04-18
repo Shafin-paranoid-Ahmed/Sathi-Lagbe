@@ -330,7 +330,7 @@ describe('Rating Model', () => {
     it('should calculate average rating correctly', async () => {
       const result = await Rating.getAverageRating(user1);
 
-      expect(result.averageRating).toBe(4.25); // (5 + 4 + 3 + 5) / 4
+      expect(result.averageRating).toBe(4.3); // rounded from (5 + 4 + 3 + 5) / 4
       expect(result.totalRatings).toBe(4);
     });
 

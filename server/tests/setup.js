@@ -4,61 +4,58 @@ const mongoose = require('mongoose');
 
 let mongoServer;
 
+let fixtureCounter = 0;
+
 // Setup before all tests
 beforeAll(async () => {
-  // Start in-memory MongoDB instance
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
-  
-  // Connect to the in-memory database
-  await mongoose.connect(mongoUri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+
+  await mongoose.connect(mongoUri);
+
+  // Register models so unique indexes exist for the whole run (drop() in afterEach
+  // used to remove indexes and break duplicate-key tests).
+  require('../models/User');
+  require('../models/RideMatch');
+  require('../models/Rating');
+  require('../models/chat');
+  require('../models/Notification');
+  require('../models/Message');
+  require('../models/Routine');
+  require('../models/Classroom');
+  require('../models/Friend');
+  require('../models/FriendStatus');
+  require('../models/Feedback');
+  require('../models/Emergency');
+  require('../models/sosContact');
+  require('../models/ChatMessage');
+  require('../models/freeModels');
+
+  await Promise.all(
+    Object.values(mongoose.models).map((Model) =>
+      Model.syncIndexes().catch(() => {})
+    )
+  );
 });
 
-// Cleanup after all tests
 afterAll(async () => {
-  // Close database connection
   await mongoose.connection.close();
-  
-  // Stop the in-memory MongoDB instance
   if (mongoServer) {
     await mongoServer.stop();
   }
 });
 
-// Clean up after each test
+// Clear documents but keep collections/indexes intact
 afterEach(async () => {
-  // Only clear if connected
-  if (mongoose.connection.readyState === 1) {
-    try {
-      // Drop all collections to ensure clean state
-      const collections = await mongoose.connection.db.listCollections().toArray();
-      for (const collection of collections) {
-        await mongoose.connection.db.collection(collection.name).drop();
-      }
-    } catch (error) {
-      // Ignore cleanup errors
-      console.warn('Cleanup error:', error.message);
+  if (mongoose.connection.readyState !== 1) return;
+  try {
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    for (const { name } of collections) {
+      if (name.startsWith('system.')) continue;
+      await mongoose.connection.db.collection(name).deleteMany({});
     }
-  }
-});
-
-// Clean up after all tests in a file
-afterAll(async () => {
-  // Only clear if connected
-  if (mongoose.connection.readyState === 1) {
-    try {
-      // Drop all collections to ensure clean state
-      const collections = await mongoose.connection.db.listCollections().toArray();
-      for (const collection of collections) {
-        await mongoose.connection.db.collection(collection.name).drop();
-      }
-    } catch (error) {
-      // Ignore cleanup errors
-      console.warn('Cleanup error:', error.message);
-    }
+  } catch (error) {
+    console.warn('Cleanup error:', error.message);
   }
 });
 
@@ -70,14 +67,14 @@ global.testUtils = {
     const bcrypt = require('bcryptjs');
     const mongoose = require('mongoose');
     
-    // Generate unique identifiers to prevent conflicts
-    const uniqueId = Math.floor(Math.random() * 1000);
-    
+    fixtureCounter += 1;
+    const uniqueId = fixtureCounter;
+
     const defaultUser = {
       name: 'Test User',
       email: `test${uniqueId}@bracu.ac.bd`,
       password: await bcrypt.hash('password123', 10),
-      bracuId: `1234567${uniqueId.toString().slice(-1)}`,
+      bracuId: String(10000000 + (uniqueId % 89999999)),
       phone: `+8801${uniqueId.toString().padStart(9, '0')}`,
       gender: 'Male',
       ...overrides
@@ -127,7 +124,11 @@ global.testUtils = {
   // Generate JWT token
   generateToken: (userId) => {
     const jwt = require('jsonwebtoken');
-    return jwt.sign({ userId }, process.env.JWT_SECRET || 'test-secret', { expiresIn: '1h' });
+    return jwt.sign(
+      { userId, id: userId },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
   },
 
   // Create a new ObjectId for testing
@@ -161,8 +162,9 @@ global.testUtils = {
   mockNext: () => jest.fn()
 };
 
-// Mock environment variables
+// Mock environment variables. JWT_SECRET must be at least 16 chars to match
+// production guard in utils/jwt.js.
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-secret-key';
+process.env.JWT_SECRET = 'test-secret-key-abcdefghijklmnop';
 process.env.MONGO_URI = 'mongodb://localhost:27017/test';
 process.env.REDIS_URL = 'redis://localhost:6379';

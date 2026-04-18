@@ -1,5 +1,5 @@
 // client/src/api/stats.js
-import { API } from './auth';
+import { API } from './auth.js';
 
 // Get dashboard statistics
 export function getDashboardStats() {

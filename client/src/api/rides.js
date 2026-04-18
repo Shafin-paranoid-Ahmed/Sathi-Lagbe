@@ -1,5 +1,5 @@
 // client/src/api/rides.js
-import { API } from './auth';
+import { API } from './auth.js';
 
 // Create a one-time ride offer
 export function createRideOffer(rideData) {

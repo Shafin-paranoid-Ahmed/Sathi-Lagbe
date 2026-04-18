@@ -1,5 +1,5 @@
 // client/src/api/routine.js
-import { API } from './auth';
+import { API } from './auth.js';
 
 // Get user's routine
 export function getUserRoutine() {

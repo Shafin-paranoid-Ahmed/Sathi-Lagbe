@@ -1,5 +1,5 @@
 // client/src/api/friends.js
-import { API } from './auth';
+import { API } from './auth.js';
 
 // Set user availability status
 export function setStatus(isFree) {

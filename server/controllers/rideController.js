@@ -8,67 +8,6 @@ const cacheService = require('../services/cacheService');
 const mongoose = require('mongoose'); // Added for mongoose.Types.ObjectId
 
 /**
- * Test endpoint to check user gender and ride data
- */
-exports.testGenderData = async (req, res) => {
-  try {
-    const userId = req.user.id || req.user.userId;
-
-    
-    // Check user data
-    const user = await User.findById(userId).select('name email gender');
-    
-    // Check recent rides by this user
-    const userRides = await RideMatch.find({ riderId: userId })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select('riderName riderGender createdAt');
-    
-
-    
-    // Check all recent rides
-    const allRides = await RideMatch.find()
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select('riderName riderGender riderId createdAt');
-    
-    // Ride data logging removed for security
-    
-    res.json({
-      userId,
-      userData: user,
-      userRides,
-      allRides,
-      message: 'Check server console for detailed logs'
-    });
-  } catch (err) {
-    console.error('Error in test endpoint:', err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-/**
- * Debug endpoint to check user data
- */
-exports.debugUserData = async (req, res) => {
-  try {
-    const userId = req.user.id || req.user.userId;
-    // User data debug logging removed for security
-    
-    const user = await User.findById(userId).select('name email gender');
-    
-    res.json({
-      userId,
-      userData: user,
-      message: 'Check server console for detailed logs'
-    });
-  } catch (err) {
-    console.error('Error in debug endpoint:', err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-/**
  * Get all available rides (no search parameters required)
  */
 exports.getAllAvailableRides = async (req, res) => {
@@ -161,24 +100,20 @@ exports.createRideOffer = async (req, res) => {
     if (validationError) {
       return res.status(400).json({ error: validationError });
     }
-    
-    const { riderId, departureTime, startLocation, endLocation, recurring, availableSeats = 1 } = req.body;
-    
-    // Replace riderId with authenticated user if not provided
-    const effectiveRiderId = riderId || req.user.id || req.user.userId;
-    
-    // Fetch user data to get gender
-    const user = await User.findById(effectiveRiderId).select('name email gender');
-    console.log('=== Creating ride for user ===');
-    console.log('User ID:', effectiveRiderId);
-    console.log('User data:', user);
-    console.log('User name:', user?.name);
-    console.log('User gender:', user?.gender);
-    console.log('User gender type:', typeof user?.gender);
-    
-    // Create a new ride offer with user data embedded
+
+    const { departureTime, startLocation, endLocation, recurring, availableSeats = 1 } = req.body;
+
+    // Rider is always the authenticated user. Any riderId in the body is ignored
+    // to prevent IDOR (posting rides on behalf of other users).
+    const riderId = req.user && (req.user.id || req.user.userId);
+    if (!riderId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    const user = await User.findById(riderId).select('name email gender');
+
     const newRide = new RideMatch({
-      riderId: effectiveRiderId,
+      riderId,
       riderName: user?.name || 'Anonymous User',
       riderGender: user?.gender || '',
       departureTime: new Date(departureTime),
@@ -190,25 +125,17 @@ exports.createRideOffer = async (req, res) => {
       requestedRiders: [],
       confirmedRiders: []
     });
-    
-    console.log('=== New ride object before save ===');
-    console.log('riderName:', newRide.riderName);
-    console.log('riderGender:', newRide.riderGender);
-    console.log('riderGender type:', typeof newRide.riderGender);
-    
+
     await newRide.save();
-    
-    console.log('=== Ride saved successfully ===');
-    console.log('Saved ride riderName:', newRide.riderName);
-    console.log('Saved ride riderGender:', newRide.riderGender);
-    
-    // Invalidate rides cache when new ride is created
     await cacheService.invalidateRides();
-    
-    res.status(201).json(newRide);
+
+    // Keep the flat shape (legacy clients rely on it) while also exposing a
+    // standard { success, ride } envelope for newer consumers and tests.
+    const rideObj = newRide.toObject();
+    res.status(201).json({ success: true, ride: rideObj, ...rideObj });
   } catch (err) {
     console.error('Error creating ride offer:', err);
-    res.status(500).json({ error: err.message || 'Failed to create ride offer' });
+    res.status(500).json({ success: false, error: err.message || 'Failed to create ride offer' });
   }
 };
 
@@ -223,23 +150,20 @@ function getSeatsTaken(ride) {
  */
 exports.createRecurringRides = async (req, res) => {
   try {
-    const { riderId, startLocation, endLocation, recurring } = req.body;
-    
+    const { startLocation, endLocation, recurring } = req.body;
+
     const error = validateRecurringRide(req.body);
     if (error) {
       return res.status(400).json({ error });
     }
-    
-    // Replace riderId with authenticated user if not provided
-    const effectiveRiderId = riderId || req.user.id || req.user.userId;
-    
-    // Fetch user data to get gender
-    const user = await User.findById(effectiveRiderId).select('name email gender');
-    console.log('Creating recurring rides for user:', {
-      userId: effectiveRiderId,
-      userName: user?.name,
-      userGender: user?.gender
-    });
+
+    // Rider is always the authenticated user; body is ignored for riderId.
+    const riderId = req.user && (req.user.id || req.user.userId);
+    if (!riderId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    const user = await User.findById(riderId).select('name email gender');
     
     const today = new Date();
     const createdRides = [];
@@ -292,10 +216,14 @@ exports.createRecurringRides = async (req, res) => {
  */
 exports.requestToJoinRide = async (req, res) => {
   try {
-    const { rideId, userId, seatCount = 1 } = req.body;
-    
-    // Replace userId with authenticated user if not provided
-    const effectiveUserId = userId || req.user.id || req.user.userId;
+    const { rideId, seatCount = 1 } = req.body;
+
+    // The joining user is always the authenticated caller; any userId in the
+    // body is ignored to prevent enrolling someone else into a ride.
+    const effectiveUserId = req.user && (req.user.id || req.user.userId);
+    if (!effectiveUserId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
     
     const ride = await RideMatch.findById(rideId);
     if (!ride) {

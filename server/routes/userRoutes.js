@@ -40,7 +40,6 @@ router.get('/nextclass', auth, userController.getNextClassInfo);
 router.post('/triggerautostatus', auth, userController.triggerAutoStatusUpdate);
 router.get('/todayroutine', auth, userController.getTodayRoutine);
 router.get('/autostatussetup', auth, userController.checkAutoStatusSetup);
-router.get('/debugautostatus', auth, userController.debugAutoStatus);
 
 // Get user profile by ID (keep AFTER specific routes)
 router.get('/:id', auth, userController.getUserProfile);

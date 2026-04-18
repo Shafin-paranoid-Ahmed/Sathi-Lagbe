@@ -9,6 +9,7 @@ describe('User Model', () => {
         email: 'john@bracu.ac.bd',
         password: 'password123',
         bracuId: '12345678',
+        phone: '+8801712345678',
         gender: 'Male'
       };
 
@@ -29,6 +30,7 @@ describe('User Model', () => {
         email: 'jane@bracu.ac.bd',
         password: 'password123',
         bracuId: '87654321',
+        phone: '+8801712345679',
         gender: 'Female'
       };
 
@@ -45,6 +47,7 @@ describe('User Model', () => {
         email: 'test@bracu.ac.bd',
         password: 'password123',
         bracuId: '12345678',
+        phone: '+8801712345670',
         gender: 'Male'
       };
 
@@ -57,6 +60,7 @@ describe('User Model', () => {
         name: 'Test User',
         password: 'password123',
         bracuId: '12345678',
+        phone: '+8801712345671',
         gender: 'Male'
       };
 
@@ -70,6 +74,7 @@ describe('User Model', () => {
         email: 'test@bracu.ac.bd',
         password: 'password123',
         bracuId: '12345678',
+        phone: '+8801712345672',
         gender: 'Male'
       };
 
@@ -86,6 +91,7 @@ describe('User Model', () => {
         email: 'test@bracu.ac.bd',
         password: 'password123',
         bracuId: '12345678',
+        phone: '+8801712345673',
         gender: 'Male'
       };
 
@@ -94,7 +100,8 @@ describe('User Model', () => {
 
       const user2 = new User({
         ...userData,
-        email: 'test2@bracu.ac.bd'
+        email: 'test2@bracu.ac.bd',
+        phone: '+8801712345674'
       });
       await expect(user2.save()).rejects.toThrow();
     });
@@ -105,6 +112,7 @@ describe('User Model', () => {
         email: 'invalid-email',
         password: 'password123',
         bracuId: '12345678',
+        phone: '+8801712345675',
         gender: 'Male'
       };
 
@@ -118,6 +126,7 @@ describe('User Model', () => {
         email: 'test@bracu.ac.bd',
         password: 'password123',
         bracuId: '123', // Too short
+        phone: '+8801712345676',
         gender: 'Male'
       };
 
@@ -152,8 +161,8 @@ describe('User Model', () => {
     it('should update status', async () => {
       const newStatus = 'busy';
       await user.updateStatus(newStatus);
-      
-      expect(user.status).toBe(newStatus);
+
+      expect(user.status.current).toBe(newStatus);
     });
   });
 
@@ -172,17 +181,15 @@ describe('User Model', () => {
 
   describe('User Indexes', () => {
     it('should have email index', async () => {
-      // Create a user first to ensure collection exists
       await global.testUtils.createTestUser();
-      await User.ensureIndexes();
+      await User.syncIndexes();
       const indexes = await User.collection.getIndexes();
       expect(indexes).toHaveProperty('email_1');
     });
 
     it('should have bracuId index', async () => {
-      // Create a user first to ensure collection exists
       await global.testUtils.createTestUser();
-      await User.ensureIndexes();
+      await User.syncIndexes();
       const indexes = await User.collection.getIndexes();
       expect(indexes).toHaveProperty('bracuId_1');
     });

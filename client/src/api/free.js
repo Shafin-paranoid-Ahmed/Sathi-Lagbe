@@ -1,5 +1,5 @@
 // client/src/api/free.js
-import { API } from './auth';
+import { API } from './auth.js';
 
 // Get free classrooms (schedule rows)
 export function getFreeClassrooms() {

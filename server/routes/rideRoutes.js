@@ -6,12 +6,6 @@ const auth = require('../middleware/auth');
 const RideMatch = require('../models/RideMatch');
 const mongoose = require('mongoose');
 
-// Debug endpoint
-router.get('/debug/user', auth, rideController.debugUserData);
-
-// Test endpoint for gender data
-router.get('/test/gender', auth, rideController.testGenderData);
-
 // Get all available rides (no search parameters)
 router.get('/available', auth, rideController.getAllAvailableRides);
 
@@ -47,8 +41,5 @@ router.patch('/:rideId/complete', auth, rideController.completeRide);
 
 // Cleanup orphaned notifications (admin/maintenance route)
 router.post('/cleanupnotifications', auth, rideController.cleanupNotifications);
-
-// Debug endpoint to test ride ID validation
-router.get('/debug/:rideId', auth, rideController.getRideById);
 
 module.exports = router;
