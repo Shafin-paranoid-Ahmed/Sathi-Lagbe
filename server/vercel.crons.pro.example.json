@@ -1,0 +1,12 @@
+{
+    "crons": [
+        {
+            "path": "/api/internal/cron/cleanup-notifications",
+            "schedule": "0 * * * *"
+        },
+        {
+            "path": "/api/internal/cron/auto-status-tick",
+            "schedule": "*/5 * * * *"
+        }
+    ]
+}
