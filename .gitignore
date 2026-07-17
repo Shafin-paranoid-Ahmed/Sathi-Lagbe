@@ -46,3 +46,5 @@ pids/
 .cache/
 
 
+# screenshots folder
+screenshots/
