@@ -48,3 +48,6 @@ pids/
 
 # screenshots folder
 screenshots/
+
+# tokensave too
+.tokensave/*
