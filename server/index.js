@@ -43,26 +43,6 @@ app.use(helmet({
 }));
 app.use(compression());
 
-// Rate limiting (enabled in production)
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // stricter in production
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: () => process.env.NODE_ENV === 'test', // Skip in test environment
-});
-app.use('/api/', limiter);
-
-// Stricter rate limiting for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 5 : 50, // stricter in production
-  message: 'Too many authentication attempts, please try again later.',
-  skip: () => process.env.NODE_ENV === 'test', // Skip in test environment
-});
-app.use('/api/auth/', authLimiter);
-
 // CORS configuration. A single allowlist drives both preflight and actual
 // requests; the `cors` package handles OPTIONS automatically.
 const staticAllowedOrigins = [
@@ -106,6 +86,27 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+// Rate limiting (enabled in production). Registered after CORS so preflights are
+// answered before they can count, and 429 responses still carry CORS headers.
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // stricter in production
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test', // Skip in test environment
+});
+app.use('/api/', limiter);
+
+// Stricter rate limiting for the credential endpoints only (not /verify or /logout)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 5 : 50, // stricter in production
+  message: 'Too many authentication attempts, please try again later.',
+  skip: () => process.env.NODE_ENV === 'test', // Skip in test environment
+});
+app.use(['/api/auth/login', '/api/auth/signup', '/api/auth/register'], authLimiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
