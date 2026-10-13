@@ -4,7 +4,7 @@ import socketService from '../services/socketService.js';
 
 const BASE =
   (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) ||
-  'https://sathi-lagbe-backend.vercel.app';
+  'https://sathilagbebackend.vercel.app';
 // Ensure no trailing slash to prevent double slashes
 const cleanBase = BASE.replace(/\/$/, '');
 

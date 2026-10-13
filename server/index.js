@@ -68,6 +68,7 @@ app.use('/api/auth/', authLimiter);
 const staticAllowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.CLIENT_URL,
+  'https://sathilagbe.vercel.app',
   'https://sathi-lagbe-pcg3.vercel.app',
   'https://sathi-lagbe-lovat.vercel.app',
   'https://sathi-lagbe-alpha.vercel.app',
@@ -94,7 +95,8 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    return callback(new Error(`CORS: origin ${origin} not allowed`));
+    // Answer without CORS headers so the browser blocks it, instead of a 500.
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
