@@ -1,6 +1,5 @@
 const Routine = require('../models/Routine');
 const Friend = require('../models/Friend');
-const User = require('../models/User');
 
 // Get all routine entries for a user
 exports.getUserRoutine = async (req, res) => {

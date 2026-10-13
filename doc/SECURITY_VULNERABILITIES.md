@@ -26,6 +26,14 @@ This report supersedes older findings that referenced pre-hardening code paths.
    - **Status:** Mitigated
    - **Evidence:** `createRideOffer` and `createRecurringRides` derive rider from authenticated `req.user`.
 
+5. **Rate limiter keyed on the proxy address on Vercel** (2026-10-13)
+   - **Status:** Mitigated
+   - **Evidence:** `server/index.js` sets `trust proxy` to 1 hop when `VERCEL` is set, so `req.ip` is the client address from `X-Forwarded-For` instead of Vercel's.
+
+6. **Vulnerable production dependencies** (2026-10-13)
+   - **Status:** Mitigated
+   - **Evidence:** `npm audit fix` in `server/` and `client/`; `tailwindcss` (build-time only, the source of the remaining client advisories) moved to `devDependencies`. `npm audit --omit=dev --audit-level=high` exits 0 in both, and CI enforces it. One moderate advisory (`qs`, via Express) remains on the server.
+
 ---
 
 ## Active / remaining security risks
@@ -38,7 +46,7 @@ This report supersedes older findings that referenced pre-hardening code paths.
    - **Action:** run sockets on a long-lived host or managed realtime service.
 
 2. **Session token stored in `sessionStorage`**
-   - XSS can still expose bearer tokens.
+   - XSS can still expose bearer tokens. (2026-10-13: no `dangerouslySetInnerHTML`/`innerHTML` in `client/src`; React escapes rendered text.)
    - **Action:** move to HttpOnly secure cookies where feasible, or enforce strict CSP and sanitization.
 
 3. **CORS allowlist governance**

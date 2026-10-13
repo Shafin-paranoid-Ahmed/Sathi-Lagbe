@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Ride Sharing E2E', () => {
-  let user1Token, user2Token, user3Token;
-
   test.beforeEach(async ({ page }) => {
     // Mock authentication and set up test users
     await page.addInitScript(() => {

@@ -6,8 +6,7 @@ const CustomDateTimePicker = ({
   onChange, 
   placeholder = "Select date and time",
   disabled = false,
-  className = "",
-  onClose 
+  className = ""
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);

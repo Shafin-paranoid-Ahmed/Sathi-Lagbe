@@ -1,11 +1,6 @@
 // client/src/components/FindAvailableClassrooms.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { getFreeClassrooms } from '../api/free';
-import { 
-    getBookmarkedClassrooms,
-    addClassroomBookmark,
-    removeClassroomBookmark
-} from '../api/users';
 import { MagnifyingGlassIcon, MapPinIcon, BuildingOfficeIcon, BookmarkIcon, AcademicCapIcon, ClockIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
 const timeSlots = [
@@ -42,7 +37,7 @@ export default function FindAvailableClassrooms() {
     const [availableRooms, setAvailableRooms] = useState([]);
     const [groupedResults, setGroupedResults] = useState({});
     const [loading, setLoading] = useState(true);
-    const [searching, setSearching] = useState(false);
+    const [, setSearching] = useState(false);
     const [searched, setSearched] = useState(false);
     const [bookmarkedClassrooms, setBookmarkedClassrooms] = useState(new Set());
     const [searchQuery, setSearchQuery] = useState('');

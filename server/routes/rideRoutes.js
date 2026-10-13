@@ -3,8 +3,6 @@ const express = require('express');
 const router = express.Router();
 const rideController = require('../controllers/rideController');
 const auth = require('../middleware/auth');
-const RideMatch = require('../models/RideMatch');
-const mongoose = require('mongoose');
 
 // Get all available rides (no search parameters)
 router.get('/available', auth, rideController.getAllAvailableRides);

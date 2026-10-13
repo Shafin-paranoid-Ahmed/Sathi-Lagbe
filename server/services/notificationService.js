@@ -107,9 +107,8 @@ class NotificationService {
   // Send ride request notification
   async sendRideRequestNotification(rideId, requesterId, ownerId) {
     try {
-      const [requester, owner, ride] = await Promise.all([
+      const [requester, ride] = await Promise.all([
         User.findById(requesterId),
-        User.findById(ownerId),
         RideMatch.findById(rideId)
       ]);
 
@@ -332,20 +331,18 @@ class NotificationService {
   // Send friend activity notification
   async sendFriendActivityNotification(userId, friendId, activityType, rideId = null) {
     try {
-      const [user, friend] = await Promise.all([
-        User.findById(userId),
-        User.findById(friendId)
-      ]);
+      const friend = await User.findById(friendId);
 
       let title, message, data = {};
 
       switch (activityType) {
-        case 'joined_ride':
+        case 'joined_ride': {
           const ride = await RideMatch.findById(rideId);
           title = `${friend.name} joined a ride`;
           message = `${friend.name} joined a ride from ${ride.startLocation} to ${ride.endLocation}`;
           data = { rideId, friendId, friendName: friend.name, startLocation: ride.startLocation, endLocation: ride.endLocation };
           break;
+        }
         case 'offered_ride':
           title = `${friend.name} offered a ride`;
           message = `${friend.name} is offering a ride. Check it out!`;
@@ -380,10 +377,7 @@ class NotificationService {
   // Send group ride suggestion notification
   async sendGroupRideSuggestionNotification(userId, friendIds, rideId) {
     try {
-      const [user, ride] = await Promise.all([
-        User.findById(userId),
-        RideMatch.findById(rideId)
-      ]);
+      const ride = await RideMatch.findById(rideId);
 
       const friends = await User.find({ _id: { $in: friendIds } });
       const friendNames = friends.map(f => f.name).join(', ');
@@ -457,8 +451,7 @@ class NotificationService {
   // Send better match found notification
   async sendBetterMatchNotification(userId, newRideId, oldRideId, matchScore) {
     try {
-      const [user, newRide, oldRide] = await Promise.all([
-        User.findById(userId),
+      const [newRide, oldRide] = await Promise.all([
         RideMatch.findById(newRideId),
         RideMatch.findById(oldRideId)
       ]);
@@ -495,10 +488,7 @@ class NotificationService {
   // Send recurring ride alert notification
   async sendRecurringRideAlertNotification(userId, rideId, nextDeparture) {
     try {
-      const [user, ride] = await Promise.all([
-        User.findById(userId),
-        RideMatch.findById(rideId)
-      ]);
+      const ride = await RideMatch.findById(rideId);
 
       const notification = new Notification({
         recipient: userId,
@@ -531,8 +521,6 @@ class NotificationService {
   // Send ride insights notification
   async sendRideInsightsNotification(userId, insights) {
     try {
-      const user = await User.findById(userId);
-
       const notification = new Notification({
         recipient: userId,
         sender: userId, // Self notification
@@ -559,8 +547,6 @@ class NotificationService {
   // Send achievement badge notification
   async sendAchievementBadgeNotification(userId, badgeType, badgeName) {
     try {
-      const user = await User.findById(userId);
-
       const notification = new Notification({
         recipient: userId,
         sender: userId, // Self notification

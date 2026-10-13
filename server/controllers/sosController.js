@@ -11,8 +11,6 @@ exports.getContacts = async (req, res) => {
     const userId = req.user.id || req.user.userId;
     
     // Try both models for compatibility
-    let contacts = [];
-    
     // Try SosContact model first (ONLYGWUB style)
     try {
       const contactEntry = await SosContact.findOne({ user: userId });

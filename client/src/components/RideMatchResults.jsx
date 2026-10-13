@@ -1,6 +1,6 @@
 // client/src/components/RideMatchResults.jsx
 
-import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import { searchRides, getAiMatches, requestToJoinRide, getAllAvailableRides } from '../api/rides';
 import { API, clearAuthSession } from '../api/auth';
 import MapView from './MapView';

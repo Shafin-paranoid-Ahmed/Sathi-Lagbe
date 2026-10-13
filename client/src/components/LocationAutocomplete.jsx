@@ -169,7 +169,7 @@ const LocationAutocomplete = ({
       {/* Suggestions dropdown */}
       {showSuggestions && suggestions.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-20">
-          {suggestions.map((suggestion, index) => (
+          {suggestions.map((suggestion) => (
             <button
               key={suggestion.place_id}
               onClick={() => handleSuggestionClick(suggestion)}

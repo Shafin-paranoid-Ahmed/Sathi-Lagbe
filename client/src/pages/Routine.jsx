@@ -1,5 +1,5 @@
 // client/src/pages/Routine.jsx
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AcademicCapIcon, PlusCircleIcon, TrashIcon, UserGroupIcon, XMarkIcon, WifiIcon, BookOpenIcon, ClockIcon, CheckCircleIcon, ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { getUserRoutine, addRoutineEntry, deleteRoutineEntry, getFriendsRoutines } from '../api/routine';
 import { getFriendsWithStatus } from '../api/friends';

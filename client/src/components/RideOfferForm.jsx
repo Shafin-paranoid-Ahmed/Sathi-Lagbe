@@ -60,12 +60,6 @@ export default function RideOfferForm() {
     return newErrors;
   };
 
-  // Check if form is valid for enabling/disabling submit button
-  const isFormValid = () => {
-    const validationErrors = validate();
-    return Object.keys(validationErrors).length === 0;
-  };
-
   // Set departure time to current time + 5 minutes (ASAP)
   const setAsapTime = () => {
     const now = new Date();

@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { AcademicCapIcon, BookmarkIcon, MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon, TrashIcon, ClockIcon } from '@heroicons/react/24/outline';
 import ClassroomAvailability from '../components/ClassroomAvailability';
-import { getBookmarkedClassrooms, removeClassroomBookmark } from '../api/users';
 import { getFreeClassrooms } from '../api/free';
 import FindAvailableClassrooms from '../components/FindAvailableClassrooms';
 
@@ -191,7 +190,7 @@ const BookmarkedClassrooms = () => {
         ) : (
           bookmarks.map(classroom => {
             const availability = getAvailabilityForRoom(classroom.roomNumber);
-            const availableSlots = Object.entries(availability).filter(([slot, isAvailable]) => isAvailable);
+            const availableSlots = Object.entries(availability).filter(([, isAvailable]) => isAvailable);
             
             return (
               <div key={classroom._id} className="bg-white dark:bg-gray-800 rounded-xl shadow-soft-xl p-6 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-soft-2xl border border-gray-200 dark:border-gray-700">

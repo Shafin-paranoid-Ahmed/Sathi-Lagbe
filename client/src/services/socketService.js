@@ -66,7 +66,7 @@ class SocketService {
       this.processListenerQueue();
     });
     
-    this.socket.on('disconnect', (reason) => {
+    this.socket.on('disconnect', () => {
 
     });
 

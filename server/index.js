@@ -32,6 +32,10 @@ const { startAutoStatusScheduler } = require('./services/autoStatusService');
 
 const app = express();
 
+// Vercel sits one proxy hop in front and sets X-Forwarded-For; without this,
+// req.ip is the proxy's address and every client shares one rate-limit bucket.
+if (process.env.VERCEL) app.set('trust proxy', 1);
+
 // Performance and Security Middleware
 app.use(helmet({
   contentSecurityPolicy: false, // Disable for development
@@ -46,7 +50,7 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => process.env.NODE_ENV === 'test', // Skip in test environment
+  skip: () => process.env.NODE_ENV === 'test', // Skip in test environment
 });
 app.use('/api/', limiter);
 
@@ -55,7 +59,7 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: process.env.NODE_ENV === 'production' ? 5 : 50, // stricter in production
   message: 'Too many authentication attempts, please try again later.',
-  skip: (req) => process.env.NODE_ENV === 'test', // Skip in test environment
+  skip: () => process.env.NODE_ENV === 'test', // Skip in test environment
 });
 app.use('/api/auth/', authLimiter);
 
@@ -177,7 +181,7 @@ app.use((err, req, res, next) => {
 });
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => { // Express needs all 4 args to treat this as an error handler
   console.error('Global error handler:', err.stack);
   res.status(500).json({ 
     success: false,
@@ -445,7 +449,7 @@ if (!isVercelRuntime && process.env.NODE_ENV !== 'test') {
     try {
       // Notification cleanup logging removed for security
       const rideNotificationService = require('./services/rideNotificationService');
-      const deletedCount = await rideNotificationService.cleanupOrphanedNotifications();
+      await rideNotificationService.cleanupOrphanedNotifications();
       // Cleanup results logging removed for security
     } catch (error) {
       console.error('❌ Error during scheduled notification cleanup:', error);

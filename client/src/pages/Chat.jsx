@@ -24,7 +24,7 @@ export default function Chat() {
   const [isTyping, setIsTyping] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
   const [showWhereAreYouButton, setShowWhereAreYouButton] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   const currentUserId = sessionStorage.getItem('userId');
   const token = sessionStorage.getItem('token');
@@ -37,16 +37,12 @@ export default function Chat() {
     setChats,
     messages,
     setMessages,
-    messagesCache,
     setMessagesCache,
-    drafts,
-    setDrafts,
     loading: chatDataLoading,
     chatLoading,
     chatError,
     error,
     userProfiles,
-    setUserProfiles,
     getCurrentDraft,
     updateCurrentDraft,
     fetchChats,
@@ -64,7 +60,6 @@ export default function Chat() {
   const {
     userHasScrolledUp,
     setUserHasScrolledUp,
-    isNearBottom,
     newMessagesCount,
     setNewMessagesCount,
     messagesContainerRef,

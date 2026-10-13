@@ -5,7 +5,7 @@ Sathi Lagbe is a full-stack MERN application designed to enhance the campus expe
 ## ✨ Key Features
 
 -   **🚗 Real-time Ride Sharing:** Offer and find rides to and from campus. Includes one-time and recurring ride options.
--   **🤖 AI-Powered Ride Matching:** An intelligent matching system suggests the most suitable rides based on location, time, and user ratings.
+-   **🎯 Smart Ride Matching:** Rides are ranked by a weighted score on departure time (40%), destination (30%), pickup point (25%) and driver rating (5%).
 -   **💬 Real-time Chat:** Communicate with friends and coordinate rides with an integrated chat system.
 -   **👫 Friend System & Status Updates:** Connect with friends, see their availability (`Available`, `Busy`, `In Class`), and share your routine.
 -   **🏫 Classroom Availability:** Check for free classrooms and labs in real-time based on the university's schedule.
@@ -39,7 +39,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 ### Prerequisites
 
--   [Node.js](https://nodejs.org/) (v18 or later recommended)
+-   [Node.js](https://nodejs.org/) 22 (the version CI uses)
 -   [npm](https://www.npmjs.com/) (usually comes with Node.js)
 -   [MongoDB](https://www.mongodb.com/try/download/community) (or a MongoDB Atlas account)
 
@@ -47,7 +47,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/Sathi-Lagbe.git
+    git clone https://github.com/Shafin-paranoid-Ahmed/Sathi-Lagbe.git
     cd Sathi-Lagbe
     ```
 
@@ -114,7 +114,7 @@ Sathi-Lagbe/
 │   ├── middleware/   # Express middleware (e.g., authentication)
 │   ├── models/       # Mongoose schemas for MongoDB
 │   ├── routes/       # API route definitions
-│   ├── services/     # Business logic (e.g., AI matching, notifications)
+│   ├── services/     # Business logic (e.g., ride matching, notifications)
 │   ├── utils/        # Utility functions (e.g., socket setup)
 │   └── index.js      # Server entry point
 ├── README.md       # Repository entry point (quick start)
@@ -129,8 +129,17 @@ For a comprehensive list of known issues, bugs, and areas for improvement, pleas
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/your-username/Sathi-Lagbe/issues) or our [local issues documentation](doc/ISSUES.md).
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/Shafin-paranoid-Ahmed/Sathi-Lagbe/issues) or our [local issues documentation](doc/ISSUES.md).
 
-## 📝 License
+## 🧪 Tests
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+```bash
+cd server && npm run lint && npm run test:ci   # Jest; uses an in-memory MongoDB
+cd client && npm run lint && npm run test:ci   # Vitest
+```
+
+CI runs both, plus a client build and `npm audit --omit=dev --audit-level=high`, on every push to `main`.
+
+## 👥 Team
+
+Built by a team of four at BRAC University: [@Shafin-paranoid-Ahmed](https://github.com/Shafin-paranoid-Ahmed), [@gwubzsh](https://github.com/gwubzsh), [@aswadkhan-rgb](https://github.com/aswadkhan-rgb) and [@anikabir](https://github.com/anikabir).

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getAllChats, getChatMessages, sendNewMessage, clearUnreadMessages } from '../api/chat';
+import { getAllChats, getChatMessages } from '../api/chat';
 import { getUserById } from '../api/users';
 
 export const useChatData = () => {
@@ -148,9 +148,8 @@ export const useChatData = () => {
       
       const unreadMessages = messagesData.filter(msg => !msg.read && msg.sender !== currentUserId) || [];
       if (unreadMessages.length > 0) {
-        const messageIds = unreadMessages.map(msg => msg._id);
         // Note: This would need socketService to be passed in or imported
-        // socketService.markMessagesAsRead(chatId, messageIds);
+        // socketService.markMessagesAsRead(chatId, unreadMessages.map(msg => msg._id));
       }
     } catch (err) {
       console.error('Failed to load messages:', err);

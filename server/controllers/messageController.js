@@ -1,7 +1,6 @@
 // server/controllers/messageController.js - Enhanced version with Socket.IO
 const Message = require('../models/Message');
 const Chat = require('../models/chat');
-const User = require('../models/User');
 const { getIO } = require('../utils/socket');
 
 /**

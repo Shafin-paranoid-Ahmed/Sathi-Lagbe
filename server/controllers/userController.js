@@ -2,7 +2,6 @@
 const User = require('../models/User');
 const Classroom = require('../models/Classroom');
 const cloudinary = require('../utils/cloudinary');
-const fs = require('fs');
 const mongoose = require('mongoose');
 const { isValidBangladeshPhone } = require('../utils/validators');
 

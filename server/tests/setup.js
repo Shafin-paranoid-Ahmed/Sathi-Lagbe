@@ -65,7 +65,6 @@ global.testUtils = {
   createTestUser: async (overrides = {}) => {
     const User = require('../models/User');
     const bcrypt = require('bcryptjs');
-    const mongoose = require('mongoose');
     
     fixtureCounter += 1;
     const uniqueId = fixtureCounter;

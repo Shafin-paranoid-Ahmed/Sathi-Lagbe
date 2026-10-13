@@ -77,7 +77,7 @@ export default function App() {
 
   // Global event listener for status sync
   useEffect(() => {
-    const handleGlobalStatusEvent = (event) => {
+    const handleGlobalStatusEvent = () => {
       // Global status event handler - can be used for analytics or debugging if needed
     };
 

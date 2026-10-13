@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout, verifyToken, updateStatus, getCurrentUserStatus } from '../api/auth';
 import { 
@@ -173,7 +173,6 @@ const ArgonLayout = ({ children, setIsAuthenticated }) => {
   // Ensure socket connection once user is authenticated
   useEffect(() => {
     const token = sessionStorage.getItem('token');
-    const userId = sessionStorage.getItem('userId');
     if (token) {
       try {
         socketService.connect(token);

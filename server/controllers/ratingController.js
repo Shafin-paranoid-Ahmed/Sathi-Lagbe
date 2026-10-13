@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 const RideMatch = require('../models/RideMatch');
 
-// Helper to send 501 for unimplemented routes
-function notImplemented(res, name) {
-	return res.status(501).json({ success: false, message: `${name} not implemented in current build` });
-}
-
 // POST /api/ratings
 exports.submitRating = async (req, res) => {
   try {
@@ -29,7 +24,7 @@ exports.submitRating = async (req, res) => {
     };
     
     // Update or create rating in RideMatch
-    const result = await RideMatch.findOneAndUpdate(
+    await RideMatch.findOneAndUpdate(
       { _id: rideId },
       { 
         $push: { ratings: rating },
